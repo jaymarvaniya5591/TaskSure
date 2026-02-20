@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "push": ".\\resources\\push_to_github.bat",
+    "kill": ".\\resources\\kill_servers.bat"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
