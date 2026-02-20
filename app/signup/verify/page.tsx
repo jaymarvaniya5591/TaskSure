@@ -8,7 +8,7 @@ import { OtpInput } from "@/components/ui/otp-input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-function VerifyContent() {
+function SignupVerifyContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const supabase = createClient();
@@ -18,11 +18,11 @@ function VerifyContent() {
     const [otp, setOtp] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [notFound, setNotFound] = useState(false);
+    const [alreadyExists, setAlreadyExists] = useState(false);
 
     useEffect(() => {
         if (!phone) {
-            router.replace("/login");
+            router.replace("/signup");
         }
     }, [phone, router]);
 
@@ -36,28 +36,20 @@ function VerifyContent() {
         }
 
         setError(null);
-        setNotFound(false);
+        setAlreadyExists(false);
         setLoading(true);
 
         try {
-            // First, try standard OTP verification
             const { data, error: verifyError } = await supabase.auth.verifyOtp({
                 phone,
                 token: otp,
                 type: 'sms',
             });
 
-            if (verifyError) {
-                // OTP verification failed — try fallback test login if OTP is 123456
-                if (otp === '123456') {
-                    const testLoginSuccess = await attemptTestLogin(phone);
-                    if (testLoginSuccess) return; // Successfully logged in via test route
-                }
-                throw verifyError;
-            }
+            if (verifyError) throw verifyError;
 
             if (data.user) {
-                // Check if user has a profile in our users table
+                // Check if user already has a profile
                 const { data: profile } = await supabase
                     .from('users')
                     .select('id')
@@ -65,11 +57,12 @@ function VerifyContent() {
                     .single();
 
                 if (profile) {
-                    router.push('/home');
+                    // User already exists — they should sign in, not sign up
+                    setAlreadyExists(true);
+                    setError("This phone number is already registered. Please sign in instead.");
                 } else {
-                    await supabase.auth.signOut();
-                    setNotFound(true);
-                    setError("No account found for this number. Please sign up first.");
+                    // New user — proceed to profile completion
+                    router.push(`/signup/profile?phone=${encodeURIComponent(phone)}`);
                 }
             } else {
                 throw new Error("Verification failed. Please try again.");
@@ -80,49 +73,6 @@ function VerifyContent() {
             setOtp("");
         } finally {
             setLoading(false);
-        }
-    };
-
-    // Fallback login for test users (when no SMS provider is configured)
-    const attemptTestLogin = async (phoneNumber: string): Promise<boolean> => {
-        try {
-            // Step 1: Get test credentials from our API
-            const res = await fetch('/api/test-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: phoneNumber }),
-            });
-
-            if (!res.ok) return false;
-
-            const { email, password } = await res.json();
-
-            // Step 2: Sign in with email/password
-            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-
-            if (signInError || !signInData.user) return false;
-
-            // Step 3: Check for user profile
-            const { data: profile } = await supabase
-                .from('users')
-                .select('id')
-                .eq('phone_number', phoneNumber)
-                .single();
-
-            if (profile) {
-                router.push('/home');
-                return true;
-            } else {
-                await supabase.auth.signOut();
-                setNotFound(true);
-                setError("No account found for this number. Please sign up first.");
-                return true; // We handled the error, don't throw again
-            }
-        } catch {
-            return false; // Fallback failed, let the original error show
         }
     };
 
@@ -146,7 +96,7 @@ function VerifyContent() {
 
             <div className="mb-10">
                 <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-black mb-3">
-                    Verify OTP.
+                    Verify account.
                 </h1>
                 <p className="text-lg text-zinc-500 font-medium">
                     Enter the 6-digit code sent to <br />
@@ -161,23 +111,23 @@ function VerifyContent() {
                     onChange={(val) => {
                         setOtp(val);
                         setError(null);
-                        setNotFound(false);
+                        setAlreadyExists(false);
                     }}
                     disabled={loading}
                     error={error || undefined}
                 />
 
-                {notFound ? (
+                {alreadyExists ? (
                     <div className="flex flex-col gap-4">
-                        <Link href="/signup">
+                        <Link href="/login">
                             <Button type="button" className="w-full text-lg shadow-[0_4px_20px_0_rgba(234,179,8,0.4)]">
-                                Sign Up Instead
+                                Sign In Instead
                             </Button>
                         </Link>
                     </div>
                 ) : (
                     <Button type="submit" loading={loading} className="w-full text-lg shadow-[0_4px_20px_0_rgba(234,179,8,0.4)]">
-                        Verify Code
+                        Verify & Continue
                     </Button>
                 )}
             </form>
@@ -185,12 +135,12 @@ function VerifyContent() {
     );
 }
 
-export default function VerifyPage() {
+export default function SignupVerifyPage() {
     return (
         <main className="min-h-screen flex items-center justify-center p-4 bg-background">
             <div className="w-full max-w-md">
                 <Suspense fallback={<Card className="p-12 border-none shadow-none bg-transparent flex justify-center"><div className="animate-pulse w-10 h-10 rounded-full bg-zinc-200"></div></Card>}>
-                    <VerifyContent />
+                    <SignupVerifyContent />
                 </Suspense>
             </div>
         </main>

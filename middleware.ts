@@ -1,6 +1,22 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Routes that require authentication (dashboard pages via (dashboard) route group)
+const protectedRoutes = [
+    '/home',
+    '/my-tasks',
+    '/assigned-tasks',
+    '/todos',
+    '/calendar',
+    '/team',
+    '/stats',
+    '/settings',
+    '/notifications',
+]
+
+// Routes that authenticated users should NOT see (they get redirected to /home)
+const authRoutes = ['/login', '/signup']
+
 export async function middleware(request: NextRequest) {
     let supabaseResponse = NextResponse.next({
         request,
@@ -33,19 +49,25 @@ export async function middleware(request: NextRequest) {
 
     const { pathname } = request.nextUrl
 
-    // Protect all routes starting with /dashboard/
-    if (pathname.startsWith('/dashboard')) {
-        if (!user) {
-            const url = request.nextUrl.clone()
-            url.pathname = '/login'
-            return NextResponse.redirect(url)
-        }
+    // Protect dashboard routes — redirect unauthenticated users to login
+    const isProtectedRoute = protectedRoutes.some(
+        (route) => pathname === route || pathname.startsWith(route + '/')
+    )
+
+    if (isProtectedRoute && !user) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/login'
+        return NextResponse.redirect(url)
     }
 
-    // Authenticated users on auth routes are redirected to dashboard
-    if (user && (pathname === '/login' || pathname === '/signup' || pathname === '/login/verify')) {
+    // Redirect authenticated users away from auth pages and landing to dashboard
+    const isAuthRoute = authRoutes.some(
+        (route) => pathname === route || pathname.startsWith(route + '/')
+    )
+
+    if (user && (isAuthRoute || pathname === '/')) {
         const url = request.nextUrl.clone()
-        url.pathname = '/dashboard/home'
+        url.pathname = '/home'
         return NextResponse.redirect(url)
     }
 

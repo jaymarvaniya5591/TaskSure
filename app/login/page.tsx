@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -13,12 +14,13 @@ export default function LoginPage() {
     const [phoneNumber, setPhoneNumber] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [notFound, setNotFound] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+        setNotFound(false);
 
-        // Basic validation
         const digits = phoneNumber.replace(/\D/g, "");
         if (digits.length !== 10) {
             setError("Please enter a valid 10-digit Indian phone number.");
@@ -29,19 +31,56 @@ export default function LoginPage() {
 
         try {
             const fullPhone = `+91${digits}`;
+
+            // Step 1: Check if phone number exists in users table
+            const checkRes = await fetch('/api/check-phone', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: fullPhone }),
+            });
+            const checkData = await checkRes.json();
+
+            if (!checkData.exists) {
+                setNotFound(true);
+                setError("No account found for this number.");
+                setLoading(false);
+                return;
+            }
+
+            // Step 2: Try test-login FIRST (for dev — when no SMS provider is configured)
+            // This uses admin-generated email/password credentials as a bypass
+            const testRes = await fetch('/api/test-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: fullPhone }),
+            });
+
+            if (testRes.ok) {
+                const { access_token, refresh_token } = await testRes.json();
+                const { error: sessionErr } = await supabase.auth.setSession({
+                    access_token,
+                    refresh_token,
+                });
+
+                if (!sessionErr) {
+                    // Signed in successfully via test credentials — go to dashboard
+                    router.push('/home');
+                    return;
+                }
+            }
+
+            // Step 3: If test-login failed, fall back to real OTP flow
+            // (This will work when Twilio is configured)
             const { error: signInError } = await supabase.auth.signInWithOtp({
                 phone: fullPhone,
             });
 
-            if (signInError) {
-                throw signInError;
-            }
+            if (signInError) throw signInError;
 
-            // Success, redirect to verify
             router.push(`/login/verify?phone=${encodeURIComponent(fullPhone)}`);
         } catch (err) {
             console.error(err);
-            setError(err instanceof Error ? err.message : "Failed to send OTP. Please try again.");
+            setError(err instanceof Error ? err.message : "Failed to sign in. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -72,8 +111,9 @@ export default function LoginPage() {
                                     value={phoneNumber}
                                     onChange={(e) => {
                                         const val = e.target.value.replace(/\D/g, "").slice(0, 10);
-                                        // Add space after 5 digits for readability if desired, but raw is fine too
                                         setPhoneNumber(val);
+                                        setError(null);
+                                        setNotFound(false);
                                     }}
                                     className="pl-[4.5rem] text-xl font-bold tracking-wider"
                                     disabled={loading}
@@ -82,10 +122,27 @@ export default function LoginPage() {
                             {error && <p className="mt-3 text-sm font-medium text-red-500">{error}</p>}
                         </div>
 
-                        <Button type="submit" loading={loading} className="w-full text-lg shadow-[0_4px_20px_0_rgba(234,179,8,0.4)]">
-                            Send OTP
-                        </Button>
+                        {notFound ? (
+                            <Link href="/signup">
+                                <Button type="button" className="w-full text-lg shadow-[0_4px_20px_0_rgba(234,179,8,0.4)]">
+                                    Sign Up Instead
+                                </Button>
+                            </Link>
+                        ) : (
+                            <Button type="submit" loading={loading} className="w-full text-lg shadow-[0_4px_20px_0_rgba(234,179,8,0.4)]">
+                                Sign In
+                            </Button>
+                        )}
                     </form>
+
+                    <div className="mt-8 text-center">
+                        <p className="text-zinc-500 font-medium">
+                            Don&apos;t have an account?{" "}
+                            <Link href="/signup" className="text-black hover:underline font-bold">
+                                Sign up
+                            </Link>
+                        </p>
+                    </div>
                 </Card>
             </div>
         </main>
