@@ -1,4 +1,4 @@
-# TASKSURE — PROJECT CONTEXT & VISION DOCUMENT
+# Boldo AI Assistant — PROJECT CONTEXT & VISION DOCUMENT
 > **This file is the single source of truth for this project.**
 > Every architectural decision, every feature implementation, and every design choice must align with what is written here.
 > When in doubt about anything — refer back to this document first.
@@ -8,7 +8,7 @@
 
 ## 1. PROJECT VISION (NON-NEGOTIABLE NORTH STAR)
 
-TASKSURE exists for one reason: **to eliminate the phone call culture of Indian SMB task management without asking anyone to change their behaviour.**
+Boldo AI Assistant exists for one reason: **to eliminate the phone call culture of Indian SMB task management without asking anyone to change their behaviour.**
 
 Indian small and medium business owners spend 2–4 hours every day doing three things on the phone:
 1. Assigning tasks to employees
@@ -17,15 +17,15 @@ Indian small and medium business owners spend 2–4 hours every day doing three 
 
 This happens entirely over WhatsApp voice notes and phone calls. Tools like Jira, Asana, Slack, and Monday.com exist — but Indian SMBs do not use them. Not because they are expensive. Because they require behaviour change. The business owner has to convince 15 employees to download a new app, learn it, use it daily, and remember to update it. This never works.
 
-**TASKSURE's core insight:** The problem is not a lack of tools. It is a lack of accountability infrastructure layered on top of tools people already use.
+**Boldo AI Assistant's core insight:** The problem is not a lack of tools. It is a lack of accountability infrastructure layered on top of tools people already use.
 
 The vision is: **A manager sends a WhatsApp voice note. Everything else is automatic.**
 
 The task gets created. The employee gets notified. The deadline gets committed. If nothing happens — the system follows up. Not the manager. The manager opens a web dashboard to see the entire team's task status at a glance, with no manual data entry ever required.
 
-Beyond team tasks, TASKSURE also serves as a **personal productivity layer** for both owners and employees — private to-dos, personal reminders, and notes that only the creator can see. And in the future, it will extend into **vendor and payment management**, so the same voice-note-first approach applies to collecting money and tracking business relationships.
+Beyond team tasks, Boldo AI Assistant also serves as a **personal productivity layer** for both owners and employees — private to-dos, personal reminders, and notes that only the creator can see. And in the future, it will extend into **vendor and payment management**, so the same voice-note-first approach applies to collecting money and tracking business relationships.
 
-**In one line:** TASKSURE is the accountability and productivity layer that Indian SMBs are missing — built on WhatsApp, so no one has to change how they work.
+**In one line:** Boldo AI Assistant is the accountability and productivity layer that Indian SMBs are missing — built on WhatsApp, so no one has to change how they work.
 
 ---
 
@@ -154,7 +154,7 @@ This is a fundamental product distinction that must be maintained throughout the
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                        TASKSURE SYSTEM                           │
+│                        BOLDO SYSTEM                           │
 ├──────────────┬────────────────────────┬──────────────────────────┤
 │  WHATSAPP    │     WEB APP            │   BACKGROUND JOBS        │
 │  BOT LAYER   │     (Next.js 14)       │                          │

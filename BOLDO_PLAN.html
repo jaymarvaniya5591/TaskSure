@@ -1,73 +1,186 @@
-﻿# TASKSURE â€” 20-DAY MVP BUILD PLAN
-> **Format:** This file is both a build plan and a living document.
-> Update `[ ]` checkboxes to `[x]` as you complete tasks.
-> Update `**Status:**` fields as you progress.
-> If you fall behind, reschedule by moving incomplete items to the next day and noting the slip.
-> If you finish early, pull items from the next day.
-> Share this file with any AI (Antigravity, Claude, etc.) for instant context on where you are.
-
----
-
-## HOW TO USE THIS FILE
-
-**At the start of every Antigravity session, paste this prompt:**
-```
-Read TASKSURE_CONTEXT.md and TASKSURE_PLAN.md from the project root before doing anything.
-TASKSURE_CONTEXT.md has the full product vision, schema, and principles.
-TASKSURE_PLAN.md has the day-by-day build plan. Check what day we are on and what is left to build.
-All decisions must align with TASKSURE_CONTEXT.md.
-```
-
-**Daily routine:**
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boldo AI Assistant Plan</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #e0e0e0;
+            background-color: #181a1b;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            color: #ffffff;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            font-weight: 600;
+        }
+        a {
+            color: #4da6ff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        code {
+            background-color: #2d2d2d;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-family: Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 90%;
+            color: #ff9d00;
+        }
+        pre {
+            background-color: #242424;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid #333;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #e0e0e0;
+        }
+        blockquote {
+            border-left: 4px solid #4da6ff;
+            padding-left: 1rem;
+            margin-left: 0;
+            color: #a0a0a0;
+            background-color: #1e2022;
+            padding: 0.5rem 1rem;
+            border-radius: 0 4px 4px 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1.5rem 0;
+        }
+        th, td {
+            border: 1px solid #3d4246;
+            padding: 0.75rem;
+            text-align: left;
+        }
+        th {
+            background-color: #222527;
+            color: #fff;
+        }
+        tr:nth-child(even) {
+            background-color: #1c1e1f;
+        }
+        hr {
+            border: 0;
+            border-top: 1px solid #333;
+            margin: 2.5rem 0;
+        }
+        ul, ol {
+            padding-left: 1.5rem;
+        }
+        li {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <p>﻿# Boldo AI Assistant â€” 20-DAY MVP BUILD PLAN</p>
+<blockquote>
+<p><strong>Format:</strong> This file is both a build plan and a living document.
+Update <code>[ ]</code> checkboxes to <code>[x]</code> as you complete tasks.
+Update <code>**Status:**</code> fields as you progress.
+If you fall behind, reschedule by moving incomplete items to the next day and noting the slip.
+If you finish early, pull items from the next day.
+Share this file with any AI (Antigravity, Claude, etc.) for instant context on where you are.</p>
+</blockquote>
+<hr />
+<h2 id="how-to-use-this-file">HOW TO USE THIS FILE</h2>
+<p><strong>At the start of every Antigravity session, paste this prompt:</strong></p>
+<pre><code>Read BOLDO_CONTEXT.md and Boldo AI Assistant_PLAN.md from the project root before doing anything.
+BOLDO_CONTEXT.md has the full product vision, schema, and principles.
+Boldo AI Assistant_PLAN.md has the day-by-day build plan. Check what day we are on and what is left to build.
+All decisions must align with BOLDO_CONTEXT.md.
+</code></pre>
+<p><strong>Daily routine:</strong>
 1. Open this file. Find today's day.
 2. Read the tasks and the Antigravity prompts for the day.
 3. Paste the prompts into Antigravity one by one as you work through the tasks.
 4. Check off completed items.
-5. Update the STATUS field at the top of the day block.
-
----
-
-## BEFORE DAY 1 â€” ANTIGRAVITY + MCP SETUP
-> Do this once. Takes ~45 minutes. Every MCP you install here will be used throughout all 20 days.
-
-**Status:** `[ ] Not done`
-
-### Install These MCPs in Antigravity
-
-| MCP / Extension | Install Method | Why You Need It |
-|---|---|---|
-| Sequential Thinking MCP | MCP Store (1-click) | Makes Antigravity plan before coding. Critical for a non-technical builder. |
-| Context7 MCP | Custom JSON config | Gives Antigravity live official docs for Next.js, Supabase, Sarvam, Gemini. Prevents outdated code. |
-| Supabase MCP | Custom JSON config | Antigravity can directly create tables, run queries, check your DB. No copy-pasting SQL. |
-| Vercel MCP | Custom JSON config | Antigravity can deploy and check logs without you touching a terminal. |
-| GitHub MCP | Custom JSON config | Auto-backup your code. Version history. |
-| Snyk Extension | Extensions panel (1-click) | Auto-scans AI-generated code for security holes. Runs silently. |
-| Browser Agent | Project Settings (built-in) | Antigravity opens Chrome and tests your running app. Your QA engineer. |
-
-### Antigravity Setup Prompts
-
-```
-PROMPT 1 â€” Sequential Thinking MCP:
-"Open the MCP Store in Antigravity (Agent panel â†’ '...' â†’ MCP Servers â†’ MCP Store).
-Search for 'Sequential Thinking' and install it. Confirm it is active."
-```
-
-```
-PROMPT 2 â€” Context7 MCP:
-"Open MCP Store â†’ Manage MCP Servers â†’ View raw config (mcp_config.json).
+5. Update the STATUS field at the top of the day block.</p>
+<hr />
+<h2 id="before-day-1-a-antigravity-mcp-setup">BEFORE DAY 1 â€” ANTIGRAVITY + MCP SETUP</h2>
+<blockquote>
+<p>Do this once. Takes ~45 minutes. Every MCP you install here will be used throughout all 20 days.</p>
+</blockquote>
+<p><strong>Status:</strong> <code>[ ] Not done</code></p>
+<h3 id="install-these-mcps-in-antigravity">Install These MCPs in Antigravity</h3>
+<table>
+<thead>
+<tr>
+<th>MCP / Extension</th>
+<th>Install Method</th>
+<th>Why You Need It</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sequential Thinking MCP</td>
+<td>MCP Store (1-click)</td>
+<td>Makes Antigravity plan before coding. Critical for a non-technical builder.</td>
+</tr>
+<tr>
+<td>Context7 MCP</td>
+<td>Custom JSON config</td>
+<td>Gives Antigravity live official docs for Next.js, Supabase, Sarvam, Gemini. Prevents outdated code.</td>
+</tr>
+<tr>
+<td>Supabase MCP</td>
+<td>Custom JSON config</td>
+<td>Antigravity can directly create tables, run queries, check your DB. No copy-pasting SQL.</td>
+</tr>
+<tr>
+<td>Vercel MCP</td>
+<td>Custom JSON config</td>
+<td>Antigravity can deploy and check logs without you touching a terminal.</td>
+</tr>
+<tr>
+<td>GitHub MCP</td>
+<td>Custom JSON config</td>
+<td>Auto-backup your code. Version history.</td>
+</tr>
+<tr>
+<td>Snyk Extension</td>
+<td>Extensions panel (1-click)</td>
+<td>Auto-scans AI-generated code for security holes. Runs silently.</td>
+</tr>
+<tr>
+<td>Browser Agent</td>
+<td>Project Settings (built-in)</td>
+<td>Antigravity opens Chrome and tests your running app. Your QA engineer.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="antigravity-setup-prompts">Antigravity Setup Prompts</h3>
+<pre><code>PROMPT 1 â€” Sequential Thinking MCP:
+&quot;Open the MCP Store in Antigravity (Agent panel â†’ '...' â†’ MCP Servers â†’ MCP Store).
+Search for 'Sequential Thinking' and install it. Confirm it is active.&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Context7 MCP:
+&quot;Open MCP Store â†’ Manage MCP Servers â†’ View raw config (mcp_config.json).
 Add this entry exactly:
 {
-  "context7": {
-    "command": "npx",
-    "args": ["-y", "@upstash/context7-mcp"]
+  &quot;context7&quot;: {
+    &quot;command&quot;: &quot;npx&quot;,
+    &quot;args&quot;: [&quot;-y&quot;, &quot;@upstash/context7-mcp&quot;]
   }
 }
-Save and restart the MCP server."
-```
-
-```
-PROMPT 3 â€” Supabase MCP:
-"Add this to mcp_config.json:
+Save and restart the MCP server.&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Supabase MCP:
+&quot;Add this to mcp_config.json:
 {
   'supabase': {
     'command': 'npx',
@@ -75,12 +188,10 @@ PROMPT 3 â€” Supabase MCP:
   }
 }
 I will get my Supabase token from: supabase.com â†’ Account â†’ Access Tokens.
-Replace YOUR_SUPABASE_TOKEN with the real token."
-```
-
-```
-PROMPT 4 â€” Vercel MCP:
-"Add to mcp_config.json:
+Replace YOUR_SUPABASE_TOKEN with the real token.&quot;
+</code></pre>
+<pre><code>PROMPT 4 â€” Vercel MCP:
+&quot;Add to mcp_config.json:
 {
   'vercel': {
     'command': 'npx',
@@ -88,12 +199,10 @@ PROMPT 4 â€” Vercel MCP:
     'env': { 'VERCEL_TOKEN': 'YOUR_VERCEL_TOKEN' }
   }
 }
-I will get the token from: vercel.com â†’ Settings â†’ Tokens."
-```
-
-```
-PROMPT 5 â€” GitHub MCP:
-"Add to mcp_config.json:
+I will get the token from: vercel.com â†’ Settings â†’ Tokens.&quot;
+</code></pre>
+<pre><code>PROMPT 5 â€” GitHub MCP:
+&quot;Add to mcp_config.json:
 {
   'github': {
     'command': 'npx',
@@ -102,59 +211,53 @@ PROMPT 5 â€” GitHub MCP:
   }
 }
 I will create a GitHub account and get a Personal Access Token from:
-GitHub â†’ Settings â†’ Developer Settings â†’ Personal Access Tokens â†’ Tokens (classic)."
-```
-
-```
-PROMPT 6 â€” Snyk + Browser Agent:
-"In the Antigravity Extensions panel (sidebar), search for 'Snyk Security' and install it.
+GitHub â†’ Settings â†’ Developer Settings â†’ Personal Access Tokens â†’ Tokens (classic).&quot;
+</code></pre>
+<pre><code>PROMPT 6 â€” Snyk + Browser Agent:
+&quot;In the Antigravity Extensions panel (sidebar), search for 'Snyk Security' and install it.
 Say YES to auto-scan AI-generated code.
 Then go to Project Settings and enable the Browser Agent.
-Install the Chrome extension when prompted."
-```
-
-> âš ï¸ **Tool limit:** Antigravity recommends max 50 active tools. Disable Vercel MCP when not deploying. Disable GitHub MCP when not committing. Toggle in Agent panel â†’ '...' â†’ MCP Servers.
-
----
-
-## PHASE 1 â€” WEB APP FOUNDATION
-### Days 1â€“4: Project setup, database, auth, app shell, core pages
-
----
-
-### DAY 1 â€” Project Setup & Database
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** Next.js project running locally. All 11 database tables created with correct schema and RLS. GitHub repo live.
-
-#### Accounts to Create Today (before coding)
-- [ ] Supabase â€” supabase.com
-- [ ] Vercel â€” vercel.com
-- [ ] Sarvam AI â€” sarvam.ai (comes with Rs. 1,000 free credit)
-- [ ] Google AI Studio â€” aistudio.google.com (get Gemini 2.5 Flash API key)
-- [ ] Exotel â€” exotel.com
-- [ ] Wati â€” wati.io (start 7-day free trial)
-- [ ] GitHub â€” github.com
-- [ ] Order new SIM â€” Airtel or Jio website, doorstep delivery, keep unactivated on WhatsApp
-
-#### Tasks
-- [ ] Install Node.js from nodejs.org (download and run installer)
-- [ ] Create Next.js 14 project with TypeScript, Tailwind CSS, App Router
-- [ ] Install packages: @supabase/supabase-js, @supabase/auth-helpers-nextjs, recharts, lucide-react
-- [ ] Create all 11 database tables in Supabase with correct schema from TASKSURE_CONTEXT.md
-- [ ] Enable RLS on all tables. Write RLS policies.
-- [ ] Create all required indexes (listed in TASKSURE_CONTEXT.md schema section)
-- [ ] Create Supabase client files: lib/supabase/client.ts and lib/supabase/server.ts
-- [ ] Create private GitHub repo and push initial project
-- [ ] Set up .env.local with all environment variables
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Project creation:
-"Read TASKSURE_CONTEXT.md first. Then:
+Install the Chrome extension when prompted.&quot;
+</code></pre>
+<blockquote>
+<p>âš ï¸ <strong>Tool limit:</strong> Antigravity recommends max 50 active tools. Disable Vercel MCP when not deploying. Disable GitHub MCP when not committing. Toggle in Agent panel â†’ '...' â†’ MCP Servers.</p>
+</blockquote>
+<hr />
+<h2 id="phase-1-a-web-app-foundation">PHASE 1 â€” WEB APP FOUNDATION</h2>
+<h3 id="days-1a4-project-setup-database-auth-app-shell-core-pages">Days 1â€“4: Project setup, database, auth, app shell, core pages</h3>
+<hr />
+<h3 id="day-1-a-project-setup-database">DAY 1 â€” Project Setup &amp; Database</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> Next.js project running locally. All 11 database tables created with correct schema and RLS. GitHub repo live.</p>
+<h4 id="accounts-to-create-today-before-coding">Accounts to Create Today (before coding)</h4>
+<ul>
+<li>[ ] Supabase â€” supabase.com</li>
+<li>[ ] Vercel â€” vercel.com</li>
+<li>[ ] Sarvam AI â€” sarvam.ai (comes with Rs. 1,000 free credit)</li>
+<li>[ ] Google AI Studio â€” aistudio.google.com (get Gemini 2.5 Flash API key)</li>
+<li>[ ] Exotel â€” exotel.com</li>
+<li>[ ] Wati â€” wati.io (start 7-day free trial)</li>
+<li>[ ] GitHub â€” github.com</li>
+<li>[ ] Order new SIM â€” Airtel or Jio website, doorstep delivery, keep unactivated on WhatsApp</li>
+</ul>
+<h4 id="tasks">Tasks</h4>
+<ul>
+<li>[ ] Install Node.js from nodejs.org (download and run installer)</li>
+<li>[ ] Create Next.js 14 project with TypeScript, Tailwind CSS, App Router</li>
+<li>[ ] Install packages: @supabase/supabase-js, @supabase/auth-helpers-nextjs, recharts, lucide-react</li>
+<li>[ ] Create all 11 database tables in Supabase with correct schema from BOLDO_CONTEXT.md</li>
+<li>[ ] Enable RLS on all tables. Write RLS policies.</li>
+<li>[ ] Create all required indexes (listed in BOLDO_CONTEXT.md schema section)</li>
+<li>[ ] Create Supabase client files: lib/supabase/client.ts and lib/supabase/server.ts</li>
+<li>[ ] Create private GitHub repo and push initial project</li>
+<li>[ ] Set up .env.local with all environment variables</li>
+</ul>
+<h4 id="antigravity-prompts">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Project creation:
+&quot;Read BOLDO_CONTEXT.md first. Then:
 Using Context7 MCP, look up the official Next.js 14 App Router setup documentation.
-Create a new Next.js 14 project called 'TASKSURE' with:
+Create a new Next.js 14 project called 'Boldo AI Assistant' with:
 - App Router (not Pages Router)
 - TypeScript enabled
 - Tailwind CSS enabled
@@ -164,13 +267,11 @@ Then install these additional packages:
 - @supabase/auth-helpers-nextjs
 - recharts
 - lucide-react
-Show me the final folder structure."
-```
-
-```
-PROMPT 2 â€” Database tables (run this as one prompt):
-"Using the Supabase MCP, create all the following tables in my Supabase project.
-Use the exact schema from TASKSURE_CONTEXT.md Section 7.
+Show me the final folder structure.&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Database tables (run this as one prompt):
+&quot;Using the Supabase MCP, create all the following tables in my Supabase project.
+Use the exact schema from BOLDO_CONTEXT.md Section 7.
 Create tables in this order (to respect foreign key dependencies):
 1. organisations
 2. users (self-referential FK on reporting_manager_id â€” create the FK after the table)
@@ -194,61 +295,52 @@ Then create these RLS policies:
 - reminders: user_id = auth.uid()
 - contacts: organisation_id matches user's org
 - payments: organisation_id matches user's org
-- task_comments: task is in user's org"
-```
-
-```
-PROMPT 3 â€” Indexes:
-"Using the Supabase MCP, create all the indexes listed in TASKSURE_CONTEXT.md
-under 'Required Database Indexes'. Run them now."
-```
-
-```
-PROMPT 4 â€” Supabase client:
-"Using Context7 MCP, look up the Supabase JavaScript client v2 setup for Next.js 14 App Router.
+- task_comments: task is in user's org&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Indexes:
+&quot;Using the Supabase MCP, create all the indexes listed in BOLDO_CONTEXT.md
+under 'Required Database Indexes'. Run them now.&quot;
+</code></pre>
+<pre><code>PROMPT 4 â€” Supabase client:
+&quot;Using Context7 MCP, look up the Supabase JavaScript client v2 setup for Next.js 14 App Router.
 Create:
 - lib/supabase/client.ts (browser client using createBrowserClient)
 - lib/supabase/server.ts (server client using createServerClient with cookies)
 Use environment variables NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
-Also create a .env.local.example file listing all required environment variables."
-```
-
-```
-PROMPT 5 â€” GitHub:
-"Using GitHub MCP, create a private repository called 'TASKSURE'.
+Also create a .env.local.example file listing all required environment variables.&quot;
+</code></pre>
+<pre><code>PROMPT 5 â€” GitHub:
+&quot;Using GitHub MCP, create a private repository called 'Boldo AI Assistant'.
 Push my current project to it.
 Create a proper .gitignore for Next.js that excludes .env.local and node_modules.
-Confirm the push was successful."
-```
-
-#### End of Day Check
-- [ ] `npm run dev` runs without errors at localhost:3000
-- [ ] All 11 tables visible in Supabase Table Editor
-- [ ] RLS enabled (green lock icon) on all tables
-- [ ] GitHub repo has initial commit
-
----
-
-### DAY 2 â€” Authentication & Onboarding Flow
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** A new user can sign up with phone OTP, create or join an org, set their reporting manager, and log in on subsequent visits.
-
-#### Tasks
-- [ ] Build /login page â€” phone number input, sends OTP via Supabase Auth
-- [ ] Build /login/verify page â€” 6-digit OTP entry and verification
-- [ ] Build /signup page â€” collect name, org (create new or join existing), reporting manager name
-- [ ] Org logic: check if org name exists â†’ join it; if not â†’ create it
-- [ ] Reporting manager logic: look up by name in same org â†’ link if found; flag as pending if not found
-- [ ] Build auth middleware â€” redirects unauthenticated users from any /dashboard/* route to /login
-- [ ] Build /auth/callback route for Supabase OAuth redirect handling
-- [ ] Test complete signup and login flow end-to-end
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Auth pages:
-"Using Context7 MCP, look up Supabase Auth documentation for phone number OTP sign-in in Next.js 14.
+Confirm the push was successful.&quot;
+</code></pre>
+<h4 id="end-of-day-check">End of Day Check</h4>
+<ul>
+<li>[ ] <code>npm run dev</code> runs without errors at localhost:3000</li>
+<li>[ ] All 11 tables visible in Supabase Table Editor</li>
+<li>[ ] RLS enabled (green lock icon) on all tables</li>
+<li>[ ] GitHub repo has initial commit</li>
+</ul>
+<hr />
+<h3 id="day-2-a-authentication-onboarding-flow">DAY 2 â€” Authentication &amp; Onboarding Flow</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> A new user can sign up with phone OTP, create or join an org, set their reporting manager, and log in on subsequent visits.</p>
+<h4 id="tasks_1">Tasks</h4>
+<ul>
+<li>[ ] Build /login page â€” phone number input, sends OTP via Supabase Auth</li>
+<li>[ ] Build /login/verify page â€” 6-digit OTP entry and verification</li>
+<li>[ ] Build /signup page â€” collect name, org (create new or join existing), reporting manager name</li>
+<li>[ ] Org logic: check if org name exists â†’ join it; if not â†’ create it</li>
+<li>[ ] Reporting manager logic: look up by name in same org â†’ link if found; flag as pending if not found</li>
+<li>[ ] Build auth middleware â€” redirects unauthenticated users from any /dashboard/* route to /login</li>
+<li>[ ] Build /auth/callback route for Supabase OAuth redirect handling</li>
+<li>[ ] Test complete signup and login flow end-to-end</li>
+</ul>
+<h4 id="antigravity-prompts_1">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Auth pages:
+&quot;Using Context7 MCP, look up Supabase Auth documentation for phone number OTP sign-in in Next.js 14.
 Build a complete authentication system with these pages:
 
 1. app/login/page.tsx
@@ -280,60 +372,53 @@ On signup submit:
    - If reporting manager not found: INSERT user anyway, store pending manager name in metadata, flag for later resolution
    - Redirect to /dashboard/home
 
-Use Tailwind CSS for all styling. Clean, minimal, mobile-friendly."
-```
-
-```
-PROMPT 2 â€” Auth middleware:
-"Using Context7 MCP, look up Next.js 14 middleware documentation and Supabase auth-helpers middleware.
+Use Tailwind CSS for all styling. Clean, minimal, mobile-friendly.&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Auth middleware:
+&quot;Using Context7 MCP, look up Next.js 14 middleware documentation and Supabase auth-helpers middleware.
 Create middleware.ts in the project root that:
 - Protects all routes starting with /dashboard/*
 - Unauthenticated requests to /dashboard/* are redirected to /login
 - Authenticated requests to /login are redirected to /dashboard/home
 - The /api/* routes are NOT protected by this middleware (they handle auth themselves)
-- Public routes: /, /login, /login/verify, /signup, /auth/callback"
-```
-
-```
-PROMPT 3 â€” Test data:
-"Using Supabase MCP, insert test data so I can develop without needing real WhatsApp:
+- Public routes: /, /login, /login/verify, /signup, /auth/callback&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Test data:
+&quot;Using Supabase MCP, insert test data so I can develop without needing real WhatsApp:
 - 2 organisations: 'Mehta Traders' and 'Shah Industries'
 - 4 users in Mehta Traders: Vikram Mehta (owner), Priya Shah (manager, reports to Vikram),
   Ramesh Patel (member, reports to Priya), Suresh Kumar (member, reports to Priya)
 - 5 tasks in various statuses assigned between these users
 - 3 todos for Vikram (private)
-Use realistic Indian names and Gujarati business context."
-```
-
-#### End of Day Check
-- [ ] Can sign up as a new user with phone OTP
-- [ ] Org is created in Supabase on signup
-- [ ] Can log in as an existing user
-- [ ] Visiting /dashboard/home while logged out redirects to /login
-
----
-
-### DAY 3 â€” App Shell & Home Dashboard
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** Main dashboard layout with sidebar navigation live. Home dashboard showing real data from Supabase.
-
-#### Tasks
-- [ ] Build dashboard layout with sidebar at app/(dashboard)/layout.tsx
-- [ ] Sidebar: links to Home, My Tasks, Tasks I Assigned, Todos, Calendar, Team, Stats, Settings
-- [ ] Sidebar: shows logged-in user name, org name, avatar/initials
-- [ ] Sidebar: active link highlighted, mobile collapses to hamburger menu
-- [ ] Top navbar: page title, notification bell with unread count, user avatar
-- [ ] Build home dashboard at app/(dashboard)/home/page.tsx
-- [ ] Home sections: Greeting, Today's Tasks, Pending Acceptance, Tasks I Own Needing Action, 7-day calendar strip
-- [ ] All data fetched server-side from Supabase using server components
-- [ ] Test layout on desktop (1280px), tablet (768px), mobile (375px)
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” App shell:
-"Using Context7 MCP, look up Next.js 14 App Router layout documentation and Tailwind CSS docs.
+Use realistic Indian names and Gujarati business context.&quot;
+</code></pre>
+<h4 id="end-of-day-check_1">End of Day Check</h4>
+<ul>
+<li>[ ] Can sign up as a new user with phone OTP</li>
+<li>[ ] Org is created in Supabase on signup</li>
+<li>[ ] Can log in as an existing user</li>
+<li>[ ] Visiting /dashboard/home while logged out redirects to /login</li>
+</ul>
+<hr />
+<h3 id="day-3-a-app-shell-home-dashboard">DAY 3 â€” App Shell &amp; Home Dashboard</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> Main dashboard layout with sidebar navigation live. Home dashboard showing real data from Supabase.</p>
+<h4 id="tasks_2">Tasks</h4>
+<ul>
+<li>[ ] Build dashboard layout with sidebar at app/(dashboard)/layout.tsx</li>
+<li>[ ] Sidebar: links to Home, My Tasks, Tasks I Assigned, Todos, Calendar, Team, Stats, Settings</li>
+<li>[ ] Sidebar: shows logged-in user name, org name, avatar/initials</li>
+<li>[ ] Sidebar: active link highlighted, mobile collapses to hamburger menu</li>
+<li>[ ] Top navbar: page title, notification bell with unread count, user avatar</li>
+<li>[ ] Build home dashboard at app/(dashboard)/home/page.tsx</li>
+<li>[ ] Home sections: Greeting, Today's Tasks, Pending Acceptance, Tasks I Own Needing Action, 7-day calendar strip</li>
+<li>[ ] All data fetched server-side from Supabase using server components</li>
+<li>[ ] Test layout on desktop (1280px), tablet (768px), mobile (375px)</li>
+</ul>
+<h4 id="antigravity-prompts_2">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” App shell:
+&quot;Using Context7 MCP, look up Next.js 14 App Router layout documentation and Tailwind CSS docs.
 Build the main dashboard layout at app/(dashboard)/layout.tsx.
 
 Requirements:
@@ -344,18 +429,16 @@ Requirements:
   Settings (Settings)
 - Active link: highlighted with blue background, white text
 - Bottom of sidebar: user avatar (initials if no photo), name, org name
-- Mobile (< 768px): sidebar hidden, hamburger menu button in top-left opens it as overlay
+- Mobile (&lt; 768px): sidebar hidden, hamburger menu button in top-left opens it as overlay
 - Top navbar (60px height): page title on left, notification bell icon on right, user avatar
 - Notification bell shows a red badge with unread count (hardcode as 0 for now â€” we will wire it up later)
 - Main content area: fills remaining space, scrollable, padding 24px
 - Use a clean, professional colour scheme: white sidebar, light grey main background (#F5F7FA),
   dark navy accent (#1A3C5E) for active states
-- Fully mobile responsive"
-```
-
-```
-PROMPT 2 â€” Home dashboard:
-"Build the home dashboard page at app/(dashboard)/home/page.tsx.
+- Fully mobile responsive&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Home dashboard:
+&quot;Build the home dashboard page at app/(dashboard)/home/page.tsx.
 Fetch all data server-side using the Supabase server client.
 The logged-in user's ID comes from Supabase auth session.
 
@@ -386,44 +469,39 @@ Sections to build:
    Clicking a day does nothing for now (we build the full calendar on Day 4)
 
 Use Tailwind for all styling. Use Next.js server components â€” fetch data on the server.
-If any section has no items, show a friendly empty state (e.g. 'No pending tasks today ðŸŽ‰')."
-```
-
-```
-PROMPT 3 â€” Mobile test:
-"Open the Browser Agent. Navigate to localhost:3000/dashboard/home.
+If any section has no items, show a friendly empty state (e.g. 'No pending tasks today ðŸŽ‰').&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Mobile test:
+&quot;Open the Browser Agent. Navigate to localhost:3000/dashboard/home.
 Take a screenshot at viewport width 375px (mobile).
 Tell me everything that looks broken, cramped, or unreadable on mobile.
-Give me a prioritised list of fixes."
-```
-
-#### End of Day Check
-- [ ] Sidebar visible and all links working
-- [ ] Home dashboard shows real data from test users
-- [ ] Mobile hamburger menu opens/closes correctly
-- [ ] Empty states show when no tasks exist
-
----
-
-### DAY 4 â€” My Tasks, Assigned Tasks & Calendar
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** Three core pages live with real data. Task detail drawer working. Calendar shows tasks per day.
-
-#### Tasks
-- [ ] Build /my-tasks page with tab bar, task cards, task detail drawer
-- [ ] Task detail drawer: description, sub-tasks, comments, accept (deadline picker) and reject (reason input) buttons
-- [ ] Build /assigned-tasks page with task cards and full detail view
-- [ ] Detail view shows: employee's acceptance status, committed deadline, rejection reason, sub-task chain
-- [ ] Build /calendar page with monthly grid, coloured dots, day click shows task list
-- [ ] Calendar toggle: My Tasks view vs Team Tasks view
-- [ ] Commit all code to GitHub
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” My Tasks page:
-"Build the My Tasks page at app/(dashboard)/my-tasks/page.tsx.
+Give me a prioritised list of fixes.&quot;
+</code></pre>
+<h4 id="end-of-day-check_2">End of Day Check</h4>
+<ul>
+<li>[ ] Sidebar visible and all links working</li>
+<li>[ ] Home dashboard shows real data from test users</li>
+<li>[ ] Mobile hamburger menu opens/closes correctly</li>
+<li>[ ] Empty states show when no tasks exist</li>
+</ul>
+<hr />
+<h3 id="day-4-a-my-tasks-assigned-tasks-calendar">DAY 4 â€” My Tasks, Assigned Tasks &amp; Calendar</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> Three core pages live with real data. Task detail drawer working. Calendar shows tasks per day.</p>
+<h4 id="tasks_3">Tasks</h4>
+<ul>
+<li>[ ] Build /my-tasks page with tab bar, task cards, task detail drawer</li>
+<li>[ ] Task detail drawer: description, sub-tasks, comments, accept (deadline picker) and reject (reason input) buttons</li>
+<li>[ ] Build /assigned-tasks page with task cards and full detail view</li>
+<li>[ ] Detail view shows: employee's acceptance status, committed deadline, rejection reason, sub-task chain</li>
+<li>[ ] Build /calendar page with monthly grid, coloured dots, day click shows task list</li>
+<li>[ ] Calendar toggle: My Tasks view vs Team Tasks view</li>
+<li>[ ] Commit all code to GitHub</li>
+</ul>
+<h4 id="antigravity-prompts_3">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” My Tasks page:
+&quot;Build the My Tasks page at app/(dashboard)/my-tasks/page.tsx.
 
 Tab bar at top: All | Pending | Accepted | Completed | Overdue
 Each tab filters the task list. Fetch tasks where assigned_to = current user's ID.
@@ -467,12 +545,10 @@ Wire up MARK DONE:
 - If all done (or no sub-tasks): update task status='completed'
 - Show success toast
 
-Use Tailwind. Make the drawer mobile-friendly (full screen on mobile)."
-```
-
-```
-PROMPT 2 â€” Assigned Tasks page:
-"Build the Tasks I Assigned page at app/(dashboard)/assigned-tasks/page.tsx.
+Use Tailwind. Make the drawer mobile-friendly (full screen on mobile).&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Assigned Tasks page:
+&quot;Build the Tasks I Assigned page at app/(dashboard)/assigned-tasks/page.tsx.
 Fetch tasks where created_by = current user's ID.
 
 Task card shows:
@@ -497,12 +573,10 @@ Detail drawer (same side-drawer pattern as My Tasks) shows:
   - If status = 'rejected': REASSIGN button (opens a user picker to reassign to someone else)
 
 Wire up CANCEL: update task status = 'cancelled', cancel all pending reminders for this task
-Wire up REASSIGN: update assigned_to to new user, reset status to 'pending'"
-```
-
-```
-PROMPT 3 â€” Calendar page:
-"Build the Calendar page at app/(dashboard)/calendar/page.tsx.
+Wire up REASSIGN: update assigned_to to new user, reset status to 'pending'&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Calendar page:
+&quot;Build the Calendar page at app/(dashboard)/calendar/page.tsx.
 
 Display a full month grid (Monday to Sunday columns, weeks as rows).
 Show current month by default. Previous/next month navigation arrows.
@@ -524,52 +598,45 @@ Fetch all tasks for the current month in a single Supabase query.
 Do NOT make a separate query per day cell (that would be N queries).
 Filter client-side by date after the initial fetch.
 
-Make it mobile-responsive. On mobile, the grid cells are smaller but still readable."
-```
-
-```
-PROMPT 4 â€” GitHub commit:
-"Using GitHub MCP, commit all of today's work with message:
+Make it mobile-responsive. On mobile, the grid cells are smaller but still readable.&quot;
+</code></pre>
+<pre><code>PROMPT 4 â€” GitHub commit:
+&quot;Using GitHub MCP, commit all of today's work with message:
 'Day 4: My Tasks, Assigned Tasks, Calendar pages complete'
-Tag this commit as v0.1.0-core-pages"
-```
-
-#### End of Day Check
-- [ ] My Tasks page shows tasks with correct tab filtering
-- [ ] Accept and reject flows update Supabase and show success feedback
-- [ ] Assigned Tasks page shows task details including committed deadlines
-- [ ] Calendar shows coloured dots for tasks and detail panel on day click
-- [ ] All pages tested on mobile
-
----
-
-## PHASE 2 â€” WEB APP ADVANCED FEATURES
-### Days 5â€“8: Team, Stats, Todos, Real-time, Notifications, Create Task
-
----
-
-### DAY 5 â€” Team, Stats & Settings Pages
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** Org chart, performance stats, and settings all live with role-based access.
-
-#### Tasks
-- [ ] Build /team page with visual org chart (CSS tree, no external library)
-- [ ] Each person card: name, role, tasks completed this month, tasks delayed this month
-- [ ] Clicking a person (managers only) shows their task list
-- [ ] Build /stats page with Recharts bar chart + performance table
-- [ ] Stats: per-employee tasks assigned, completed, delayed, avg delay hrs, on-time %
-- [ ] Stats only visible to manager/owner role. Employees see own stats only.
-- [ ] Build /settings page with 3 tabs: Profile, Organisation, Notifications
-- [ ] Profile tab: edit name, upload avatar to Supabase Storage
-- [ ] Organisation tab (owner only): view members, change roles, remove members
-- [ ] Notifications tab: toggle switches saved to notification_prefs in Supabase
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Team org chart:
-"Build the Team page at app/(dashboard)/team/page.tsx.
+Tag this commit as v0.1.0-core-pages&quot;
+</code></pre>
+<h4 id="end-of-day-check_3">End of Day Check</h4>
+<ul>
+<li>[ ] My Tasks page shows tasks with correct tab filtering</li>
+<li>[ ] Accept and reject flows update Supabase and show success feedback</li>
+<li>[ ] Assigned Tasks page shows task details including committed deadlines</li>
+<li>[ ] Calendar shows coloured dots for tasks and detail panel on day click</li>
+<li>[ ] All pages tested on mobile</li>
+</ul>
+<hr />
+<h2 id="phase-2-a-web-app-advanced-features">PHASE 2 â€” WEB APP ADVANCED FEATURES</h2>
+<h3 id="days-5a8-team-stats-todos-real-time-notifications-create-task">Days 5â€“8: Team, Stats, Todos, Real-time, Notifications, Create Task</h3>
+<hr />
+<h3 id="day-5-a-team-stats-settings-pages">DAY 5 â€” Team, Stats &amp; Settings Pages</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> Org chart, performance stats, and settings all live with role-based access.</p>
+<h4 id="tasks_4">Tasks</h4>
+<ul>
+<li>[ ] Build /team page with visual org chart (CSS tree, no external library)</li>
+<li>[ ] Each person card: name, role, tasks completed this month, tasks delayed this month</li>
+<li>[ ] Clicking a person (managers only) shows their task list</li>
+<li>[ ] Build /stats page with Recharts bar chart + performance table</li>
+<li>[ ] Stats: per-employee tasks assigned, completed, delayed, avg delay hrs, on-time %</li>
+<li>[ ] Stats only visible to manager/owner role. Employees see own stats only.</li>
+<li>[ ] Build /settings page with 3 tabs: Profile, Organisation, Notifications</li>
+<li>[ ] Profile tab: edit name, upload avatar to Supabase Storage</li>
+<li>[ ] Organisation tab (owner only): view members, change roles, remove members</li>
+<li>[ ] Notifications tab: toggle switches saved to notification_prefs in Supabase</li>
+</ul>
+<h4 id="antigravity-prompts_4">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Team org chart:
+&quot;Build the Team page at app/(dashboard)/team/page.tsx.
 
 Fetch all users in the current user's organisation.
 Build a tree data structure client-side: each user is a node, parent = reporting_manager_id.
@@ -586,16 +653,14 @@ Also show a search bar above the tree to find any team member by name.
 
 Fetch task counts using a Supabase query:
 SELECT assigned_to, 
-  COUNT(*) FILTER (WHERE status='completed' AND updated_at >= date_trunc('month', NOW())) as completed_this_month,
-  COUNT(*) FILTER (WHERE status='overdue' AND updated_at >= date_trunc('month', NOW())) as delayed_this_month
+  COUNT(*) FILTER (WHERE status='completed' AND updated_at &gt;= date_trunc('month', NOW())) as completed_this_month,
+  COUNT(*) FILTER (WHERE status='overdue' AND updated_at &gt;= date_trunc('month', NOW())) as delayed_this_month
 FROM tasks
 WHERE organisation_id = [current org id]
-GROUP BY assigned_to"
-```
-
-```
-PROMPT 2 â€” Stats page:
-"Build the Stats page at app/(dashboard)/stats/page.tsx.
+GROUP BY assigned_to&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Stats page:
+&quot;Build the Stats page at app/(dashboard)/stats/page.tsx.
 
 Role-based access:
 - If current user role = 'member': show only their own stats (single row, no bar chart comparison)
@@ -611,14 +676,12 @@ Bar chart (using Recharts BarChart):
 Table below chart:
 | Employee | Assigned | Completed | Delayed | Avg Delay (hrs) | On-Time % |
 
-Calculate on-time % as: (completed tasks where completed_at <= committed_deadline) / total completed * 100
+Calculate on-time % as: (completed tasks where completed_at &lt;= committed_deadline) / total completed * 100
 
-Fetch all required data in 2-3 Supabase queries. Do not make per-employee queries."
-```
-
-```
-PROMPT 3 â€” Settings page:
-"Build the Settings page at app/(dashboard)/settings/page.tsx with 3 tabs.
+Fetch all required data in 2-3 Supabase queries. Do not make per-employee queries.&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Settings page:
+&quot;Build the Settings page at app/(dashboard)/settings/page.tsx with 3 tabs.
 
 TAB 1 â€” Profile:
 - Name field (editable, saves to users table on submit)
@@ -638,40 +701,37 @@ TAB 3 â€” Notifications:
 - Toggle switch: Overdue Alerts (alerts when tasks go overdue)
 - Toggle switch: To-Do Reminders (personal to-do WhatsApp reminders)
 Each toggle: UPDATE users SET notification_prefs = jsonb_set(notification_prefs, ...) on change.
-Show a small loading spinner on each toggle while saving."
-```
-
-#### End of Day Check
-- [ ] Team org chart renders correctly with real user hierarchy
-- [ ] Stats page shows bar chart and table with real task data
-- [ ] Regular members cannot see the Organisation tab in settings
-- [ ] Notification toggles save correctly to Supabase
-
----
-
-### DAY 6 â€” Todos Page, Create Task, Real-Time & Notifications
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** Private todos fully working. Create task from web app. Real-time updates across all pages. Notification bell and page live.
-
-#### Tasks
-- [ ] Build /todos page â€” private to current user, no one else can access
-- [ ] Todo creation: title, optional description, remind_at (datetime picker), due_at (date picker)
-- [ ] Todo list: pending, done, overdue tabs
-- [ ] Marking todo done: updates status, cancels pending reminders for that todo
-- [ ] Build floating Create Task button on all dashboard pages
-- [ ] Create Task modal: title, description, assign to (autocomplete from org users), deadline picker
-- [ ] On submit: insert task, insert reminder rows, send optimistic UI update
-- [ ] Add Supabase real-time subscriptions to dashboard â€” status changes update all tabs instantly
-- [ ] Build notifications table with database trigger (auto-insert on task status change)
-- [ ] Build notification bell in navbar with real-time unread count
-- [ ] Build /notifications page with full notification history
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Todos page:
-"Build the Todos page at app/(dashboard)/todos/page.tsx.
+Show a small loading spinner on each toggle while saving.&quot;
+</code></pre>
+<h4 id="end-of-day-check_4">End of Day Check</h4>
+<ul>
+<li>[ ] Team org chart renders correctly with real user hierarchy</li>
+<li>[ ] Stats page shows bar chart and table with real task data</li>
+<li>[ ] Regular members cannot see the Organisation tab in settings</li>
+<li>[ ] Notification toggles save correctly to Supabase</li>
+</ul>
+<hr />
+<h3 id="day-6-a-todos-page-create-task-real-time-notifications">DAY 6 â€” Todos Page, Create Task, Real-Time &amp; Notifications</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> Private todos fully working. Create task from web app. Real-time updates across all pages. Notification bell and page live.</p>
+<h4 id="tasks_5">Tasks</h4>
+<ul>
+<li>[ ] Build /todos page â€” private to current user, no one else can access</li>
+<li>[ ] Todo creation: title, optional description, remind_at (datetime picker), due_at (date picker)</li>
+<li>[ ] Todo list: pending, done, overdue tabs</li>
+<li>[ ] Marking todo done: updates status, cancels pending reminders for that todo</li>
+<li>[ ] Build floating Create Task button on all dashboard pages</li>
+<li>[ ] Create Task modal: title, description, assign to (autocomplete from org users), deadline picker</li>
+<li>[ ] On submit: insert task, insert reminder rows, send optimistic UI update</li>
+<li>[ ] Add Supabase real-time subscriptions to dashboard â€” status changes update all tabs instantly</li>
+<li>[ ] Build notifications table with database trigger (auto-insert on task status change)</li>
+<li>[ ] Build notification bell in navbar with real-time unread count</li>
+<li>[ ] Build /notifications page with full notification history</li>
+</ul>
+<h4 id="antigravity-prompts_5">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Todos page:
+&quot;Build the Todos page at app/(dashboard)/todos/page.tsx.
 
 CRITICAL PRIVACY REQUIREMENT: This page must ONLY show todos where user_id = current user's ID.
 The Supabase RLS policy enforces this at the database level, but also add a WHERE clause in every query.
@@ -701,12 +761,10 @@ Todo card:
 On mark done:
 - UPDATE todos SET status='done', updated_at=NOW()
 - UPDATE reminders SET status='cancelled' WHERE entity_id=[todo id] AND status='pending'
-- Show strikethrough animation on the todo card then move to Done tab"
-```
-
-```
-PROMPT 2 â€” Create Task modal:
-"Add a floating circular '+' button (fixed position, bottom-right, 56px diameter, navy background)
+- Show strikethrough animation on the todo card then move to Done tab&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Create Task modal:
+&quot;Add a floating circular '+' button (fixed position, bottom-right, 56px diameter, navy background)
 that appears on all dashboard pages (add it to the dashboard layout).
 
 Clicking it opens a modal with:
@@ -728,12 +786,10 @@ On Create Task submit:
 4. INSERT into notifications: {user_id:[assignee], type:'task_assigned', message:'[Manager] assigned you: [title]', entity_type:'task', entity_id:[task id]}
 5. INSERT into audit_log: {action:'task.created', entity_type:'task', entity_id:[task id], user_id:[creator], organisation_id:[org id]}
 6. Close modal, show success toast 'Task assigned to [name]'
-7. Update task lists on current page optimistically (add the new task without page refresh)"
-```
-
-```
-PROMPT 3 â€” Real-time subscriptions:
-"Using Context7 MCP, look up Supabase real-time JavaScript subscriptions for Next.js.
+7. Update task lists on current page optimistically (add the new task without page refresh)&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Real-time subscriptions:
+&quot;Using Context7 MCP, look up Supabase real-time JavaScript subscriptions for Next.js.
 Create a React context provider at providers/RealtimeProvider.tsx that:
 
 1. Subscribes to changes on the 'tasks' table filtered by organisation_id = current user's org
@@ -748,12 +804,10 @@ Wrap the dashboard layout (app/(dashboard)/layout.tsx) with this provider.
 
 Also update the notification bell in the navbar to:
 - Show count from notifications table where user_id = me AND is_read = false
-- Update in real-time via the subscription above"
-```
-
-```
-PROMPT 4 â€” Notifications page:
-"Build the Notifications page at app/(dashboard)/notifications/page.tsx.
+- Update in real-time via the subscription above&quot;
+</code></pre>
+<pre><code>PROMPT 4 â€” Notifications page:
+&quot;Build the Notifications page at app/(dashboard)/notifications/page.tsx.
 
 Also add a notification dropdown to the bell icon in the navbar (shows last 5 unread).
 Clicking the bell opens the dropdown. 'View All' link at bottom goes to /notifications page.
@@ -771,43 +825,38 @@ Notification types and their icons (use lucide-react):
 - task_rejected: XCircle icon (red)
 - task_completed: CheckSquare icon (green)
 - task_overdue: AlertTriangle icon (orange)
-- todo_due: Bell icon"
-```
-
-```
-PROMPT 5 â€” GitHub commit:
-"Using GitHub MCP, commit all of today's work:
+- todo_due: Bell icon&quot;
+</code></pre>
+<pre><code>PROMPT 5 â€” GitHub commit:
+&quot;Using GitHub MCP, commit all of today's work:
 'Day 6: Todos, Create Task, Real-time subscriptions, Notifications complete'
-Tag as v0.2.0-webapp-complete"
-```
-
-#### End of Day Check
-- [ ] Todos page shows only my todos â€” cannot see anyone else's
-- [ ] Creating a todo inserts reminder rows in Supabase correctly
-- [ ] Create Task modal works end-to-end â€” task appears in assignee's My Tasks
-- [ ] Opening two browser windows â€” status change in one updates the other in real-time
-- [ ] Notification bell count updates in real-time
-
----
-
-### DAY 7 â€” Web App Polish, Mobile & Deploy
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** Web app is pixel-perfect on mobile. Deployed to Vercel production. Full end-to-end browser test passing.
-
-#### Tasks
-- [ ] Full mobile audit of every page (375px viewport) â€” fix all issues
-- [ ] Full end-to-end test as a new user using Browser Agent
-- [ ] Fix top issues found in test
-- [ ] Deploy to Vercel production with all environment variables set
-- [ ] Set up Vercel error alerts (email notification on function crash)
-- [ ] Buffer time â€” catch up on anything incomplete from Days 1â€“6
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Mobile audit:
-"Open the Browser Agent.
+Tag as v0.2.0-webapp-complete&quot;
+</code></pre>
+<h4 id="end-of-day-check_5">End of Day Check</h4>
+<ul>
+<li>[ ] Todos page shows only my todos â€” cannot see anyone else's</li>
+<li>[ ] Creating a todo inserts reminder rows in Supabase correctly</li>
+<li>[ ] Create Task modal works end-to-end â€” task appears in assignee's My Tasks</li>
+<li>[ ] Opening two browser windows â€” status change in one updates the other in real-time</li>
+<li>[ ] Notification bell count updates in real-time</li>
+</ul>
+<hr />
+<h3 id="day-7-a-web-app-polish-mobile-deploy">DAY 7 â€” Web App Polish, Mobile &amp; Deploy</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> Web app is pixel-perfect on mobile. Deployed to Vercel production. Full end-to-end browser test passing.</p>
+<h4 id="tasks_6">Tasks</h4>
+<ul>
+<li>[ ] Full mobile audit of every page (375px viewport) â€” fix all issues</li>
+<li>[ ] Full end-to-end test as a new user using Browser Agent</li>
+<li>[ ] Fix top issues found in test</li>
+<li>[ ] Deploy to Vercel production with all environment variables set</li>
+<li>[ ] Set up Vercel error alerts (email notification on function crash)</li>
+<li>[ ] Buffer time â€” catch up on anything incomplete from Days 1â€“6</li>
+</ul>
+<h4 id="antigravity-prompts_6">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Mobile audit:
+&quot;Open the Browser Agent.
 Go through each of these pages at 375px viewport width (mobile):
 1. /login
 2. /signup
@@ -828,12 +877,10 @@ sidebar not collapsing correctly).
 Then fix all issues in priority order:
 1. Anything that breaks core functionality on mobile
 2. Anything that looks unprofessional
-3. Minor spacing/sizing issues"
-```
-
-```
-PROMPT 2 â€” End-to-end test:
-"Open the Browser Agent and test the complete web app flow as a new user.
+3. Minor spacing/sizing issues&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” End-to-end test:
+&quot;Open the Browser Agent and test the complete web app flow as a new user.
 Do NOT use existing test data â€” simulate a truly fresh signup.
 
 Test flow:
@@ -849,12 +896,10 @@ Test flow:
 10. Check /stats â†’ verify task appears in completed count
 11. Add a personal todo â†’ verify it's private and appears on /todos
 
-Screenshot every step. Give me a final verdict: pass or fail per step."
-```
-
-```
-PROMPT 3 â€” Vercel deploy:
-"Using Vercel MCP, deploy my TASKSURE project to production.
+Screenshot every step. Give me a final verdict: pass or fail per step.&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Vercel deploy:
+&quot;Using Vercel MCP, deploy my Boldo AI Assistant project to production.
 Set these environment variables in Vercel:
 - NEXT_PUBLIC_SUPABASE_URL (from Supabase project settings)
 - NEXT_PUBLIC_SUPABASE_ANON_KEY (from Supabase project settings)
@@ -867,48 +912,44 @@ Set these environment variables in Vercel:
 - EXOTEL_TOKEN (from Exotel dashboard)
 
 After deploy: check the Vercel function logs for any startup errors.
-Return the live production URL."
-```
-
-#### End of Day Check
-- [ ] All pages look correct on 375px mobile viewport
-- [ ] End-to-end test: all steps pass
-- [ ] Live production URL working
-- [ ] Vercel error alerts configured
-
----
-
-## PHASE 3 â€” WHATSAPP BOT
-### Days 8â€“13: Webhook, transcription, intent classification, task flows, todo flows, reminder system
-
----
-
-### DAY 8 â€” Webhook Setup & Voice Transcription
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** WhatsApp messages (text and voice) arrive in our system and are logged. Voice notes transcribed accurately in Gujarati.
-
-> âš ï¸ Your new SIM should have arrived by now. Activate it and register it with Wati before starting this day.
-
-#### Tasks
-- [ ] Register new SIM with Wati, complete Meta WhatsApp Business API verification
-- [ ] Build /api/webhook route handling GET (verification) and POST (incoming messages)
-- [ ] Deploy webhook URL to Vercel, paste into Wati â†’ Settings â†’ Webhook
-- [ ] Verify test messages arrive in Vercel logs
-- [ ] Build lib/transcribe.ts using Sarvam Saaras v3 with Gujarati + code_mix support
-- [ ] Test with 5 Gujarati voice notes â€” verify accurate transcripts
-- [ ] Test with 5 Hinglish voice notes
-- [ ] Store all incoming messages in incoming_messages table
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Webhook route:
-"Using Context7 MCP, look up the Wati WhatsApp API webhook documentation.
+Return the live production URL.&quot;
+</code></pre>
+<h4 id="end-of-day-check_6">End of Day Check</h4>
+<ul>
+<li>[ ] All pages look correct on 375px mobile viewport</li>
+<li>[ ] End-to-end test: all steps pass</li>
+<li>[ ] Live production URL working</li>
+<li>[ ] Vercel error alerts configured</li>
+</ul>
+<hr />
+<h2 id="phase-3-a-whatsapp-bot">PHASE 3 â€” WHATSAPP BOT</h2>
+<h3 id="days-8a13-webhook-transcription-intent-classification-task-flows-todo-flows-reminder-system">Days 8â€“13: Webhook, transcription, intent classification, task flows, todo flows, reminder system</h3>
+<hr />
+<h3 id="day-8-a-webhook-setup-voice-transcription">DAY 8 â€” Webhook Setup &amp; Voice Transcription</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> WhatsApp messages (text and voice) arrive in our system and are logged. Voice notes transcribed accurately in Gujarati.</p>
+<blockquote>
+<p>âš ï¸ Your new SIM should have arrived by now. Activate it and register it with Wati before starting this day.</p>
+</blockquote>
+<h4 id="tasks_7">Tasks</h4>
+<ul>
+<li>[ ] Register new SIM with Wati, complete Meta WhatsApp Business API verification</li>
+<li>[ ] Build /api/webhook route handling GET (verification) and POST (incoming messages)</li>
+<li>[ ] Deploy webhook URL to Vercel, paste into Wati â†’ Settings â†’ Webhook</li>
+<li>[ ] Verify test messages arrive in Vercel logs</li>
+<li>[ ] Build lib/transcribe.ts using Sarvam Saaras v3 with Gujarati + code_mix support</li>
+<li>[ ] Test with 5 Gujarati voice notes â€” verify accurate transcripts</li>
+<li>[ ] Test with 5 Hinglish voice notes</li>
+<li>[ ] Store all incoming messages in incoming_messages table</li>
+</ul>
+<h4 id="antigravity-prompts_7">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Webhook route:
+&quot;Using Context7 MCP, look up the Wati WhatsApp API webhook documentation.
 Build app/api/webhook/route.ts that:
 
 Handles GET requests (Wati webhook verification):
-- Wati sends: ?hub.mode=subscribe&hub.verify_token=YOUR_TOKEN&hub.challenge=RANDOM_STRING
+- Wati sends: ?hub.mode=subscribe&amp;hub.verify_token=YOUR_TOKEN&amp;hub.challenge=RANDOM_STRING
 - Verify that hub.verify_token matches env var WATI_VERIFY_TOKEN
 - If match: return hub.challenge as plain text response with status 200
 - If no match: return 403
@@ -921,15 +962,13 @@ Handles POST requests (incoming messages):
 - If message type is 'audio': call lib/transcribe.ts asynchronously
 - If message type is 'text': proceed directly to intent classification (lib/classifyIntent.ts â€” we build this tomorrow)
 
-Add a WATI_VERIFY_TOKEN environment variable with value 'TASKSURE_webhook_2025'"
-```
-
-```
-PROMPT 2 â€” Voice transcription:
-"Using Context7 MCP, look up the Sarvam AI Saaras v3 Speech-to-Text API documentation.
+Add a WATI_VERIFY_TOKEN environment variable with value 'BOLDO_webhook_2025'&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Voice transcription:
+&quot;Using Context7 MCP, look up the Sarvam AI Saaras v3 Speech-to-Text API documentation.
 Build lib/transcribe.ts:
 
-export async function transcribeAudio(audioUrl: string): Promise<string> {
+export async function transcribeAudio(audioUrl: string): Promise&lt;string&gt; {
   // 1. Download audio file from audioUrl using fetch
   // 2. Convert to the format Sarvam expects (check docs for required format)
   // 3. Send to Sarvam Saaras v3 API with these parameters:
@@ -943,12 +982,10 @@ export async function transcribeAudio(audioUrl: string): Promise<string> {
 
 Use environment variable SARVAM_API_KEY.
 Add proper TypeScript types.
-Add retry logic: if Sarvam fails, retry once after 2 seconds before throwing."
-```
-
-```
-PROMPT 3 â€” Integration test:
-"Update app/api/webhook/route.ts to use lib/transcribe.ts.
+Add retry logic: if Sarvam fails, retry once after 2 seconds before throwing.&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Integration test:
+&quot;Update app/api/webhook/route.ts to use lib/transcribe.ts.
 When an audio message arrives:
 1. Download the audio file
 2. Call transcribeAudio()
@@ -957,44 +994,41 @@ When an audio message arrives:
    And send WhatsApp back to sender via Wati: 'Sorry, I could not process your voice note. Please try again or send as text.'
 
 To send a WhatsApp message via Wati, build lib/sendWhatsApp.ts:
-export async function sendWhatsApp(phone: string, message: string): Promise<void>
+export async function sendWhatsApp(phone: string, message: string): Promise&lt;void&gt;
 Use WATI_API_URL and WATI_API_KEY environment variables.
-Look up Wati send message API docs using Context7 MCP."
-```
-
-#### End of Day Check
-- [ ] WhatsApp messages arrive in Vercel function logs within 2 seconds
-- [ ] Voice note in Gujarati is transcribed and stored in incoming_messages.raw_text
-- [ ] Transcription error sends a friendly WhatsApp back to the sender
-- [ ] Text messages are logged to incoming_messages table correctly
-
----
-
-### DAY 9 â€” Intent Classification & Task Creation Flow
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** Gemini correctly classifies every message as task, todo, reply, or unknown. Task creation via WhatsApp fully working end-to-end.
-
-#### Tasks
-- [ ] Build lib/classifyIntent.ts using Gemini 2.5 Flash
-- [ ] Classification categories: task_create, todo_create, task_reply, payment_create, unknown
-- [ ] Build lib/extractTask.ts â€” extracts assignee, description, deadline from task_create messages
-- [ ] Build lib/processTaskCreation.ts â€” full orchestration: lookup user â†’ create task â†’ send WhatsApp â†’ insert reminders
-- [ ] Handle: user not found, no deadline, low confidence extraction
-- [ ] Test with 10 diverse messages (Gujarati, Hinglish, English)
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Intent classification:
-"Using Context7 MCP, look up Google Gemini 2.5 Flash API documentation for structured JSON output.
+Look up Wati send message API docs using Context7 MCP.&quot;
+</code></pre>
+<h4 id="end-of-day-check_7">End of Day Check</h4>
+<ul>
+<li>[ ] WhatsApp messages arrive in Vercel function logs within 2 seconds</li>
+<li>[ ] Voice note in Gujarati is transcribed and stored in incoming_messages.raw_text</li>
+<li>[ ] Transcription error sends a friendly WhatsApp back to the sender</li>
+<li>[ ] Text messages are logged to incoming_messages table correctly</li>
+</ul>
+<hr />
+<h3 id="day-9-a-intent-classification-task-creation-flow">DAY 9 â€” Intent Classification &amp; Task Creation Flow</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> Gemini correctly classifies every message as task, todo, reply, or unknown. Task creation via WhatsApp fully working end-to-end.</p>
+<h4 id="tasks_8">Tasks</h4>
+<ul>
+<li>[ ] Build lib/classifyIntent.ts using Gemini 2.5 Flash</li>
+<li>[ ] Classification categories: task_create, todo_create, task_reply, payment_create, unknown</li>
+<li>[ ] Build lib/extractTask.ts â€” extracts assignee, description, deadline from task_create messages</li>
+<li>[ ] Build lib/processTaskCreation.ts â€” full orchestration: lookup user â†’ create task â†’ send WhatsApp â†’ insert reminders</li>
+<li>[ ] Handle: user not found, no deadline, low confidence extraction</li>
+<li>[ ] Test with 10 diverse messages (Gujarati, Hinglish, English)</li>
+</ul>
+<h4 id="antigravity-prompts_8">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Intent classification:
+&quot;Using Context7 MCP, look up Google Gemini 2.5 Flash API documentation for structured JSON output.
 Build lib/classifyIntent.ts:
 
-export async function classifyIntent(text: string): Promise<{
+export async function classifyIntent(text: string): Promise&lt;{
   intent: 'task_create' | 'todo_create' | 'task_reply' | 'payment_create' | 'unknown';
   confidence: 'high' | 'medium' | 'low';
   raw_reply_keyword?: string;  // if task_reply: the actual keyword used (ACCEPT, REJECT, DONE etc.)
-}>
+}&gt;
 
 Use Gemini 2.5 Flash (non-thinking mode) with this system prompt:
 'You are an intent classifier for an Indian business WhatsApp bot. Classify the message.
@@ -1018,19 +1052,17 @@ Input: hello â†’ {intent: unknown, confidence: high}
 Message: [USER_MESSAGE]'
 
 Use GEMINI_API_KEY environment variable.
-CRITICAL INSTRUCTION IN EVERY GEMINI CALL: Include 'Return null for uncertain fields. Do not guess.'"
-```
+CRITICAL INSTRUCTION IN EVERY GEMINI CALL: Include 'Return null for uncertain fields. Do not guess.'&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Task extraction:
+&quot;Build lib/extractTask.ts:
 
-```
-PROMPT 2 â€” Task extraction:
-"Build lib/extractTask.ts:
-
-export async function extractTask(text: string): Promise<{
+export async function extractTask(text: string): Promise&lt;{
   assignee_name: string | null;
   task_description: string | null;
   deadline_iso: string | null;
   confidence: 'high' | 'medium' | 'low';
-}>
+}&gt;
 
 Use Gemini 2.5 Flash with this system prompt:
 'You are a task detail extractor for an Indian SMB WhatsApp bot.
@@ -1056,22 +1088,20 @@ Output: {assignee_name: Ramesh, task_description: Send the sales report, deadlin
 Input: file bhejo
 Output: {assignee_name: null, task_description: Send the file, deadline_iso: null, confidence: low}
 
-Message: [USER_MESSAGE]'"
-```
-
-```
-PROMPT 3 â€” Task creation orchestration:
-"Build lib/processTaskCreation.ts:
+Message: [USER_MESSAGE]'&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Task creation orchestration:
+&quot;Build lib/processTaskCreation.ts:
 
 export async function processTaskCreation(
   senderPhone: string,
   messageId: string,
   extractedTask: { assignee_name: string | null, task_description: string | null, deadline_iso: string | null, confidence: string }
-): Promise<void>
+): Promise&lt;void&gt;
 
 Logic:
 1. Look up sender in users table by phone_number â†’ get their user ID and organisation_id
-   If sender not in users table: send WhatsApp 'You are not registered in TASKSURE. Please sign up at [URL]' and return.
+   If sender not in users table: send WhatsApp 'You are not registered in Boldo AI Assistant. Please sign up at [URL]' and return.
 
 2. If confidence = 'low' or assignee_name is null:
    Send WhatsApp to sender: 'I could not understand who should do this task. Please mention the person's name clearly.'
@@ -1115,40 +1145,37 @@ Please reply *ACCEPT* or *REJECT*'
 Deadline: [formatted deadline]
 I will notify you once they accept.'
 
-12. UPDATE incoming_messages: processed = true"
-```
+12. UPDATE incoming_messages: processed = true&quot;
+</code></pre>
+<h4 id="end-of-day-check_8">End of Day Check</h4>
+<ul>
+<li>[ ] Gujarati voice note "Ramesh ne file 5 vaage moklavani chhe" creates a task correctly</li>
+<li>[ ] English text "Tell Priya to prepare slides by tomorrow 5pm" creates a task correctly</li>
+<li>[ ] Message with no name sends back a clarification WhatsApp</li>
+<li>[ ] Task appears in both manager's /assigned-tasks and employee's /my-tasks in real-time</li>
+</ul>
+<hr />
+<h3 id="day-10-a-task-reply-flows-todo-creation">DAY 10 â€” Task Reply Flows &amp; Todo Creation</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> ACCEPT, REJECT, DONE, DELEGATE, HELP, STATUS commands working. Todo creation via WhatsApp working.</p>
+<h4 id="tasks_9">Tasks</h4>
+<ul>
+<li>[ ] Build lib/processTaskReply.ts handling all reply keywords</li>
+<li>[ ] ACCEPT flow: ask for deadline â†’ parse response â†’ update task â†’ notify manager</li>
+<li>[ ] REJECT flow: ask for reason â†’ save to task_comments â†’ update task â†’ notify manager</li>
+<li>[ ] DONE flow: check sub-tasks complete â†’ mark done â†’ notify manager</li>
+<li>[ ] DELEGATE flow: parse delegation target and sub-task â†’ create sub-task â†’ notify delegate</li>
+<li>[ ] HELP command: list all commands</li>
+<li>[ ] STATUS command: show user's active tasks</li>
+<li>[ ] Build lib/processTodoCreation.ts â€” creates todo and reminder rows from WhatsApp</li>
+<li>[ ] Test all commands end-to-end</li>
+</ul>
+<h4 id="antigravity-prompts_9">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Task reply handler:
+&quot;Build lib/processTaskReply.ts:
 
-#### End of Day Check
-- [ ] Gujarati voice note "Ramesh ne file 5 vaage moklavani chhe" creates a task correctly
-- [ ] English text "Tell Priya to prepare slides by tomorrow 5pm" creates a task correctly
-- [ ] Message with no name sends back a clarification WhatsApp
-- [ ] Task appears in both manager's /assigned-tasks and employee's /my-tasks in real-time
-
----
-
-### DAY 10 â€” Task Reply Flows & Todo Creation
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** ACCEPT, REJECT, DONE, DELEGATE, HELP, STATUS commands working. Todo creation via WhatsApp working.
-
-#### Tasks
-- [ ] Build lib/processTaskReply.ts handling all reply keywords
-- [ ] ACCEPT flow: ask for deadline â†’ parse response â†’ update task â†’ notify manager
-- [ ] REJECT flow: ask for reason â†’ save to task_comments â†’ update task â†’ notify manager
-- [ ] DONE flow: check sub-tasks complete â†’ mark done â†’ notify manager
-- [ ] DELEGATE flow: parse delegation target and sub-task â†’ create sub-task â†’ notify delegate
-- [ ] HELP command: list all commands
-- [ ] STATUS command: show user's active tasks
-- [ ] Build lib/processTodoCreation.ts â€” creates todo and reminder rows from WhatsApp
-- [ ] Test all commands end-to-end
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Task reply handler:
-"Build lib/processTaskReply.ts:
-
-export async function processTaskReply(senderPhone: string, message: string, rawKeyword: string): Promise<void>
+export async function processTaskReply(senderPhone: string, message: string, rawKeyword: string): Promise&lt;void&gt;
 
 Handle these keywords:
 
@@ -1199,7 +1226,7 @@ DONE:
 
 HELP:
 - Reply with formatted list:
-'TASKSURE Commands:
+'Boldo AI Assistant Commands:
 âœ… *ACCEPT* â€” Accept a task assigned to you
 âŒ *REJECT* â€” Reject a task (will ask for reason)
 âœ… *DONE* â€” Mark your task as complete
@@ -1223,14 +1250,12 @@ DELEGATE:
 - INSERT sub-task: { parent_task_id: [sender's task], title: sub_task_description, assigned_to: delegate_id, status: 'pending', deadline }
 - INSERT reminder rows for delegate
 - Notify delegate via WhatsApp with ACCEPT/REJECT flow
-- Reply to sender: 'Sub-task delegated to [name]. I will let you know when they accept.'"
-```
+- Reply to sender: 'Sub-task delegated to [name]. I will let you know when they accept.'&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Todo creation via WhatsApp:
+&quot;Build lib/processTodoCreation.ts:
 
-```
-PROMPT 2 â€” Todo creation via WhatsApp:
-"Build lib/processTodoCreation.ts:
-
-export async function processTodoCreation(senderPhone: string, messageId: string, text: string): Promise<void>
+export async function processTodoCreation(senderPhone: string, messageId: string, text: string): Promise&lt;void&gt;
 
 1. Look up sender by phone in users table
 2. Use Gemini 2.5 Flash to extract:
@@ -1258,12 +1283,10 @@ export async function processTodoCreation(senderPhone: string, messageId: string
    If remind_at set: 'Got it! I will remind you to [title] at [formatted remind_at]. ðŸ“'
    If no remind_at: 'Got it! Added to your to-dos: [title]. I will remind you at 8pm tonight. ðŸ“'
 
-8. UPDATE incoming_messages: processed = true"
-```
-
-```
-PROMPT 3 â€” Wire everything into webhook:
-"Update app/api/webhook/route.ts to use the full processing pipeline:
+8. UPDATE incoming_messages: processed = true&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Wire everything into webhook:
+&quot;Update app/api/webhook/route.ts to use the full processing pipeline:
 
 After transcription (if audio) or directly (if text):
 1. UPDATE incoming_messages with the text (raw_text = transcript or original text)
@@ -1281,40 +1304,37 @@ Also check: before classifying intent, check if the user has a pending state
 If yes: skip intent classification and route directly to processTaskReply() with the message as the continuation.
 
 All processing happens after the 200 OK is returned.
-Use Promise callbacks or a background queue pattern â€” do not await in the main handler."
-```
-
-#### End of Day Check
-- [ ] ACCEPT â†’ deadline prompt â†’ deadline reply â†’ task accepted â†’ manager notified
-- [ ] REJECT â†’ reason prompt â†’ reason reply â†’ task rejected â†’ manager notified
-- [ ] DONE â†’ task completed â†’ manager notified
-- [ ] DELEGATE â†’ sub-task created â†’ delegate notified â†’ ACCEPT blocks parent
-- [ ] "Remind me to call Mehta at 3pm" â†’ todo created â†’ reminder row inserted in Supabase
-
----
-
-### DAY 11 â€” Reminder System (Cron Job)
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** Automated reminder cron job running every 5 minutes. WhatsApp and voice call reminders firing correctly. Overdue detection working.
-
-#### Tasks
-- [ ] Build /api/cron/reminders route â€” the main cron job
-- [ ] Query pending reminders table and send via WhatsApp or Sarvam+Exotel voice call
-- [ ] Build lib/makeVoiceCall.ts using Sarvam Samvaad + Exotel
-- [ ] Overdue detection: mark tasks overdue, alert both parties
-- [ ] Cancel reminders when tasks are completed or cancelled
-- [ ] Set up Vercel Cron to run every 5 minutes
-- [ ] Test: create task, wait for reminders to fire
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Voice call function:
-"Using Context7 MCP, look up the Sarvam AI Samvaad voice agent API and Exotel outbound call API.
+Use Promise callbacks or a background queue pattern â€” do not await in the main handler.&quot;
+</code></pre>
+<h4 id="end-of-day-check_9">End of Day Check</h4>
+<ul>
+<li>[ ] ACCEPT â†’ deadline prompt â†’ deadline reply â†’ task accepted â†’ manager notified</li>
+<li>[ ] REJECT â†’ reason prompt â†’ reason reply â†’ task rejected â†’ manager notified</li>
+<li>[ ] DONE â†’ task completed â†’ manager notified</li>
+<li>[ ] DELEGATE â†’ sub-task created â†’ delegate notified â†’ ACCEPT blocks parent</li>
+<li>[ ] "Remind me to call Mehta at 3pm" â†’ todo created â†’ reminder row inserted in Supabase</li>
+</ul>
+<hr />
+<h3 id="day-11-a-reminder-system-cron-job">DAY 11 â€” Reminder System (Cron Job)</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> Automated reminder cron job running every 5 minutes. WhatsApp and voice call reminders firing correctly. Overdue detection working.</p>
+<h4 id="tasks_10">Tasks</h4>
+<ul>
+<li>[ ] Build /api/cron/reminders route â€” the main cron job</li>
+<li>[ ] Query pending reminders table and send via WhatsApp or Sarvam+Exotel voice call</li>
+<li>[ ] Build lib/makeVoiceCall.ts using Sarvam Samvaad + Exotel</li>
+<li>[ ] Overdue detection: mark tasks overdue, alert both parties</li>
+<li>[ ] Cancel reminders when tasks are completed or cancelled</li>
+<li>[ ] Set up Vercel Cron to run every 5 minutes</li>
+<li>[ ] Test: create task, wait for reminders to fire</li>
+</ul>
+<h4 id="antigravity-prompts_10">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Voice call function:
+&quot;Using Context7 MCP, look up the Sarvam AI Samvaad voice agent API and Exotel outbound call API.
 Build lib/makeVoiceCall.ts:
 
-export async function makeVoiceCall(phone: string, message: string, language: 'gu' | 'hi' | 'en' = 'gu'): Promise<{ success: boolean; call_id?: string; error?: string }>
+export async function makeVoiceCall(phone: string, message: string, language: 'gu' | 'hi' | 'en' = 'gu'): Promise&lt;{ success: boolean; call_id?: string; error?: string }&gt;
 
 This function should:
 1. Use Exotel to initiate an outbound call to [phone] from your Exotel virtual number
@@ -1326,18 +1346,16 @@ For the Gujarati call script, the message will be pre-formatted by the caller.
 Example message: 'Kem cho Ramesh bhai, aapne Vikram bhai tarafthi ek task assign thayo chhe. 
 Please WhatsApp par ACCEPT lakhine reply karo.'
 
-Use EXOTEL_SID, EXOTEL_TOKEN, EXOTEL_VIRTUAL_NUMBER, SARVAM_API_KEY environment variables."
-```
-
-```
-PROMPT 2 â€” Cron job:
-"Build app/api/cron/reminders/route.ts:
+Use EXOTEL_SID, EXOTEL_TOKEN, EXOTEL_VIRTUAL_NUMBER, SARVAM_API_KEY environment variables.&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Cron job:
+&quot;Build app/api/cron/reminders/route.ts:
 
 This route is called by Vercel Cron every 5 minutes.
 Secure it: check that the request has header Authorization: Bearer [CRON_SECRET_KEY].
 
 STEP 1 â€” Process pending reminders:
-SELECT * FROM reminders WHERE status = 'pending' AND scheduled_at <= NOW()
+SELECT * FROM reminders WHERE status = 'pending' AND scheduled_at &lt;= NOW()
 For each reminder:
   - Fetch the entity (task or todo) to get current status
   - If task is completed/cancelled/overdue: mark reminder as cancelled, skip
@@ -1360,7 +1378,7 @@ For each reminder:
 
 WhatsApp message templates:
 - Task not accepted (10 min): 'Hi [name] ðŸ‘‹ You have a task waiting for your response from [manager]. Reply ACCEPT or REJECT on this WhatsApp.'
-- Task deadline approaching (1 hr): 'âš ï¸ Reminder: Your task "[title]" is due at [time]. Please complete it on time!'
+- Task deadline approaching (1 hr): 'âš ï¸ Reminder: Your task &quot;[title]&quot; is due at [time]. Please complete it on time!'
 - Todo reminder: 'ðŸ“ Reminder: [todo title]'
 - Todo EOD: 'ðŸŒ™ End of day reminder: [todo title] â€” was this completed? Reply DONE if yes.'
 
@@ -1370,22 +1388,20 @@ Gujarati voice call scripts:
 
 STEP 2 â€” Overdue detection:
 SELECT * FROM tasks 
-WHERE status = 'accepted' AND committed_deadline < NOW()
+WHERE status = 'accepted' AND committed_deadline &lt; NOW()
 For each:
   - UPDATE tasks SET status='overdue', updated_at=NOW()
   - INSERT notification for created_by: type='task_overdue'
   - INSERT notification for assigned_to: type='task_overdue'
-  - Send WhatsApp to assigned_to: 'ðŸš¨ Your task "[title]" is now overdue! Please complete it immediately or contact [manager name].'
-  - Send WhatsApp to created_by: 'ðŸš¨ OVERDUE: [assignee name] has not completed "[title]" by [committed_deadline].'
+  - Send WhatsApp to assigned_to: 'ðŸš¨ Your task &quot;[title]&quot; is now overdue! Please complete it immediately or contact [manager name].'
+  - Send WhatsApp to created_by: 'ðŸš¨ OVERDUE: [assignee name] has not completed &quot;[title]&quot; by [committed_deadline].'
   - INSERT audit_log: { action:'task.overdue' }
 
 STEP 3 â€” Log job run:
-INSERT audit_log: { action:'system.cron_run', metadata: { reminders_processed: N, tasks_marked_overdue: M } }"
-```
-
-```
-PROMPT 3 â€” Vercel Cron setup:
-"Create vercel.json in the project root:
+INSERT audit_log: { action:'system.cron_run', metadata: { reminders_processed: N, tasks_marked_overdue: M } }&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Vercel Cron setup:
+&quot;Create vercel.json in the project root:
 {
   'crons': [
     {
@@ -1398,36 +1414,33 @@ PROMPT 3 â€” Vercel Cron setup:
 Also add CRON_SECRET_KEY to Vercel environment variables.
 The cron route should verify: request.headers.get('authorization') === 'Bearer ' + process.env.CRON_SECRET_KEY
 
-Using Vercel MCP, deploy the updated code to production and confirm the cron job is listed in the Vercel dashboard."
-```
-
-#### End of Day Check
-- [ ] Create a task, wait 10 minutes â€” WhatsApp reminder received
-- [ ] Wait 30 minutes total â€” voice call received (check Exotel call logs)
-- [ ] Set a task deadline 1 minute in the past â€” it appears as overdue within 5 minutes
-- [ ] Complete a task â€” its pending reminders are cancelled in Supabase
-
----
-
-### DAY 12 â€” Gujarati Testing & WhatsApp Polish
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** 30 test messages processed correctly. All bot messages rewritten to sound natural. All commands working.
-
-#### Tasks
-- [ ] Test 30 diverse messages across all intent types â€” document pass/fail
-- [ ] Fix top failures (improve Gemini prompts, handle edge cases)
-- [ ] Rewrite all WhatsApp bot messages to sound warm, natural, and Indian (not robotic)
-- [ ] Add CANCEL command (manager cancels a task)
-- [ ] Add EXTEND command (manager extends a deadline)
-- [ ] Add TEAM command (quick team summary for managers)
-- [ ] Add welcome message for first-time WhatsApp contacts
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” 30-message test suite:
-"Using the Browser Agent, test my WhatsApp webhook with 30 different messages.
+Using Vercel MCP, deploy the updated code to production and confirm the cron job is listed in the Vercel dashboard.&quot;
+</code></pre>
+<h4 id="end-of-day-check_10">End of Day Check</h4>
+<ul>
+<li>[ ] Create a task, wait 10 minutes â€” WhatsApp reminder received</li>
+<li>[ ] Wait 30 minutes total â€” voice call received (check Exotel call logs)</li>
+<li>[ ] Set a task deadline 1 minute in the past â€” it appears as overdue within 5 minutes</li>
+<li>[ ] Complete a task â€” its pending reminders are cancelled in Supabase</li>
+</ul>
+<hr />
+<h3 id="day-12-a-gujarati-testing-whatsapp-polish">DAY 12 â€” Gujarati Testing &amp; WhatsApp Polish</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> 30 test messages processed correctly. All bot messages rewritten to sound natural. All commands working.</p>
+<h4 id="tasks_11">Tasks</h4>
+<ul>
+<li>[ ] Test 30 diverse messages across all intent types â€” document pass/fail</li>
+<li>[ ] Fix top failures (improve Gemini prompts, handle edge cases)</li>
+<li>[ ] Rewrite all WhatsApp bot messages to sound warm, natural, and Indian (not robotic)</li>
+<li>[ ] Add CANCEL command (manager cancels a task)</li>
+<li>[ ] Add EXTEND command (manager extends a deadline)</li>
+<li>[ ] Add TEAM command (quick team summary for managers)</li>
+<li>[ ] Add welcome message for first-time WhatsApp contacts</li>
+</ul>
+<h4 id="antigravity-prompts_11">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” 30-message test suite:
+&quot;Using the Browser Agent, test my WhatsApp webhook with 30 different messages.
 Send each as a simulated Wati webhook POST request.
 Test these messages:
 
@@ -1465,17 +1478,15 @@ TASK_REPLY (7):
 EDGE CASES (5):
 26. Empty message (just a space)
 27. 'Hello'
-28. Voice note < 1 second (silence)
+28. Voice note &lt; 1 second (silence)
 29. Unknown language (type in French)
 30. Message from a phone number not registered in the system
 
 For each message: show intent classified, extraction result, action taken, WhatsApp reply sent.
-Mark each PASS or FAIL. Give me the top 5 failures to fix."
-```
-
-```
-PROMPT 2 â€” Fix failures and polish messages:
-"Based on the test results, fix the top failures by improving the Gemini prompts in
+Mark each PASS or FAIL. Give me the top 5 failures to fix.&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Fix failures and polish messages:
+&quot;Based on the test results, fix the top failures by improving the Gemini prompts in
 lib/classifyIntent.ts and lib/extractTask.ts.
 
 Then rewrite ALL WhatsApp messages the bot sends to sound warm and natural.
@@ -1512,48 +1523,43 @@ TEAM (for managers/owners only):
 
 WELCOME MESSAGE (for any new phone number messaging the bot for first time):
 - Check if incoming phone exists in users table
-- If not found: reply with welcome message introducing TASKSURE and the signup URL
-'Hello! ðŸ‘‹ I'm TASKSURE â€” your team's task management assistant.
+- If not found: reply with welcome message introducing Boldo AI Assistant and the signup URL
+'Hello! ðŸ‘‹ I'm Boldo AI Assistant â€” your team's task management assistant.
 It looks like you're new here!
 Your manager may have added you to a team. Please sign up at: [URL]
 Or ask your manager to share the invite link.
-Reply HELP anytime to see what I can do!'"
-```
-
-#### End of Day Check
-- [ ] 25+ of 30 test messages pass correctly
-- [ ] CANCEL and EXTEND commands working
-- [ ] TEAM command gives correct summary
-- [ ] Bot messages sound warm and natural, not robotic
-- [ ] Welcome message sent to unregistered numbers
-
----
-
-## PHASE 4 â€” SECURITY, TESTING & LAUNCH
-### Days 13â€“20: Security hardening, beta testing, bug fixes, launch
-
----
-
-### DAY 13 â€” Security Hardening & Full System Audit
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** Security audit passed. RLS verified. All API keys server-side. Rate limiting active. Snyk clean.
-
-#### Tasks
-- [ ] Test RLS: Org A user cannot see Org B data under any query
-- [ ] Test todos RLS: user cannot query another user's todos even with raw SQL attempts
-- [ ] Verify all API routes return 401 for unauthenticated requests
-- [ ] Run full Snyk security scan â€” fix all HIGH severity issues
-- [ ] Confirm no API keys in client-side code (especially SUPABASE_SERVICE_ROLE_KEY)
-- [ ] Verify rate limiting on webhook (30 msg/phone/min)
-- [ ] Check Vercel function logs for any recurring errors
-- [ ] Add input sanitisation to all user-facing text fields
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” RLS verification:
-"Using Supabase MCP, run these security tests:
+Reply HELP anytime to see what I can do!'&quot;
+</code></pre>
+<h4 id="end-of-day-check_11">End of Day Check</h4>
+<ul>
+<li>[ ] 25+ of 30 test messages pass correctly</li>
+<li>[ ] CANCEL and EXTEND commands working</li>
+<li>[ ] TEAM command gives correct summary</li>
+<li>[ ] Bot messages sound warm and natural, not robotic</li>
+<li>[ ] Welcome message sent to unregistered numbers</li>
+</ul>
+<hr />
+<h2 id="phase-4-a-security-testing-launch">PHASE 4 â€” SECURITY, TESTING &amp; LAUNCH</h2>
+<h3 id="days-13a20-security-hardening-beta-testing-bug-fixes-launch">Days 13â€“20: Security hardening, beta testing, bug fixes, launch</h3>
+<hr />
+<h3 id="day-13-a-security-hardening-full-system-audit">DAY 13 â€” Security Hardening &amp; Full System Audit</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> Security audit passed. RLS verified. All API keys server-side. Rate limiting active. Snyk clean.</p>
+<h4 id="tasks_12">Tasks</h4>
+<ul>
+<li>[ ] Test RLS: Org A user cannot see Org B data under any query</li>
+<li>[ ] Test todos RLS: user cannot query another user's todos even with raw SQL attempts</li>
+<li>[ ] Verify all API routes return 401 for unauthenticated requests</li>
+<li>[ ] Run full Snyk security scan â€” fix all HIGH severity issues</li>
+<li>[ ] Confirm no API keys in client-side code (especially SUPABASE_SERVICE_ROLE_KEY)</li>
+<li>[ ] Verify rate limiting on webhook (30 msg/phone/min)</li>
+<li>[ ] Check Vercel function logs for any recurring errors</li>
+<li>[ ] Add input sanitisation to all user-facing text fields</li>
+</ul>
+<h4 id="antigravity-prompts_12">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” RLS verification:
+&quot;Using Supabase MCP, run these security tests:
 
 TEST 1 â€” Cross-org task isolation:
 Run this SQL as a user from Organisation A (use their JWT token):
@@ -1578,59 +1584,52 @@ It should ONLY appear in server-side files (files in app/api/ or lib/).
 It should NEVER appear in any file under app/(dashboard)/ or any client component.
 If found in client code: flag it as a critical security issue and fix immediately.
 
-Fix any issues found."
-```
-
-```
-PROMPT 2 â€” Snyk + rate limiting:
-"Run a full Snyk security scan on the entire codebase.
+Fix any issues found.&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Snyk + rate limiting:
+&quot;Run a full Snyk security scan on the entire codebase.
 Show me all HIGH and MEDIUM severity vulnerabilities.
 Fix all HIGH severity issues immediately.
 For MEDIUM issues: fix any related to authentication, injection, or data exposure.
 
 Then verify rate limiting on the webhook:
 The webhook should track message counts per phone number using an in-memory Map or Supabase counter.
-If a phone sends >30 messages within 60 seconds: return HTTP 429 and do not process.
+If a phone sends &gt;30 messages within 60 seconds: return HTTP 429 and do not process.
 Test this by simulating 35 rapid requests from the same phone number using the Browser Agent.
-Confirm the 31st request gets a 429 response."
-```
-
-```
-PROMPT 3 â€” GitHub commit:
-"Using GitHub MCP, commit all security fixes:
+Confirm the 31st request gets a 429 response.&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” GitHub commit:
+&quot;Using GitHub MCP, commit all security fixes:
 'Day 13: Security hardening â€” RLS verified, Snyk clean, rate limiting active'
-Tag as v0.3.0-security"
-```
-
-#### End of Day Check
-- [ ] RLS tests pass â€” zero cross-org data leakage
-- [ ] Todo privacy test passes â€” zero cross-user todo visibility
-- [ ] Snyk shows zero HIGH severity vulnerabilities
-- [ ] Service role key appears only in server-side code
-- [ ] Rate limiting returns 429 after 30 messages per minute
-
----
-
-### DAY 14 â€” Performance & Final Pre-Beta Polish
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** All pages load under 2 seconds. All edge cases handled. App ready for real users.
-
-#### Tasks
-- [ ] Measure home dashboard load time â€” optimise if over 2 seconds
-- [ ] Check and fix any N+1 query problems (fetching per-user in a loop)
-- [ ] Verify cron job completes in under 60 seconds with 50 test tasks
-- [ ] Add loading skeleton states to all data-fetching pages
-- [ ] Add proper error pages: 404, 500, auth error
-- [ ] Final full mobile test â€” fix any remaining issues
-- [ ] Test on Safari mobile (iOS) specifically â€” often has different behaviour
-- [ ] Make sure the web app's Create Task flow and WhatsApp bot stay in sync (same data)
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Performance audit:
-"Using Browser Agent and the Vercel MCP, run a performance audit.
+Tag as v0.3.0-security&quot;
+</code></pre>
+<h4 id="end-of-day-check_12">End of Day Check</h4>
+<ul>
+<li>[ ] RLS tests pass â€” zero cross-org data leakage</li>
+<li>[ ] Todo privacy test passes â€” zero cross-user todo visibility</li>
+<li>[ ] Snyk shows zero HIGH severity vulnerabilities</li>
+<li>[ ] Service role key appears only in server-side code</li>
+<li>[ ] Rate limiting returns 429 after 30 messages per minute</li>
+</ul>
+<hr />
+<h3 id="day-14-a-performance-final-pre-beta-polish">DAY 14 â€” Performance &amp; Final Pre-Beta Polish</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> All pages load under 2 seconds. All edge cases handled. App ready for real users.</p>
+<h4 id="tasks_13">Tasks</h4>
+<ul>
+<li>[ ] Measure home dashboard load time â€” optimise if over 2 seconds</li>
+<li>[ ] Check and fix any N+1 query problems (fetching per-user in a loop)</li>
+<li>[ ] Verify cron job completes in under 60 seconds with 50 test tasks</li>
+<li>[ ] Add loading skeleton states to all data-fetching pages</li>
+<li>[ ] Add proper error pages: 404, 500, auth error</li>
+<li>[ ] Final full mobile test â€” fix any remaining issues</li>
+<li>[ ] Test on Safari mobile (iOS) specifically â€” often has different behaviour</li>
+<li>[ ] Make sure the web app's Create Task flow and WhatsApp bot stay in sync (same data)</li>
+</ul>
+<h4 id="antigravity-prompts_13">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Performance audit:
+&quot;Using Browser Agent and the Vercel MCP, run a performance audit.
 
 Check 1 â€” Page load times:
 Open Browser Agent. Navigate to each dashboard page and measure the time from navigation start to content visible.
@@ -1652,13 +1651,11 @@ If it takes longer: parallelise the reminder sending (Promise.all instead of seq
 Check 4 â€” Missing indexes:
 Using Supabase MCP, run EXPLAIN ANALYZE on the most common queries:
 - SELECT * FROM tasks WHERE assigned_to = X AND status IN (...)
-- SELECT * FROM reminders WHERE status='pending' AND scheduled_at <= NOW()
-Check that each uses an index scan (not a sequential scan). If sequential: add the missing index."
-```
-
-```
-PROMPT 2 â€” Polish and error pages:
-"Add loading skeleton states to all pages that fetch data.
+- SELECT * FROM reminders WHERE status='pending' AND scheduled_at &lt;= NOW()
+Check that each uses an index scan (not a sequential scan). If sequential: add the missing index.&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Polish and error pages:
+&quot;Add loading skeleton states to all pages that fetch data.
 A skeleton state is a grey pulsing placeholder shown while data loads.
 Use a simple CSS animation: animate-pulse with grey rounded rectangles.
 Add skeletons to: home dashboard, my-tasks, assigned-tasks, calendar, team, stats, notifications.
@@ -1673,51 +1670,46 @@ Using Browser Agent, test the app on Safari mobile (simulate iOS Safari at 375px
 - Test home dashboard
 - Test creating a task from the modal
 - Test the drawer opening on My Tasks
-Report any Safari-specific issues (Safari handles some CSS and JS differently than Chrome)."
-```
-
-#### End of Day Check
-- [ ] Home dashboard loads under 2 seconds (verified by Browser Agent)
-- [ ] No N+1 query patterns remain
-- [ ] Skeleton loading states visible on all data pages
-- [ ] 404 and 500 error pages built and working
-- [ ] Safari mobile test passing
-
----
-
-### DAY 15 â€” Beta User Onboarding
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** 2-3 real Indian SMB business owners using the product. Bug list from real usage documented.
-
-#### Tasks
-- [ ] Find 2-3 SMB business owners in your network willing to test for free
-- [ ] Schedule 30-minute onboarding call per beta user
-- [ ] Walk each through: web app signup, WhatsApp bot, creating first task
-- [ ] Goal for them: create 5+ real tasks over next 3 days
-- [ ] Set up a WhatsApp group with beta testers for bug reports
-- [ ] Monitor Supabase and Vercel logs every 2-3 hours
-- [ ] Document every bug, confusion point, and positive feedback
-- [ ] Do NOT fix anything today â€” only observe and document
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Pre-beta monitoring setup:
-"Using Supabase MCP, create a monitoring query I can run every 2 hours to check beta health.
+Report any Safari-specific issues (Safari handles some CSS and JS differently than Chrome).&quot;
+</code></pre>
+<h4 id="end-of-day-check_13">End of Day Check</h4>
+<ul>
+<li>[ ] Home dashboard loads under 2 seconds (verified by Browser Agent)</li>
+<li>[ ] No N+1 query patterns remain</li>
+<li>[ ] Skeleton loading states visible on all data pages</li>
+<li>[ ] 404 and 500 error pages built and working</li>
+<li>[ ] Safari mobile test passing</li>
+</ul>
+<hr />
+<h3 id="day-15-a-beta-user-onboarding">DAY 15 â€” Beta User Onboarding</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> 2-3 real Indian SMB business owners using the product. Bug list from real usage documented.</p>
+<h4 id="tasks_14">Tasks</h4>
+<ul>
+<li>[ ] Find 2-3 SMB business owners in your network willing to test for free</li>
+<li>[ ] Schedule 30-minute onboarding call per beta user</li>
+<li>[ ] Walk each through: web app signup, WhatsApp bot, creating first task</li>
+<li>[ ] Goal for them: create 5+ real tasks over next 3 days</li>
+<li>[ ] Set up a WhatsApp group with beta testers for bug reports</li>
+<li>[ ] Monitor Supabase and Vercel logs every 2-3 hours</li>
+<li>[ ] Document every bug, confusion point, and positive feedback</li>
+<li>[ ] Do NOT fix anything today â€” only observe and document</li>
+</ul>
+<h4 id="antigravity-prompts_14">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Pre-beta monitoring setup:
+&quot;Using Supabase MCP, create a monitoring query I can run every 2 hours to check beta health.
 Show me:
 1. SELECT COUNT(*), status FROM tasks WHERE organisation_id IN ([beta org ids]) GROUP BY status
-2. SELECT COUNT(*), status FROM reminders WHERE created_at > NOW()-interval '24 hours' GROUP BY status
+2. SELECT COUNT(*), status FROM reminders WHERE created_at &gt; NOW()-interval '24 hours' GROUP BY status
 3. SELECT phone, COUNT(*), MAX(created_at) FROM incoming_messages GROUP BY phone ORDER BY COUNT DESC
-4. SELECT action, COUNT(*) FROM audit_log WHERE created_at > NOW()-interval '24 hours' GROUP BY action
+4. SELECT action, COUNT(*) FROM audit_log WHERE created_at &gt; NOW()-interval '24 hours' GROUP BY action
 5. SELECT processing_error, COUNT(*) FROM incoming_messages WHERE processing_error IS NOT NULL GROUP BY processing_error
 
-Also: using Vercel MCP, set up an alert that emails me when any function returns a 500 error."
-```
-
-```
-PROMPT 2 â€” Onboarding guide creation:
-"Create a simple onboarding guide for beta users. Format as a WhatsApp-friendly message (plain text, short).
+Also: using Vercel MCP, set up an alert that emails me when any function returns a 500 error.&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Onboarding guide creation:
+&quot;Create a simple onboarding guide for beta users. Format as a WhatsApp-friendly message (plain text, short).
 Include:
 1. How to sign up (URL + steps)
 2. How to create a task via WhatsApp (example voice note script in Gujarati and English)
@@ -1725,36 +1717,31 @@ Include:
 4. How to view the dashboard
 5. How to add personal to-dos
 6. WhatsApp number to send tasks to
-Keep it under 20 lines. Indian business owner friendly language."
-```
-
-#### Day 15 Evening â€” Document Findings
-After beta testing:
+Keep it under 20 lines. Indian business owner friendly language.&quot;
+</code></pre>
+<h4 id="day-15-evening-a-document-findings">Day 15 Evening â€” Document Findings</h4>
+<p>After beta testing:
 - [ ] List all bugs found
 - [ ] List all features that confused users
 - [ ] List all positive feedback
-- [ ] Prioritise bugs by severity: Critical (blocks use) / Major (frustrating) / Minor (cosmetic)
-
----
-
-### DAY 16 â€” Beta Bug Fixes (Round 1)
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** All critical bugs fixed. Major bugs fixed. Live version stable.
-
-#### Tasks
-- [ ] Fix all Critical bugs from beta testing
-- [ ] Fix all Major bugs
-- [ ] Make deadline format more flexible (accept '3pm', 'kal 5 baje', 'tomorrow evening', 'EOD', '5 o clock')
-- [ ] Deploy fixed version to Vercel production
-- [ ] Notify beta testers: fixes deployed, please re-test
-- [ ] Continue monitoring for new issues
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Flexible deadline parsing:
-"Improve the deadline extraction in lib/extractTask.ts and lib/processTodoCreation.ts.
+- [ ] Prioritise bugs by severity: Critical (blocks use) / Major (frustrating) / Minor (cosmetic)</p>
+<hr />
+<h3 id="day-16-a-beta-bug-fixes-round-1">DAY 16 â€” Beta Bug Fixes (Round 1)</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> All critical bugs fixed. Major bugs fixed. Live version stable.</p>
+<h4 id="tasks_15">Tasks</h4>
+<ul>
+<li>[ ] Fix all Critical bugs from beta testing</li>
+<li>[ ] Fix all Major bugs</li>
+<li>[ ] Make deadline format more flexible (accept '3pm', 'kal 5 baje', 'tomorrow evening', 'EOD', '5 o clock')</li>
+<li>[ ] Deploy fixed version to Vercel production</li>
+<li>[ ] Notify beta testers: fixes deployed, please re-test</li>
+<li>[ ] Continue monitoring for new issues</li>
+</ul>
+<h4 id="antigravity-prompts_15">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Flexible deadline parsing:
+&quot;Improve the deadline extraction in lib/extractTask.ts and lib/processTodoCreation.ts.
 The current Gemini prompt needs to handle these additional formats:
 '3pm', '3 PM', '3 o clock', 'kal 5 vaage' (Gujarati: tomorrow 5pm), 
 'aaje 5 vaage' (Gujarati: today 5pm), 'tomorrow evening', 'tonight', 
@@ -1763,12 +1750,10 @@ The current Gemini prompt needs to handle these additional formats:
 
 Update the Gemini extraction prompt to include examples of all these formats
 and how they map to ISO datetime strings.
-Test with 10 of these ambiguous deadline phrases and show me the extracted datetimes."
-```
-
-```
-PROMPT 2 â€” Fix critical bugs:
-"Here are the critical bugs reported by beta users: [PASTE YOUR BUG LIST HERE]
+Test with 10 of these ambiguous deadline phrases and show me the extracted datetimes.&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Fix critical bugs:
+&quot;Here are the critical bugs reported by beta users: [PASTE YOUR BUG LIST HERE]
 Using Sequential Thinking MCP, think through the root cause of each bug before fixing it.
 For each bug:
 1. Identify the root cause
@@ -1776,44 +1761,38 @@ For each bug:
 3. Implement the fix
 4. Write a one-line description of the fix for the commit message
 
-After all fixes, give me a deployment checklist: list every file changed."
-```
-
-```
-PROMPT 3 â€” Deploy and verify:
-"Using Vercel MCP, deploy the bug-fixed version to production.
+After all fixes, give me a deployment checklist: list every file changed.&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Deploy and verify:
+&quot;Using Vercel MCP, deploy the bug-fixed version to production.
 After deployment: check Vercel function logs for any new errors in the past 10 minutes.
-Confirm the deployment was successful and show me the live URL."
-```
-
----
-
-### DAY 17 â€” Beta Bug Fixes (Round 2) & Monitoring
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** All beta feedback addressed. System stable for 24+ hours. No new critical bugs.
-
-#### Tasks
-- [ ] Fix any new bugs reported after Round 1 fixes
-- [ ] Monitor Supabase and Vercel for 4 hours of stable operation
-- [ ] Check that cron job has been running every 5 minutes reliably (check audit_log for system.cron_run entries)
-- [ ] Verify reminders are actually being received by beta users (check reminder_log table)
-- [ ] Fix any reminder delivery failures
-- [ ] Buffer day â€” use remaining time to address any leftover items from earlier days
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” System health check:
-"Using Supabase MCP, run a full system health check:
+Confirm the deployment was successful and show me the live URL.&quot;
+</code></pre>
+<hr />
+<h3 id="day-17-a-beta-bug-fixes-round-2-monitoring">DAY 17 â€” Beta Bug Fixes (Round 2) &amp; Monitoring</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> All beta feedback addressed. System stable for 24+ hours. No new critical bugs.</p>
+<h4 id="tasks_16">Tasks</h4>
+<ul>
+<li>[ ] Fix any new bugs reported after Round 1 fixes</li>
+<li>[ ] Monitor Supabase and Vercel for 4 hours of stable operation</li>
+<li>[ ] Check that cron job has been running every 5 minutes reliably (check audit_log for system.cron_run entries)</li>
+<li>[ ] Verify reminders are actually being received by beta users (check reminder_log table)</li>
+<li>[ ] Fix any reminder delivery failures</li>
+<li>[ ] Buffer day â€” use remaining time to address any leftover items from earlier days</li>
+</ul>
+<h4 id="antigravity-prompts_16">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” System health check:
+&quot;Using Supabase MCP, run a full system health check:
 
 1. Cron job reliability:
-SELECT metadata->>'reminders_processed' as count, created_at
+SELECT metadata-&gt;&gt;'reminders_processed' as count, created_at
 FROM audit_log WHERE action='system.cron_run' ORDER BY created_at DESC LIMIT 20
 Are there entries every 5 minutes? Any gaps? Any with 0 reminders when there should be some?
 
 2. Reminder delivery rate:
-SELECT status, COUNT(*) FROM reminders WHERE created_at > NOW()-interval '48 hours' GROUP BY status
+SELECT status, COUNT(*) FROM reminders WHERE created_at &gt; NOW()-interval '48 hours' GROUP BY status
 What percentage are 'sent'? If 'failed' is high: investigate failure_reason values.
 
 3. Task flow completion:
@@ -1822,40 +1801,36 @@ How many tasks are stuck in 'pending' for over 1 hour? These may indicate the ac
 
 4. Error rate:
 SELECT processing_error, COUNT(*) FROM incoming_messages 
-WHERE processing_error IS NOT NULL AND created_at > NOW()-interval '48 hours'
+WHERE processing_error IS NOT NULL AND created_at &gt; NOW()-interval '48 hours'
 GROUP BY processing_error ORDER BY COUNT DESC
 What are the most common errors?
 
-Based on the results, identify and fix the top 3 issues."
-```
-
----
-
-### DAY 18 â€” Landing Page & Onboarding UX
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** Public landing page live. Onboarding flow polished. Demo video recorded.
-
-#### Tasks
-- [ ] Build public landing page at app/page.tsx
-- [ ] Landing page: hero headline, how it works (3 steps), key features, sign up CTA
-- [ ] Polish the signup flow based on beta user confusion points
-- [ ] Record a 3-minute Loom demo video (loom.com â€” free)
-- [ ] Write 1-page onboarding guide (WhatsApp-forward-friendly format)
-- [ ] Update TASKSURE_PLAN.md with current build status
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Landing page:
-"Using Context7 MCP, look up Next.js 14 page component documentation.
+Based on the results, identify and fix the top 3 issues.&quot;
+</code></pre>
+<hr />
+<h3 id="day-18-a-landing-page-onboarding-ux">DAY 18 â€” Landing Page &amp; Onboarding UX</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> Public landing page live. Onboarding flow polished. Demo video recorded.</p>
+<h4 id="tasks_17">Tasks</h4>
+<ul>
+<li>[ ] Build public landing page at app/page.tsx</li>
+<li>[ ] Landing page: hero headline, how it works (3 steps), key features, sign up CTA</li>
+<li>[ ] Polish the signup flow based on beta user confusion points</li>
+<li>[ ] Record a 3-minute Loom demo video (loom.com â€” free)</li>
+<li>[ ] Write 1-page onboarding guide (WhatsApp-forward-friendly format)</li>
+<li>[ ] Update Boldo AI Assistant_PLAN.md with current build status</li>
+</ul>
+<h4 id="antigravity-prompts_17">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Landing page:
+&quot;Using Context7 MCP, look up Next.js 14 page component documentation.
 Build a clean, professional public landing page at app/page.tsx.
 
 The landing page should have these sections:
 
 HERO SECTION:
 Headline: 'Manage your team on WhatsApp. No new app needed.'
-Sub-headline: 'TASKSURE turns your WhatsApp voice notes into tracked tasks with automatic follow-ups â€” built for Indian businesses.'
+Sub-headline: 'Boldo AI Assistant turns your WhatsApp voice notes into tracked tasks with automatic follow-ups â€” built for Indian businesses.'
 CTA button: 'Start Free' â†’ links to /signup
 Small trust note: 'Works in Gujarati, Hindi, and English'
 
@@ -1876,12 +1851,10 @@ Design requirements:
 - Mobile-first, clean and professional
 - Colour scheme: white background, navy (#1A3C5E) accents, clean typography
 - No external images â€” use emoji and CSS for visual elements
-- Page must load in under 1 second (no heavy assets)"
-```
-
-```
-PROMPT 2 â€” Update plan file:
-"Update the Current Build Status section in TASKSURE_PLAN.md.
+- Page must load in under 1 second (no heavy assets)&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Update plan file:
+&quot;Update the Current Build Status section in Boldo AI Assistant_PLAN.md.
 Mark all completed items with [x].
 Update the Current version to 'v0.4.0-beta'
 Update the Live URL to [actual Vercel URL]
@@ -1889,31 +1862,27 @@ Update Beta users to the count of actual beta users.
 
 Also add a new section at the bottom called BETA FEEDBACK LOG with two subsections:
 ISSUES FIXED: [list all bugs we fixed]
-OPEN ITEMS: [list anything still pending]"
-```
-
----
-
-### DAY 19 â€” Final QA & Pre-Launch Checklist
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** Complete system QA passing. Pre-launch checklist fully checked. Ready to launch.
-
-#### Tasks
-- [ ] Complete end-to-end test covering all features (web app + WhatsApp bot)
-- [ ] Verify all 11 database tables have correct data after testing
-- [ ] Final Snyk security scan â€” must be clean
-- [ ] Verify Vercel environment variables are all set correctly in production
-- [ ] Check that RLS is still active on all tables (verify in Supabase dashboard)
-- [ ] Verify cron job is running every 5 minutes in Vercel dashboard
-- [ ] Create GitHub release tag v1.0.0-mvp
-- [ ] Share with 5 more potential users
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Complete end-to-end QA:
-"Open Browser Agent and run the complete QA test suite.
+OPEN ITEMS: [list anything still pending]&quot;
+</code></pre>
+<hr />
+<h3 id="day-19-a-final-qa-pre-launch-checklist">DAY 19 â€” Final QA &amp; Pre-Launch Checklist</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> Complete system QA passing. Pre-launch checklist fully checked. Ready to launch.</p>
+<h4 id="tasks_18">Tasks</h4>
+<ul>
+<li>[ ] Complete end-to-end test covering all features (web app + WhatsApp bot)</li>
+<li>[ ] Verify all 11 database tables have correct data after testing</li>
+<li>[ ] Final Snyk security scan â€” must be clean</li>
+<li>[ ] Verify Vercel environment variables are all set correctly in production</li>
+<li>[ ] Check that RLS is still active on all tables (verify in Supabase dashboard)</li>
+<li>[ ] Verify cron job is running every 5 minutes in Vercel dashboard</li>
+<li>[ ] Create GitHub release tag v1.0.0-mvp</li>
+<li>[ ] Share with 5 more potential users</li>
+</ul>
+<h4 id="antigravity-prompts_18">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Complete end-to-end QA:
+&quot;Open Browser Agent and run the complete QA test suite.
 Test the full product as 3 different user roles simultaneously (use 3 browser windows):
 Window 1: Owner (Vikram)
 Window 2: Employee A (Ramesh)
@@ -1952,12 +1921,10 @@ FLOW 4 â€” Reminder Escalation:
 5. Priya receives a voice call (verify from Exotel call logs)
 PASS or FAIL each step.
 
-Give me a final QA score: X/4 flows passing."
-```
-
-```
-PROMPT 2 â€” Pre-launch checklist:
-"Run through this pre-launch checklist and verify each item:
+Give me a final QA score: X/4 flows passing.&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Pre-launch checklist:
+&quot;Run through this pre-launch checklist and verify each item:
 
 SECURITY:
 [ ] RLS enabled on all 11 tables (check in Supabase â†’ Authentication â†’ Policies)
@@ -1981,12 +1948,10 @@ INFRASTRUCTURE:
 [ ] GitHub repo is up to date with latest code
 [ ] vercel.json cron configuration is correct
 
-Mark each item with PASS or FAIL. Fix any FAIL items before proceeding to Day 20."
-```
-
-```
-PROMPT 3 â€” GitHub release:
-"Using GitHub MCP:
+Mark each item with PASS or FAIL. Fix any FAIL items before proceeding to Day 20.&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” GitHub release:
+&quot;Using GitHub MCP:
 1. Commit any remaining changes with message 'Day 19: Final QA complete, pre-launch checks passed'
 2. Create a release tag v1.0.0-mvp
 3. Write release notes that include:
@@ -1994,86 +1959,74 @@ PROMPT 3 â€” GitHub release:
    - Known limitations (what is not in MVP)
    - Tech stack used
    - How to set up the development environment
-4. Push the tag to GitHub"
-```
-
-#### End of Day Check
-- [ ] All 4 QA flows pass
-- [ ] Pre-launch checklist: all items marked PASS
-- [ ] GitHub release v1.0.0-mvp created
-
----
-
-### DAY 20 â€” LAUNCH DAY
-**Date:** ___________
-**Status:** `[ ] Not started` â†’ `[ ] In progress` â†’ `[ ] Complete`
-**Goal:** MVP launched. First paying customers contacted. Public presence live.
-
-#### Tasks
-- [ ] Final production deploy
-- [ ] Share with 10 potential customers (WhatsApp, personal network, LinkedIn)
-- [ ] Send demo video + sign-up link to each
-- [ ] Post in relevant WhatsApp groups (business owners, entrepreneurship communities)
-- [ ] Update TASKSURE_CONTEXT.md: update build status, live URL, user count
-- [ ] Update TASKSURE_PLAN.md: mark all items complete
-- [ ] Write your 'next 10 features' list for post-MVP based on beta feedback
-- [ ] Decide on pricing strategy based on beta user conversations
-
-#### Antigravity Prompts
-
-```
-PROMPT 1 â€” Final deploy:
-"Using Vercel MCP:
+4. Push the tag to GitHub&quot;
+</code></pre>
+<h4 id="end-of-day-check_14">End of Day Check</h4>
+<ul>
+<li>[ ] All 4 QA flows pass</li>
+<li>[ ] Pre-launch checklist: all items marked PASS</li>
+<li>[ ] GitHub release v1.0.0-mvp created</li>
+</ul>
+<hr />
+<h3 id="day-20-a-launch-day">DAY 20 â€” LAUNCH DAY</h3>
+<p><strong>Date:</strong> <strong><em>_</em></strong>____
+<strong>Status:</strong> <code>[ ] Not started</code> â†’ <code>[ ] In progress</code> â†’ <code>[ ] Complete</code>
+<strong>Goal:</strong> MVP launched. First paying customers contacted. Public presence live.</p>
+<h4 id="tasks_19">Tasks</h4>
+<ul>
+<li>[ ] Final production deploy</li>
+<li>[ ] Share with 10 potential customers (WhatsApp, personal network, LinkedIn)</li>
+<li>[ ] Send demo video + sign-up link to each</li>
+<li>[ ] Post in relevant WhatsApp groups (business owners, entrepreneurship communities)</li>
+<li>[ ] Update BOLDO_CONTEXT.md: update build status, live URL, user count</li>
+<li>[ ] Update Boldo AI Assistant_PLAN.md: mark all items complete</li>
+<li>[ ] Write your 'next 10 features' list for post-MVP based on beta feedback</li>
+<li>[ ] Decide on pricing strategy based on beta user conversations</li>
+</ul>
+<h4 id="antigravity-prompts_19">Antigravity Prompts</h4>
+<pre><code>PROMPT 1 â€” Final deploy:
+&quot;Using Vercel MCP:
 1. Deploy the final version to production
 2. Verify deployment succeeded (check function logs for any startup errors)
 3. Return the final live URL
 4. Check that the Vercel cron job is active and will run in the next 5 minutes
 
 Using GitHub MCP:
-1. Commit any last changes with message 'Day 20: MVP Launch â€” TASKSURE v1.0.0'
-2. Push to main branch"
-```
-
-```
-PROMPT 2 â€” Update context files:
-"Update TASKSURE_CONTEXT.md Section 12 (Current Build Status):
+1. Commit any last changes with message 'Day 20: MVP Launch â€” Boldo AI Assistant v1.0.0'
+2. Push to main branch&quot;
+</code></pre>
+<pre><code>PROMPT 2 â€” Update context files:
+&quot;Update BOLDO_CONTEXT.md Section 12 (Current Build Status):
 - Mark all items as [x] complete
 - Set Current version: v1.0.0-mvp (launched)
 - Set Live URL: [actual URL]
 - Set Beta users: [actual count]
 
-Update TASKSURE_PLAN.md:
+Update Boldo AI Assistant_PLAN.md:
 - Add a new section at the bottom: ## POST-LAUNCH â€” WHAT'S NEXT
 - List the 10 features to build next (based on what you learned in beta testing)
 - Add a METRICS TO TRACK section: DAU, tasks created per day, WhatsApp message volume, task completion rate
 
-These files will now serve as the context for Phase 2 development."
-```
+These files will now serve as the context for Phase 2 development.&quot;
+</code></pre>
+<pre><code>PROMPT 3 â€” Post-MVP planning prompt (save this for future use):
+&quot;[Save this prompt for your first post-MVP Antigravity session]
 
-```
-PROMPT 3 â€” Post-MVP planning prompt (save this for future use):
-"[Save this prompt for your first post-MVP Antigravity session]
-
-Read TASKSURE_CONTEXT.md and TASKSURE_PLAN.md.
+Read BOLDO_CONTEXT.md and Boldo AI Assistant_PLAN.md.
 We have launched the MVP. Now we are starting Phase 2.
 The top priority features from beta feedback are:
 [paste your list from today]
 
 Before building anything new:
-1. Confirm the feature aligns with the Core Product Principles in TASKSURE_CONTEXT.md
+1. Confirm the feature aligns with the Core Product Principles in BOLDO_CONTEXT.md
 2. Confirm it is not in the 'What We Are NOT Building' section
 3. Check if the database schema already supports it (it likely does â€” schema was built for scale)
-4. Then implement it following all the same architecture patterns established in Phase 1."
-```
-
-#### ðŸŽ‰ MVP Complete
-
----
-
-## APPENDIX A â€” ENVIRONMENT VARIABLES REFERENCE
-
-```env
-# Supabase
+4. Then implement it following all the same architecture patterns established in Phase 1.&quot;
+</code></pre>
+<h4 id="yz-mvp-complete">ðŸŽ‰ MVP Complete</h4>
+<hr />
+<h2 id="appendix-a-a-environment-variables-reference">APPENDIX A â€” ENVIRONMENT VARIABLES REFERENCE</h2>
+<pre><code class="language-env"># Supabase
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=         # SERVER-SIDE ONLY â€” never expose to client
@@ -2087,7 +2040,7 @@ GEMINI_API_KEY=                    # From aistudio.google.com
 # Wati (WhatsApp API)
 WATI_API_KEY=
 WATI_API_URL=
-WATI_VERIFY_TOKEN=TASKSURE_webhook_2025
+WATI_VERIFY_TOKEN=BOLDO_webhook_2025
 
 # Exotel (voice calls)
 EXOTEL_SID=
@@ -2096,14 +2049,10 @@ EXOTEL_VIRTUAL_NUMBER=             # Your Exotel virtual phone number
 
 # Security
 CRON_SECRET_KEY=                   # Random string, used to secure the cron endpoint
-```
-
----
-
-## APPENDIX B â€” FILE STRUCTURE REFERENCE
-
-```
-TASKSURE/
+</code></pre>
+<hr />
+<h2 id="appendix-b-a-file-structure-reference">APPENDIX B â€” FILE STRUCTURE REFERENCE</h2>
+<pre><code>Boldo AI Assistant/
 â”œâ”€â”€ app/
 â”‚   â”œâ”€â”€ page.tsx                        # Public landing page
 â”‚   â”œâ”€â”€ layout.tsx                      # Root layout
@@ -2145,27 +2094,20 @@ TASKSURE/
 â”‚   â””â”€â”€ RealtimeProvider.tsx            # Supabase real-time context
 â”œâ”€â”€ middleware.ts                       # Auth route protection
 â”œâ”€â”€ vercel.json                         # Cron job configuration
-â”œâ”€â”€ TASKSURE_CONTEXT.md                 # Project vision & schema (source of truth)
-â”œâ”€â”€ TASKSURE_PLAN.md                    # This file â€” build plan
+â”œâ”€â”€ BOLDO_CONTEXT.md                 # Project vision &amp; schema (source of truth)
+â”œâ”€â”€ Boldo AI Assistant_PLAN.md                    # This file â€” build plan
 â””â”€â”€ .env.local                          # Environment variables (never commit)
-```
-
----
-
-## APPENDIX C â€” IF YOU FALL BEHIND
-
-**Fell behind by 1 day:** Pull the most important task from the next day into today. Drop the least critical task from today's remaining list.
-
-**Fell behind by 2-3 days:** Combine Days 15+16 (beta setup + first round of fixes) into one day. Combine Days 17+18 into one day. Cut the landing page (Day 18) â€” you can add it after launch.
-
-**Fell behind by 4+ days:** Cut Day 14 (performance optimisation) â€” it can be done post-launch. Cut Day 19 (full QA) â€” do a condensed 30-minute manual check instead. Launch with known minor issues and fix post-launch. Shipping is more important than perfection at MVP stage.
-
-**Got ahead by 1 day:** Use the time to add WhatsApp onboarding (users can sign up entirely through WhatsApp without opening the web app). This was flagged as a high-value post-MVP feature.
-
----
-
-*Last updated: Pre-development*
-*Current version: Not started*
-*Live URL: Not deployed yet*
-*Beta users: 0*
-
+</code></pre>
+<hr />
+<h2 id="appendix-c-a-if-you-fall-behind">APPENDIX C â€” IF YOU FALL BEHIND</h2>
+<p><strong>Fell behind by 1 day:</strong> Pull the most important task from the next day into today. Drop the least critical task from today's remaining list.</p>
+<p><strong>Fell behind by 2-3 days:</strong> Combine Days 15+16 (beta setup + first round of fixes) into one day. Combine Days 17+18 into one day. Cut the landing page (Day 18) â€” you can add it after launch.</p>
+<p><strong>Fell behind by 4+ days:</strong> Cut Day 14 (performance optimisation) â€” it can be done post-launch. Cut Day 19 (full QA) â€” do a condensed 30-minute manual check instead. Launch with known minor issues and fix post-launch. Shipping is more important than perfection at MVP stage.</p>
+<p><strong>Got ahead by 1 day:</strong> Use the time to add WhatsApp onboarding (users can sign up entirely through WhatsApp without opening the web app). This was flagged as a high-value post-MVP feature.</p>
+<hr />
+<p><em>Last updated: Pre-development</em>
+<em>Current version: Not started</em>
+<em>Live URL: Not deployed yet</em>
+<em>Beta users: 0</em></p>
+</body>
+</html>
