@@ -12,7 +12,7 @@ interface UserProfile {
 
 export function Header() {
     const router = useRouter();
-    const supabase = createClient();
+    const [supabase] = useState(() => createClient());
     const [profile, setProfile] = useState<UserProfile | null>(null);
 
     useEffect(() => {
