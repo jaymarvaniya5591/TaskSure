@@ -40,6 +40,14 @@ function SignupVerifyContent() {
         setLoading(true);
 
         try {
+            // Test OTP bypass
+            if (otp === '123456') {
+                const testLoginSuccess = await attemptTestLogin(phone);
+                if (testLoginSuccess) return;
+                // If it fails, let it fall through or throw
+            }
+
+            // Standard OTP verification
             const { data, error: verifyError } = await supabase.auth.verifyOtp({
                 phone,
                 token: otp,
@@ -73,6 +81,54 @@ function SignupVerifyContent() {
             setOtp("");
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Fallback login for test users (when no SMS provider is configured)
+    const attemptTestLogin = async (phoneNumber: string): Promise<boolean> => {
+        try {
+            // Step 1: Get test session from our custom test-auth API
+            const res = await fetch('/api/test-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: phoneNumber }),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || "Failed test auth");
+            }
+
+            const { access_token, refresh_token } = await res.json();
+
+            // Step 2: Set the session locally
+            const { error: sessionError } = await supabase.auth.setSession({
+                access_token,
+                refresh_token,
+            });
+
+            if (sessionError) return false;
+
+            // Step 3: Check for user profile
+            const { data: profile } = await supabase
+                .from('users')
+                .select('id')
+                .eq('phone_number', phoneNumber)
+                .single();
+
+            if (profile) {
+                // User already exists — they should sign in, not sign up
+                setAlreadyExists(true);
+                setError("This phone number is already registered. Please sign in instead.");
+                return true;
+            } else {
+                // New user — proceed to profile completion
+                router.push(`/signup/profile?phone=${encodeURIComponent(phoneNumber)}`);
+                return true;
+            }
+        } catch (error) {
+            console.error("Test login failed:", error);
+            return false; // Fallback failed, block progression
         }
     };
 

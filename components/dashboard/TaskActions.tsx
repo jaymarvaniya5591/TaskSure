@@ -32,6 +32,8 @@ import {
 } from "@/lib/task-service";
 import SearchEmployee from "@/components/dashboard/SearchEmployee";
 import { type OrgUser } from "@/lib/hierarchy";
+import { getTodayMidnightISO } from "@/lib/date-utils";
+import DateTimePickerBoxes from "@/components/ui/DateTimePickerBoxes";
 
 // ─── Icon mapping ───────────────────────────────────────────────────────────
 
@@ -392,11 +394,19 @@ function AcceptTaskModal({
     onClose: () => void;
     loading: boolean;
 }) {
-    const [deadline, setDeadline] = useState(
-        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-            .toISOString()
-            .slice(0, 16)
-    );
+    const [deadline, setDeadline] = useState(getTodayMidnightISO());
+    const [error, setError] = useState("");
+    const [dateError, setDateError] = useState(false);
+
+    const handleSubmit = () => {
+        try {
+            if (dateError || !deadline) throw new Error("Please fill out the full deadline correctly");
+            setError("");
+            onSubmit(deadline);
+        } catch (e: any) {
+            setError(e.message);
+        }
+    };
 
     return (
         <div
@@ -421,14 +431,19 @@ function AcceptTaskModal({
                     </div>
                 </div>
 
-                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                {error && (
+                    <div className="mb-4 p-3 bg-red-50/80 text-red-700 rounded-xl text-xs font-medium border border-red-100/50">
+                        {error}
+                    </div>
+                )}
+
+                <label className="block mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Committed Deadline
                 </label>
-                <input
-                    type="datetime-local"
+                <DateTimePickerBoxes
                     value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all"
+                    onChange={(val) => setDeadline(val)}
+                    onError={(err) => setDateError(err)}
                 />
 
                 <div className="flex gap-3 mt-6">
@@ -439,10 +454,8 @@ function AcceptTaskModal({
                         Cancel
                     </button>
                     <button
-                        onClick={() =>
-                            onSubmit(new Date(deadline).toISOString())
-                        }
-                        disabled={loading || !deadline}
+                        onClick={handleSubmit}
+                        disabled={loading || dateError}
                         className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -498,7 +511,7 @@ function RejectTaskModal({
                     onChange={(e) => setReason(e.target.value)}
                     placeholder="Why are you rejecting this task?"
                     rows={3}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 placeholder:text-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10 outline-none transition-all resize-none"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-[15px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10 outline-none transition-all resize-none"
                 />
 
                 <div className="flex gap-3 mt-6">
@@ -536,11 +549,21 @@ function EditDeadlineModal({
     originalDeadline?: string | null;
 }) {
     const defaultDate = originalDeadline
-        ? new Date(originalDeadline).toISOString().slice(0, 16)
-        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-            .toISOString()
-            .slice(0, 16);
+        ? new Date(originalDeadline).toISOString()
+        : getTodayMidnightISO();
     const [deadline, setDeadline] = useState(defaultDate);
+    const [error, setError] = useState("");
+    const [dateError, setDateError] = useState(false);
+
+    const handleSubmit = () => {
+        try {
+            if (dateError || !deadline) throw new Error("Please fill out the full deadline correctly");
+            setError("");
+            onSubmit(deadline);
+        } catch (e: any) {
+            setError(e.message);
+        }
+    };
 
     return (
         <div
@@ -565,14 +588,19 @@ function EditDeadlineModal({
                     </div>
                 </div>
 
-                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                {error && (
+                    <div className="mb-4 p-3 bg-red-50/80 text-red-700 rounded-xl text-xs font-medium border border-red-100/50">
+                        {error}
+                    </div>
+                )}
+
+                <label className="block mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     New Deadline
                 </label>
-                <input
-                    type="datetime-local"
+                <DateTimePickerBoxes
                     value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 outline-none transition-all"
+                    onChange={(val) => setDeadline(val)}
+                    onError={(err) => setDateError(err)}
                 />
 
                 <div className="flex gap-3 mt-6">
@@ -583,10 +611,8 @@ function EditDeadlineModal({
                         Cancel
                     </button>
                     <button
-                        onClick={() =>
-                            onSubmit(new Date(deadline).toISOString())
-                        }
-                        disabled={loading || !deadline}
+                        onClick={handleSubmit}
+                        disabled={loading || dateError}
                         className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -621,12 +647,20 @@ function CreateSubtaskModal({
     const [assignedTo, setAssignedTo] = useState<OrgUser | null>(null);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
-    const [deadline, setDeadline] = useState(
-        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-            .toISOString()
-            .slice(0, 16)
-    );
+    const [deadline, setDeadline] = useState(getTodayMidnightISO());
     const [isSearching, setIsSearching] = useState(false);
+    const [error, setError] = useState("");
+    const [dateError, setDateError] = useState(false);
+
+    const handleSubmit = () => {
+        try {
+            if (dateError || !deadline) throw new Error("Please fill out the full deadline correctly");
+            setError("");
+            onSubmit(assignedTo!.id, title, description, deadline);
+        } catch (e: any) {
+            setError(e.message);
+        }
+    };
 
     return (
         <div
@@ -650,6 +684,12 @@ function CreateSubtaskModal({
                         </p>
                     </div>
                 </div>
+
+                {error && (
+                    <div className="mb-4 p-3 bg-red-50/80 text-red-700 rounded-xl text-xs font-medium border border-red-100/50">
+                        {error}
+                    </div>
+                )}
 
                 <div className="space-y-4">
                     {/* Assignee Selection */}
@@ -706,7 +746,7 @@ function CreateSubtaskModal({
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder="Brief task title..."
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-[15px] font-medium text-gray-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all"
                         />
                     </div>
 
@@ -719,19 +759,18 @@ function CreateSubtaskModal({
                             onChange={(e) => setDescription(e.target.value)}
                             placeholder="Describe what needs to be done..."
                             rows={3}
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 placeholder:text-gray-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all resize-none"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-[15px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all resize-none"
                         />
                     </div>
 
                     <div>
-                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <label className="block mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Deadline
                         </label>
-                        <input
-                            type="datetime-local"
+                        <DateTimePickerBoxes
                             value={deadline}
-                            onChange={(e) => setDeadline(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all"
+                            onChange={(val) => setDeadline(val)}
+                            onError={(err) => setDateError(err)}
                         />
                     </div>
                 </div>
@@ -744,19 +783,12 @@ function CreateSubtaskModal({
                         Cancel
                     </button>
                     <button
-                        onClick={() =>
-                            onSubmit(
-                                assignedTo!.id,
-                                title,
-                                description,
-                                new Date(deadline).toISOString()
-                            )
-                        }
+                        onClick={handleSubmit}
                         disabled={
                             loading ||
                             !assignedTo ||
                             !title.trim() ||
-                            !deadline
+                            dateError
                         }
                         className="flex-1 px-4 py-2.5 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >

@@ -114,6 +114,7 @@ export default function AllTasksClient({ todos, tasks, currentUserId }: AllTasks
             <CreateTaskModal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
+                currentUserId={currentUserId}
             />
         </div>
     );

@@ -40,7 +40,14 @@ function VerifyContent() {
         setLoading(true);
 
         try {
-            // First, try standard OTP verification
+            // Test OTP bypass
+            if (otp === '123456') {
+                const testLoginSuccess = await attemptTestLogin(phone);
+                if (testLoginSuccess) return;
+                // If it fails, let it fall through or throw
+            }
+
+            // Standard OTP verification
             const { data, error: verifyError } = await supabase.auth.verifyOtp({
                 phone,
                 token: otp,
@@ -48,11 +55,6 @@ function VerifyContent() {
             });
 
             if (verifyError) {
-                // OTP verification failed — try fallback test login if OTP is 123456
-                if (otp === '123456') {
-                    const testLoginSuccess = await attemptTestLogin(phone);
-                    if (testLoginSuccess) return; // Successfully logged in via test route
-                }
                 throw verifyError;
             }
 
@@ -86,24 +88,27 @@ function VerifyContent() {
     // Fallback login for test users (when no SMS provider is configured)
     const attemptTestLogin = async (phoneNumber: string): Promise<boolean> => {
         try {
-            // Step 1: Get test credentials from our API
-            const res = await fetch('/api/test-login', {
+            // Step 1: Get test session from our custom test-auth API
+            const res = await fetch('/api/test-auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phone: phoneNumber }),
             });
 
-            if (!res.ok) return false;
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || "Failed test auth");
+            }
 
-            const { email, password } = await res.json();
+            const { access_token, refresh_token } = await res.json();
 
-            // Step 2: Sign in with email/password
-            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+            // Step 2: Set the session locally
+            const { error: sessionError } = await supabase.auth.setSession({
+                access_token,
+                refresh_token,
             });
 
-            if (signInError || !signInData.user) return false;
+            if (sessionError) return false;
 
             // Step 3: Check for user profile
             const { data: profile } = await supabase
@@ -121,8 +126,9 @@ function VerifyContent() {
                 setError("No account found for this number. Please sign up first.");
                 return true; // We handled the error, don't throw again
             }
-        } catch {
-            return false; // Fallback failed, let the original error show
+        } catch (error) {
+            console.error("Test login failed:", error);
+            return false; // Fallback failed, block progression
         }
     };
 

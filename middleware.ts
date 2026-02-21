@@ -54,6 +54,52 @@ export async function middleware(request: NextRequest) {
         (route) => pathname === route || pathname.startsWith(route + '/')
     )
 
+    // Check if the user is authenticated but missing a public profile 
+    // We do a lightweight check via the client we just created
+    let profileExists = false;
+    let authUserPhone = user?.phone || "";
+
+    if (user) {
+        // Try to get phone from test email if it's a test user
+        if (!user.phone && user.email) {
+            const match = user.email.match(/test_(\d+)@/);
+            if (match) authUserPhone = `+${match[1]}`;
+        }
+
+        const { data: profile } = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', user.id)
+            .single()
+
+        profileExists = !!profile;
+
+        // Secondary check by phone just in case (like our resolveCurrentUser logic)
+        if (!profileExists && authUserPhone) {
+            const { data: profileByPhone } = await supabase
+                .from('users')
+                .select('id')
+                .eq('phone_number', authUserPhone)
+                .single()
+
+            profileExists = !!profileByPhone;
+        }
+    }
+
+    // SCENARIO 1: Authenticated, NO PROFILE -> MUST go to /signup/profile
+    if (user && !profileExists && pathname !== '/signup/profile') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/signup/profile'
+        if (authUserPhone) url.searchParams.set('phone', authUserPhone);
+
+        const redirectResponse = NextResponse.redirect(url)
+        supabaseResponse.cookies.getAll().forEach((cookie) => {
+            redirectResponse.cookies.set(cookie.name, cookie.value)
+        })
+        return redirectResponse
+    }
+
+    // SCENARIO 2: Unauthenticated trying to access protected -> Login
     if (isProtectedRoute && !user) {
         const url = request.nextUrl.clone()
         url.pathname = '/login'
@@ -64,12 +110,12 @@ export async function middleware(request: NextRequest) {
         return redirectResponse
     }
 
-    // Redirect authenticated users away from auth pages and landing to dashboard
+    // SCENARIO 3: Authenticated AND Has Profile -> Redirect away from auth routes to Home
     const isAuthRoute = authRoutes.some(
         (route) => pathname === route || pathname.startsWith(route + '/')
     )
 
-    if (user && (isAuthRoute || pathname === '/')) {
+    if (user && profileExists && (isAuthRoute || pathname === '/')) {
         const url = request.nextUrl.clone()
         url.pathname = '/home'
         const redirectResponse = NextResponse.redirect(url)

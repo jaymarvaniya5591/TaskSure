@@ -29,7 +29,7 @@ export async function GET(
     // Resolve user names in a single batch query
     const allUserIds = (rawLogs || []).map(l => l.user_id).filter(Boolean) as string[];
     const userIds = allUserIds.filter((id, idx) => allUserIds.indexOf(id) === idx);
-    let userMap: Record<string, { id: string; name: string; avatar_url: string | null }> = {};
+    const userMap: Record<string, { id: string; name: string; avatar_url: string | null }> = {};
 
     if (userIds.length > 0) {
         const { data: users } = await supabase

@@ -47,40 +47,20 @@ export default function LoginPage() {
                 return;
             }
 
-            // Step 2: Try test-login FIRST (for dev — when no SMS provider is configured)
-            // This uses admin-generated email/password credentials as a bypass
-            const testRes = await fetch('/api/test-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: fullPhone }),
-            });
-
-            if (testRes.ok) {
-                const { access_token, refresh_token } = await testRes.json();
-                const { error: sessionErr } = await supabase.auth.setSession({
-                    access_token,
-                    refresh_token,
-                });
-
-                if (!sessionErr) {
-                    // Signed in successfully via test credentials — go to dashboard
-                    router.push('/home');
-                    return;
-                }
-            }
-
-            // Step 3: If test-login failed, fall back to real OTP flow
-            // (This will work when Twilio is configured)
+            // Step 2: Try to send real OTP
             const { error: signInError } = await supabase.auth.signInWithOtp({
                 phone: fullPhone,
             });
 
-            if (signInError) throw signInError;
+            // If OTP fails (e.g. no SMS provider configured), log warning but STILL proceed to verify screen
+            if (signInError) {
+                console.warn("SMS dispatch failed (expected in test environment). Proceeding to verify screen for static OTP.", signInError);
+            }
 
             router.push(`/login/verify?phone=${encodeURIComponent(fullPhone)}`);
         } catch (err) {
             console.error(err);
-            setError(err instanceof Error ? err.message : "Failed to sign in. Please try again.");
+            setError(err instanceof Error ? err.message : "Failed to proceed. Please try again.");
         } finally {
             setLoading(false);
         }
