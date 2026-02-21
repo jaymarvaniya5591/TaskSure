@@ -36,22 +36,19 @@ export default function WeeklyCalendarStrip({ tasks, currentUserId, selectedDate
             return d >= dayStart && d <= dayEnd;
         });
 
-        let todos = 0;
-        let assigned = 0;
-        let overdue = 0;
+        let todosCount = 0;
+        let tasksCount = 0;
 
         dayTasks.forEach(t => {
             const cat = getTaskColorCategory(t, currentUserId);
-            if (cat === 'overdue') overdue++;
-            else if (cat === 'todo') todos++;
-            else assigned++; // both owned and assigned
+            if (cat === 'todo') todosCount++;
+            else tasksCount++; // both owned and assigned and overdue
         });
 
         return {
             date,
-            todos,
-            assigned,
-            overdue,
+            todosCount,
+            tasksCount,
             isToday: checkIsToday(date),
             isSelected: isSameDay(date, selectedDate)
         };
@@ -77,7 +74,7 @@ export default function WeeklyCalendarStrip({ tasks, currentUserId, selectedDate
 
                 <div className="grid grid-cols-7 gap-2 sm:gap-3">
                     {days.map((day, i) => {
-                        const hasItems = day.todos + day.assigned + day.overdue > 0;
+                        const hasItems = day.todosCount + day.tasksCount > 0;
 
                         return (
                             <button
@@ -108,23 +105,21 @@ export default function WeeklyCalendarStrip({ tasks, currentUserId, selectedDate
                                 {/* Count Pills */}
                                 {hasItems ? (
                                     <div className="flex flex-wrap justify-center gap-1 sm:gap-1.5 w-full">
-                                        {day.todos > 0 && (
-                                            <span className={cn(
-                                                "w-4 h-4 sm:w-5 sm:h-5 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-colors",
-                                                day.isSelected ? "bg-todo-100 text-todo-700" : "bg-todo-500/20 text-todo-400 border border-todo-500/30"
-                                            )}>{day.todos}</span>
+                                        {day.todosCount > 0 && (
+                                            <span
+                                                title={`${day.todosCount} To-dos`}
+                                                className={cn(
+                                                    "w-4 h-4 sm:w-5 sm:h-5 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-colors",
+                                                    day.isSelected ? "bg-todo-100 text-todo-700" : "bg-todo-500/20 text-todo-400 border border-todo-500/30"
+                                                )}>{day.todosCount}</span>
                                         )}
-                                        {day.assigned > 0 && (
-                                            <span className={cn(
-                                                "w-4 h-4 sm:w-5 sm:h-5 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-colors",
-                                                day.isSelected ? "bg-owned-100 text-owned-700" : "bg-owned-500/20 text-owned-400 border border-owned-500/30"
-                                            )}>{day.assigned}</span>
-                                        )}
-                                        {day.overdue > 0 && (
-                                            <span className={cn(
-                                                "w-4 h-4 sm:w-5 sm:h-5 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-colors",
-                                                day.isSelected ? "bg-overdue-100 text-overdue-700" : "bg-overdue-500/20 text-overdue-400 border border-overdue-500/30"
-                                            )}>{day.overdue}</span>
+                                        {day.tasksCount > 0 && (
+                                            <span
+                                                title={`${day.tasksCount} Tasks`}
+                                                className={cn(
+                                                    "w-4 h-4 sm:w-5 sm:h-5 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-colors",
+                                                    day.isSelected ? "bg-owned-100 text-owned-700" : "bg-owned-500/20 text-owned-400 border border-owned-500/30"
+                                                )}>{day.tasksCount}</span>
                                         )}
                                     </div>
                                 ) : (

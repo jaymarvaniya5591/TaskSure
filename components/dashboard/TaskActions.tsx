@@ -201,6 +201,24 @@ export default function TaskActions({ task, currentUserId }: TaskActionsProps) {
         router.refresh();
     }
 
+    async function handleRemovePerson() {
+        // Remove assignee = reassign to self (owner), converting to a to-do
+        const ownerId = extractUserId(task.created_by);
+        if (!ownerId) return;
+        setLoading(true);
+        await fetch(`/api/tasks/${task.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "edit_persons",
+                new_assigned_to: ownerId,
+            }),
+        });
+        setModal(null);
+        setLoading(false);
+        router.refresh();
+    }
+
     async function handleDelete() {
         setLoading(true);
         await fetch(`/api/tasks/${task.id}`, {
@@ -340,11 +358,12 @@ export default function TaskActions({ task, currentUserId }: TaskActionsProps) {
                 <PortalModal>
                     <EditPersonsModal
                         onSubmit={handleEditPersons}
+                        onRemove={handleRemovePerson}
                         onClose={() => setModal(null)}
                         loading={loading}
                         orgUsers={orgUsers}
                         currentUserId={currentUserId}
-                        currentAssigneeId={extractUserId(task.assigned_to)}
+                        task={task}
                     />
                 </PortalModal>
             )}
@@ -754,20 +773,36 @@ function CreateSubtaskModal({
 
 function EditPersonsModal({
     onSubmit,
+    onRemove,
     onClose,
     loading,
     orgUsers,
     currentUserId,
-    currentAssigneeId,
+    task,
 }: {
     onSubmit: (newAssigneeId: string) => void;
+    onRemove: () => void;
     onClose: () => void;
     loading: boolean;
     orgUsers: OrgUser[];
     currentUserId: string;
-    currentAssigneeId: string | null;
+    task: Task;
 }) {
     const [selected, setSelected] = useState<OrgUser | null>(null);
+    const [showSearch, setShowSearch] = useState(false);
+
+    // Resolve current assignee details
+    const currentAssigneeId = extractUserId(task.assigned_to);
+    const currentOwnerId = extractUserId(task.created_by);
+    const isTaskOwner = currentOwnerId === currentUserId;
+    const isSelfAssigned = currentAssigneeId === currentOwnerId;
+
+    // Find current assignee from orgUsers for display
+    const currentAssignee = orgUsers.find(u => u.id === currentAssigneeId);
+    const assigneeName = currentAssignee?.name
+        || (typeof task.assigned_to === "object" && task.assigned_to?.name)
+        || null;
+    const assigneeRole = currentAssignee?.role || "member";
 
     return (
         <div
@@ -787,39 +822,93 @@ function EditPersonsModal({
                             Edit Persons
                         </h3>
                         <p className="text-xs text-gray-500">
-                            Change the assigned person for this task
+                            Manage the assigned person for this task
                         </p>
                     </div>
                 </div>
 
-                {currentAssigneeId && (
-                    <p className="text-xs text-gray-400 mb-3">
-                        Current assignee ID:{" "}
-                        <span className="font-mono">
-                            {currentAssigneeId.slice(0, 8)}...
-                        </span>
-                    </p>
+                {/* Current Assignee Section */}
+                {currentAssigneeId && !isSelfAssigned && (
+                    <div className="mb-5">
+                        <label className="block mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Current Assignee
+                        </label>
+                        <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/80">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-100 to-violet-200 flex items-center justify-center shrink-0">
+                                    <span className="text-sm font-black text-violet-700 uppercase">
+                                        {assigneeName ? assigneeName.substring(0, 2) : "??"}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-semibold text-gray-900">
+                                        {assigneeName || "Unknown"}
+                                    </span>
+                                    <span className="text-xs text-gray-500 capitalize">
+                                        {assigneeRole}
+                                    </span>
+                                </div>
+                            </div>
+                            {isTaskOwner && (
+                                <button
+                                    onClick={onRemove}
+                                    disabled={loading}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Remove
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 )}
 
-                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    New Assignee
+                {/* Add / Replace Assignee Section */}
+                <label className="block mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    {currentAssigneeId && !isSelfAssigned ? "Replace With" : "Assign To"}
                 </label>
-                {!selected ? (
-                    <SearchEmployee
-                        orgUsers={orgUsers}
-                        currentUserId={currentUserId}
-                        isHeader={false}
-                        onSelect={(user) => setSelected(user)}
-                    />
+                {!selected && !showSearch ? (
+                    <button
+                        onClick={() => setShowSearch(true)}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm font-semibold text-gray-500 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/30 transition-all"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        Search Employee
+                    </button>
+                ) : !selected ? (
+                    <div className="relative">
+                        <SearchEmployee
+                            orgUsers={orgUsers}
+                            currentUserId={currentUserId}
+                            isHeader={false}
+                            onSelect={(user) => {
+                                setSelected(user);
+                                setShowSearch(false);
+                            }}
+                        />
+                        <button
+                            className="absolute right-0 top-0 mt-[1.125rem] mr-4 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors"
+                            onClick={() => setShowSearch(false)}
+                        >
+                            Cancel
+                        </button>
+                    </div>
                 ) : (
                     <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-violet-200 bg-violet-50/50">
-                        <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-gray-900">
-                                {selected.name}
-                            </span>
-                            <span className="text-xs text-gray-500 capitalize">
-                                {selected.role}
-                            </span>
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-100 to-violet-200 flex items-center justify-center shrink-0">
+                                <span className="text-sm font-black text-violet-700 uppercase">
+                                    {selected.name.substring(0, 2)}
+                                </span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-sm font-semibold text-gray-900">
+                                    {selected.name}
+                                </span>
+                                <span className="text-xs text-gray-500 capitalize">
+                                    {selected.role}
+                                </span>
+                            </div>
                         </div>
                         <button
                             onClick={() => setSelected(null)}
@@ -830,13 +919,13 @@ function EditPersonsModal({
                     </div>
                 )}
 
-                <p className="text-xs text-gray-400 mt-3">
-                    {selected && selected.id === currentUserId
-                        ? "⚡ Assigning to yourself will convert this to a personal to-do."
-                        : selected
-                            ? "The new assignee will need to accept the task."
-                            : ""}
-                </p>
+                {selected && (
+                    <p className="text-xs text-gray-400 mt-3">
+                        {selected.id === currentOwnerId
+                            ? "⚡ Assigning to yourself will convert this to a personal to-do."
+                            : "The new assignee will need to accept the task."}
+                    </p>
+                )}
 
                 <div className="flex gap-3 mt-6">
                     <button

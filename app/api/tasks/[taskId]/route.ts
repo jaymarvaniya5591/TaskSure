@@ -67,6 +67,16 @@ export async function PATCH(
                 .eq("id", taskId);
 
             if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+            await supabase.from("audit_log").insert({
+                user_id: userId,
+                organisation_id: task.organisation_id,
+                action: "task.accepted",
+                entity_type: "task",
+                entity_id: taskId,
+                metadata: { committed_deadline }
+            });
+
             return NextResponse.json({ success: true, status: "accepted" });
         }
 
@@ -99,6 +109,15 @@ export async function PATCH(
                 });
             }
 
+            await supabase.from("audit_log").insert({
+                user_id: userId,
+                organisation_id: task.organisation_id,
+                action: "task.rejected",
+                entity_type: "task",
+                entity_id: taskId,
+                metadata: { reject_reason }
+            });
+
             return NextResponse.json({ success: true, status: "rejected" });
         }
 
@@ -117,6 +136,16 @@ export async function PATCH(
                 .eq("id", taskId);
 
             if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+            const isTodo = task.created_by === task.assigned_to;
+            await supabase.from("audit_log").insert({
+                user_id: userId,
+                organisation_id: task.organisation_id,
+                action: isTodo ? "todo.completed" : "task.completed",
+                entity_type: "task",
+                entity_id: taskId
+            });
+
             return NextResponse.json({ success: true, status: "completed" });
         }
 
@@ -147,6 +176,16 @@ export async function PATCH(
                 .eq("id", taskId);
 
             if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+            await supabase.from("audit_log").insert({
+                user_id: userId,
+                organisation_id: task.organisation_id,
+                action: "task.deadline_edited",
+                entity_type: "task",
+                entity_id: taskId,
+                metadata: { old_deadline: task.deadline, new_deadline }
+            });
+
             return NextResponse.json({ success: true, deadline: new_deadline });
         }
 
@@ -186,6 +225,16 @@ export async function PATCH(
                 .eq("id", taskId);
 
             if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+            await supabase.from("audit_log").insert({
+                user_id: userId,
+                organisation_id: task.organisation_id,
+                action: "task.reassigned",
+                entity_type: "task",
+                entity_id: taskId,
+                metadata: { old_assigned_to: task.assigned_to, new_assigned_to }
+            });
+
             return NextResponse.json({ success: true, assigned_to: new_assigned_to });
         }
 
@@ -232,6 +281,15 @@ export async function PATCH(
                 .eq("id", taskId);
 
             if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+            await supabase.from("audit_log").insert({
+                user_id: userId,
+                organisation_id: task.organisation_id,
+                action: "task.deleted",
+                entity_type: "task",
+                entity_id: taskId
+            });
+
             return NextResponse.json({ success: true, status: "cancelled" });
         }
 

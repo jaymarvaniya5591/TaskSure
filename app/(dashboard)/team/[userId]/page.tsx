@@ -90,6 +90,7 @@ export default async function EmployeePage({ params }: EmployeePageProps) {
                 commonTasks={commonTasks}
                 otherTasks={otherTasks}
                 employeeId={userId}
+                currentUserId={currentUser.id}
             />
         </div>
     );

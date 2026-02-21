@@ -17,14 +17,17 @@ import { isTodo as checkIsTodo } from "@/lib/task-service";
 interface EmployeeTaskListProps {
     tasks: Task[];
     employeeId: string;
+    currentUserId: string;
     hideToggle?: boolean;
 }
 
 export default function EmployeeTaskList({
     tasks,
     employeeId,
+    currentUserId,
     hideToggle = false,
 }: EmployeeTaskListProps) {
+    const isOwnProfile = employeeId === currentUserId;
     const [subTab, setSubTab] = useState<"tasks" | "todos">("tasks");
 
     // Only display active tasks
@@ -103,7 +106,8 @@ export default function EmployeeTaskList({
                             key={task.id}
                             task={task}
                             category={getTaskColorCategory(task, employeeId)}
-                            currentUserId={employeeId}
+                            currentUserId={currentUserId}
+                            isOwnProfile={isOwnProfile}
                         />
                     ))}
                 </div>

@@ -17,51 +17,19 @@ interface UserProfile {
 export function Header() {
     const router = useRouter();
     const { toggleMobileSidebar } = useSidebar();
-    const { orgUsers, userId } = useUserContext();
+    const { orgUsers, userId, userName } = useUserContext();
     const [supabase] = useState(() => createClient());
     const [profile, setProfile] = useState<UserProfile | null>(null);
 
     useEffect(() => {
         async function loadProfile() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            // Build phone candidates — handle both real phone auth and test email auth
-            const phoneCandidates: string[] = [];
-            if (user.phone) {
-                phoneCandidates.push(user.phone);
-                if (!user.phone.startsWith('+')) phoneCandidates.push(`+${user.phone}`);
-            }
-            // Extract phone from test email (test_919876543210@boldo.test → +919876543210)
-            if (user.email) {
-                const match = user.email.match(/test_(\d+)@/);
-                if (match) phoneCandidates.push(`+${match[1]}`);
-            }
-
-            // Try id-based lookup first
-            let data = null;
-            const { data: byId } = await supabase
+            // We use the already-resolved userId from the Dashboard context
+            // to fetch the specific user/organisation details directly.
+            const { data } = await supabase
                 .from('users')
                 .select('name, organisation:organisations(name)')
-                .eq('id', user.id)
+                .eq('id', userId)
                 .single();
-
-            if (byId) {
-                data = byId;
-            } else {
-                // Try phone candidates
-                for (const phone of phoneCandidates) {
-                    const { data: byPhone } = await supabase
-                        .from('users')
-                        .select('name, organisation:organisations(name)')
-                        .eq('phone_number', phone)
-                        .single();
-                    if (byPhone) {
-                        data = byPhone;
-                        break;
-                    }
-                }
-            }
 
             if (data) {
                 setProfile({
@@ -73,19 +41,21 @@ export function Header() {
             }
         }
 
-        loadProfile();
-    }, [supabase]);
+        if (userId) {
+            loadProfile();
+        }
+    }, [supabase, userId]);
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
         router.push("/login");
     };
 
-    const initials = profile?.name
-        ? profile.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    const displayName = profile?.name || userName || "Loading...";
+    const initials = displayName
+        ? displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
         : "..";
 
-    const displayName = profile?.name || "Loading...";
     const orgName = profile?.organisation?.name || "";
 
     return (

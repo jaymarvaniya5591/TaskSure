@@ -11,9 +11,10 @@ interface EmployeeContentProps {
     commonTasks: Task[];
     otherTasks: Task[];
     employeeId: string;
+    currentUserId: string;
 }
 
-export default function EmployeeContent({ assignedTasks, commonTasks, otherTasks, employeeId }: EmployeeContentProps) {
+export default function EmployeeContent({ assignedTasks, commonTasks, otherTasks, employeeId, currentUserId }: EmployeeContentProps) {
     const [tab, setTab] = useState<"performance" | "tasks">("performance");
     const [taskFilter, setTaskFilter] = useState<"common" | "all">("common");
 
@@ -74,6 +75,7 @@ export default function EmployeeContent({ assignedTasks, commonTasks, otherTasks
                     <EmployeeTaskList
                         tasks={taskFilter === "common" ? commonTasks : otherTasks}
                         employeeId={employeeId}
+                        currentUserId={currentUserId}
                         hideToggle={taskFilter === "common"}
                     />
                 </div>

@@ -47,6 +47,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
+        // --- Audit Log ---
+        await supabase.from("audit_log").insert({
+            user_id: currentUser.id,
+            organisation_id: organisationId,
+            action: isSelfAssigned ? "todo.created" : "task.created",
+            entity_type: "task", // under the hood, all are stored in 'tasks' table
+            entity_id: data.id,
+            metadata: { title, assigned_to, parent_task_id }
+        });
+
+
         return NextResponse.json({ success: true, task: data });
     } catch (e: unknown) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 });
