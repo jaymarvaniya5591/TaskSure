@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Bell, LogOut } from "lucide-react";
+import { Bell, LogOut, Menu } from "lucide-react";
+import { useSidebar } from "@/components/layout/SidebarProvider";
+import { useUserContext } from "@/lib/user-context";
+import SearchEmployee from "@/components/dashboard/SearchEmployee";
 
 interface UserProfile {
     name: string;
@@ -12,6 +15,8 @@ interface UserProfile {
 
 export function Header() {
     const router = useRouter();
+    const { toggleMobileSidebar } = useSidebar();
+    const { orgUsers, userId } = useUserContext();
     const [supabase] = useState(() => createClient());
     const [profile, setProfile] = useState<UserProfile | null>(null);
 
@@ -84,8 +89,23 @@ export function Header() {
 
     return (
         <div className="sticky top-0 z-40 flex h-20 shrink-0 items-center gap-x-6 border-b border-gray-100 bg-white/70 px-4 shadow-sm sm:px-6 lg:px-8 backdrop-blur-lg">
-            <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6 justify-end items-center">
-                <div className="flex items-center gap-x-4 lg:gap-x-6">
+            {/* Hamburger Menu (Mobile Only) */}
+            <button
+                type="button"
+                className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
+                onClick={toggleMobileSidebar}
+            >
+                <span className="sr-only">Open sidebar</span>
+                <Menu className="h-6 w-6" aria-hidden="true" />
+            </button>
+
+            {/* Global Search Employee */}
+            <div className="flex-1 min-w-0 max-w-md mx-2 sm:mx-0">
+                <SearchEmployee orgUsers={orgUsers} currentUserId={userId} isHeader />
+            </div>
+
+            <div className="flex shrink-0 gap-x-2 sm:gap-x-4 self-stretch lg:gap-x-6 justify-end items-center">
+                <div className="flex items-center gap-x-2 sm:gap-x-4 lg:gap-x-6">
                     {/* Notifications */}
                     <button
                         type="button"

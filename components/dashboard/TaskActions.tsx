@@ -1,0 +1,905 @@
+"use client";
+
+/**
+ * TaskActions — Context menu with role-based actions for tasks.
+ *
+ * Action rules:
+ *   ASSIGNEE + pending:     Accept (set deadline), Reject (add remark), Create Subtask
+ *   ASSIGNEE + accepted:    Edit Deadline, Create Subtask
+ *   OWNER (multi-person):   Mark Complete, Edit Persons, Delete
+ *   TODO (self-assigned):   Mark Complete, Edit Deadline, Edit Persons
+ */
+
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import {
+    MoreHorizontal,
+    Calendar,
+    CheckCircle2,
+    PlusCircle,
+    XCircle,
+    UserPlus,
+    Trash2,
+    Loader2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { type Task } from "@/lib/types";
+import { useUserContext } from "@/lib/user-context";
+import {
+    getAvailableActions,
+    type TaskActionType,
+} from "@/lib/task-service";
+import SearchEmployee from "@/components/dashboard/SearchEmployee";
+import { type OrgUser } from "@/lib/hierarchy";
+
+// ─── Icon mapping ───────────────────────────────────────────────────────────
+
+const ACTION_META: Record<
+    TaskActionType,
+    { icon: typeof Calendar; color: string }
+> = {
+    accept: { icon: CheckCircle2, color: "text-emerald-600 hover:bg-emerald-50" },
+    reject: { icon: XCircle, color: "text-red-500 hover:bg-red-50" },
+    complete: { icon: CheckCircle2, color: "text-emerald-600 hover:bg-emerald-50" },
+    edit_deadline: { icon: Calendar, color: "text-blue-600 hover:bg-blue-50" },
+    create_subtask: { icon: PlusCircle, color: "text-teal-600 hover:bg-teal-50" },
+    edit_persons: { icon: UserPlus, color: "text-violet-600 hover:bg-violet-50" },
+    delete: { icon: Trash2, color: "text-red-500 hover:bg-red-50" },
+};
+
+// ─── Helper ─────────────────────────────────────────────────────────────────
+
+function extractUserId(
+    userRef: string | { id: string } | unknown
+): string | null {
+    if (!userRef) return null;
+    if (typeof userRef === "string") return userRef;
+    if (Array.isArray(userRef)) return userRef[0]?.id || null;
+    if (typeof userRef === "object" && userRef !== null && "id" in userRef)
+        return (userRef as Record<string, unknown>).id as string;
+    return null;
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────────
+
+interface TaskActionsProps {
+    task: Task;
+    currentUserId: string;
+}
+
+export default function TaskActions({ task, currentUserId }: TaskActionsProps) {
+    const router = useRouter();
+    const { orgUsers } = useUserContext();
+    const [open, setOpen] = useState(false);
+    const [modal, setModal] = useState<
+        | "accept"
+        | "reject"
+        | "edit_deadline"
+        | "create_subtask"
+        | "edit_persons"
+        | "delete"
+        | null
+    >(null);
+    const [loading, setLoading] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close on outside click
+    useEffect(() => {
+        function handleClick(e: MouseEvent) {
+            if (
+                dropdownRef.current &&
+                !dropdownRef.current.contains(e.target as Node)
+            ) {
+                setOpen(false);
+            }
+        }
+        if (open) document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, [open]);
+
+    // Compute available actions using the central service
+    const actions = getAvailableActions(task, currentUserId);
+
+    // ── Action handlers ─────────────────────────────────────────────────────
+
+    async function handleAccept(deadline: string) {
+        setLoading(true);
+        await fetch(`/api/tasks/${task.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "accept",
+                committed_deadline: deadline,
+            }),
+        });
+        setModal(null);
+        setLoading(false);
+        router.refresh();
+    }
+
+    async function handleReject(reason: string) {
+        setLoading(true);
+        await fetch(`/api/tasks/${task.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "reject", reject_reason: reason }),
+        });
+        setModal(null);
+        setLoading(false);
+        router.refresh();
+    }
+
+    async function handleComplete() {
+        setLoading(true);
+        await fetch(`/api/tasks/${task.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "complete" }),
+        });
+        setLoading(false);
+        router.refresh();
+    }
+
+    async function handleEditDeadline(deadline: string) {
+        setLoading(true);
+        await fetch(`/api/tasks/${task.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "edit_deadline",
+                new_deadline: deadline,
+            }),
+        });
+        setModal(null);
+        setLoading(false);
+        router.refresh();
+    }
+
+    async function handleCreateSubtask(
+        assignedToId: string,
+        title: string,
+        description: string,
+        deadline: string
+    ) {
+        setLoading(true);
+        await fetch(`/api/tasks`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                parent_task_id: task.id,
+                assigned_to: assignedToId,
+                title,
+                description,
+                deadline,
+            }),
+        });
+        setModal(null);
+        setLoading(false);
+        router.refresh();
+    }
+
+    async function handleEditPersons(newAssigneeId: string) {
+        setLoading(true);
+        await fetch(`/api/tasks/${task.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "edit_persons",
+                new_assigned_to: newAssigneeId,
+            }),
+        });
+        setModal(null);
+        setLoading(false);
+        router.refresh();
+    }
+
+    async function handleDelete() {
+        setLoading(true);
+        await fetch(`/api/tasks/${task.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "delete" }),
+        });
+        setModal(null);
+        setLoading(false);
+        router.refresh();
+    }
+
+    // Map action type → click handler
+    function handleActionClick(type: TaskActionType) {
+        setOpen(false);
+        switch (type) {
+            case "accept":
+                setModal("accept");
+                break;
+            case "reject":
+                setModal("reject");
+                break;
+            case "complete":
+                handleComplete();
+                break;
+            case "edit_deadline":
+                setModal("edit_deadline");
+                break;
+            case "create_subtask":
+                setModal("create_subtask");
+                break;
+            case "edit_persons":
+                setModal("edit_persons");
+                break;
+            case "delete":
+                setModal("delete");
+                break;
+        }
+    }
+
+    return (
+        <>
+            <div className="relative" ref={dropdownRef}>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setOpen(!open);
+                    }}
+                    className={cn(
+                        "p-2 rounded-xl transition-all duration-200",
+                        open
+                            ? "bg-gray-900 text-white"
+                            : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                    )}
+                    disabled={loading}
+                >
+                    {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                        <MoreHorizontal className="w-5 h-5" />
+                    )}
+                </button>
+
+                {open && (
+                    <div className="absolute right-0 top-full mt-1 z-40 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden min-w-[200px]">
+                        {actions.length === 0 ? (
+                            <div className="px-4 py-3 text-sm text-gray-400 font-medium">
+                                No actions available
+                            </div>
+                        ) : (
+                            actions.map((action) => {
+                                const meta = ACTION_META[action.type];
+                                const Icon = meta.icon;
+                                return (
+                                    <button
+                                        key={action.type}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleActionClick(action.type);
+                                        }}
+                                        className={cn(
+                                            "w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-colors",
+                                            meta.color
+                                        )}
+                                    >
+                                        <Icon className="w-4 h-4 shrink-0" />
+                                        {action.label}
+                                    </button>
+                                );
+                            })
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* ── Modals ── */}
+            {modal === "accept" && (
+                <AcceptTaskModal
+                    onSubmit={handleAccept}
+                    onClose={() => setModal(null)}
+                    loading={loading}
+                />
+            )}
+            {modal === "reject" && (
+                <RejectTaskModal
+                    onSubmit={handleReject}
+                    onClose={() => setModal(null)}
+                    loading={loading}
+                />
+            )}
+            {modal === "edit_deadline" && (
+                <EditDeadlineModal
+                    onSubmit={handleEditDeadline}
+                    onClose={() => setModal(null)}
+                    loading={loading}
+                    originalDeadline={task.committed_deadline || task.deadline}
+                />
+            )}
+            {modal === "create_subtask" && (
+                <CreateSubtaskModal
+                    onSubmit={handleCreateSubtask}
+                    onClose={() => setModal(null)}
+                    loading={loading}
+                    orgUsers={orgUsers}
+                    currentUserId={currentUserId}
+                />
+            )}
+            {modal === "edit_persons" && (
+                <EditPersonsModal
+                    onSubmit={handleEditPersons}
+                    onClose={() => setModal(null)}
+                    loading={loading}
+                    orgUsers={orgUsers}
+                    currentUserId={currentUserId}
+                    currentAssigneeId={extractUserId(task.assigned_to)}
+                />
+            )}
+            {modal === "delete" && (
+                <DeleteConfirmModal
+                    onConfirm={handleDelete}
+                    onClose={() => setModal(null)}
+                    loading={loading}
+                    taskTitle={task.title}
+                />
+            )}
+        </>
+    );
+}
+
+// ─── Accept Task Modal ──────────────────────────────────────────────────────
+
+function AcceptTaskModal({
+    onSubmit,
+    onClose,
+    loading,
+}: {
+    onSubmit: (deadline: string) => void;
+    onClose: () => void;
+    loading: boolean;
+}) {
+    const [deadline, setDeadline] = useState(
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .slice(0, 16)
+    );
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center gap-3 mb-5">
+                    <div className="p-2 rounded-xl bg-emerald-50">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900">
+                            Accept Task
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                            Set a deadline to accept this task
+                        </p>
+                    </div>
+                </div>
+
+                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Committed Deadline
+                </label>
+                <input
+                    type="datetime-local"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none transition-all"
+                />
+
+                <div className="flex gap-3 mt-6">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={() =>
+                            onSubmit(new Date(deadline).toISOString())
+                        }
+                        disabled={loading || !deadline}
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Accept
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Reject Task Modal ──────────────────────────────────────────────────────
+
+function RejectTaskModal({
+    onSubmit,
+    onClose,
+    loading,
+}: {
+    onSubmit: (reason: string) => void;
+    onClose: () => void;
+    loading: boolean;
+}) {
+    const [reason, setReason] = useState("");
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center gap-3 mb-5">
+                    <div className="p-2 rounded-xl bg-red-50">
+                        <XCircle className="w-5 h-5 text-red-500" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900">
+                            Reject Task
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                            Provide a reason for rejecting
+                        </p>
+                    </div>
+                </div>
+
+                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Reason for Rejection
+                </label>
+                <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="Why are you rejecting this task?"
+                    rows={3}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 placeholder:text-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10 outline-none transition-all resize-none"
+                />
+
+                <div className="flex gap-3 mt-6">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={() => onSubmit(reason)}
+                        disabled={loading || !reason.trim()}
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Reject
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Edit Deadline Modal ────────────────────────────────────────────────────
+
+function EditDeadlineModal({
+    onSubmit,
+    onClose,
+    loading,
+    originalDeadline,
+}: {
+    onSubmit: (deadline: string) => void;
+    onClose: () => void;
+    loading: boolean;
+    originalDeadline?: string | null;
+}) {
+    const defaultDate = originalDeadline
+        ? new Date(originalDeadline).toISOString().slice(0, 16)
+        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .slice(0, 16);
+    const [deadline, setDeadline] = useState(defaultDate);
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center gap-3 mb-5">
+                    <div className="p-2 rounded-xl bg-blue-50">
+                        <Calendar className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900">
+                            Edit Deadline
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                            Update the deadline for this task
+                        </p>
+                    </div>
+                </div>
+
+                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    New Deadline
+                </label>
+                <input
+                    type="datetime-local"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 outline-none transition-all"
+                />
+
+                <div className="flex gap-3 mt-6">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={() =>
+                            onSubmit(new Date(deadline).toISOString())
+                        }
+                        disabled={loading || !deadline}
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Create Subtask Modal ───────────────────────────────────────────────────
+
+function CreateSubtaskModal({
+    onSubmit,
+    onClose,
+    loading,
+    orgUsers,
+    currentUserId,
+}: {
+    onSubmit: (
+        assignedToId: string,
+        title: string,
+        description: string,
+        deadline: string
+    ) => void;
+    onClose: () => void;
+    loading: boolean;
+    orgUsers: OrgUser[];
+    currentUserId: string;
+}) {
+    const [assignedTo, setAssignedTo] = useState<OrgUser | null>(null);
+    const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
+    const [deadline, setDeadline] = useState(
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .slice(0, 16)
+    );
+    const [isSearching, setIsSearching] = useState(false);
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center gap-3 mb-5">
+                    <div className="p-2 rounded-xl bg-teal-50">
+                        <PlusCircle className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900">
+                            Create Subtask
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                            Assign a subtask to an employee
+                        </p>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    {/* Assignee Selection */}
+                    <div>
+                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Assign To
+                        </label>
+                        {!assignedTo || isSearching ? (
+                            <div className="relative">
+                                <SearchEmployee
+                                    orgUsers={orgUsers}
+                                    currentUserId={currentUserId}
+                                    isHeader={false}
+                                    onSelect={(user) => {
+                                        setAssignedTo(user);
+                                        setIsSearching(false);
+                                    }}
+                                />
+                                {assignedTo && (
+                                    <button
+                                        className="absolute right-0 top-0 mt-[1.125rem] mr-4 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors"
+                                        onClick={() => setIsSearching(false)}
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-teal-200 bg-teal-50/50">
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-semibold text-gray-900">
+                                        {assignedTo.name}
+                                    </span>
+                                    <span className="text-xs text-gray-500 capitalize">
+                                        {assignedTo.role}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => setIsSearching(true)}
+                                    className="text-xs font-bold text-teal-600 hover:text-teal-700 transition-colors"
+                                >
+                                    Change
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div>
+                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Task Title
+                        </label>
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="Brief task title..."
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Description
+                        </label>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Describe what needs to be done..."
+                            rows={3}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 placeholder:text-gray-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all resize-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Deadline
+                        </label>
+                        <input
+                            type="datetime-local"
+                            value={deadline}
+                            onChange={(e) => setDeadline(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex gap-3 mt-8">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={() =>
+                            onSubmit(
+                                assignedTo!.id,
+                                title,
+                                description,
+                                new Date(deadline).toISOString()
+                            )
+                        }
+                        disabled={
+                            loading ||
+                            !assignedTo ||
+                            !title.trim() ||
+                            !deadline
+                        }
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Assign Subtask
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Edit Persons Modal ─────────────────────────────────────────────────────
+
+function EditPersonsModal({
+    onSubmit,
+    onClose,
+    loading,
+    orgUsers,
+    currentUserId,
+    currentAssigneeId,
+}: {
+    onSubmit: (newAssigneeId: string) => void;
+    onClose: () => void;
+    loading: boolean;
+    orgUsers: OrgUser[];
+    currentUserId: string;
+    currentAssigneeId: string | null;
+}) {
+    const [selected, setSelected] = useState<OrgUser | null>(null);
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center gap-3 mb-5">
+                    <div className="p-2 rounded-xl bg-violet-50">
+                        <UserPlus className="w-5 h-5 text-violet-600" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900">
+                            Edit Persons
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                            Change the assigned person for this task
+                        </p>
+                    </div>
+                </div>
+
+                {currentAssigneeId && (
+                    <p className="text-xs text-gray-400 mb-3">
+                        Current assignee ID:{" "}
+                        <span className="font-mono">
+                            {currentAssigneeId.slice(0, 8)}...
+                        </span>
+                    </p>
+                )}
+
+                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    New Assignee
+                </label>
+                {!selected ? (
+                    <SearchEmployee
+                        orgUsers={orgUsers}
+                        currentUserId={currentUserId}
+                        isHeader={false}
+                        onSelect={(user) => setSelected(user)}
+                    />
+                ) : (
+                    <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-violet-200 bg-violet-50/50">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-gray-900">
+                                {selected.name}
+                            </span>
+                            <span className="text-xs text-gray-500 capitalize">
+                                {selected.role}
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => setSelected(null)}
+                            className="text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors"
+                        >
+                            Change
+                        </button>
+                    </div>
+                )}
+
+                <p className="text-xs text-gray-400 mt-3">
+                    {selected && selected.id === currentUserId
+                        ? "⚡ Assigning to yourself will convert this to a personal to-do."
+                        : selected
+                            ? "The new assignee will need to accept the task."
+                            : ""}
+                </p>
+
+                <div className="flex gap-3 mt-6">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={() => onSubmit(selected!.id)}
+                        disabled={loading || !selected}
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Update
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Delete Confirmation Modal ──────────────────────────────────────────────
+
+function DeleteConfirmModal({
+    onConfirm,
+    onClose,
+    loading,
+    taskTitle,
+}: {
+    onConfirm: () => void;
+    onClose: () => void;
+    loading: boolean;
+    taskTitle: string;
+}) {
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center gap-3 mb-5">
+                    <div className="p-2 rounded-xl bg-red-50">
+                        <Trash2 className="w-5 h-5 text-red-500" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900">
+                            Delete Task
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                            This will cancel the task and all its subtasks
+                        </p>
+                    </div>
+                </div>
+
+                <div className="p-4 bg-red-50 border border-red-100 rounded-xl mb-4">
+                    <p className="text-sm text-gray-700">
+                        Are you sure you want to delete{" "}
+                        <strong>&quot;{taskTitle}&quot;</strong>? This action
+                        cannot be undone.
+                    </p>
+                </div>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={loading}
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}

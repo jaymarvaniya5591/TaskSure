@@ -4,17 +4,54 @@
 
 :root {
   --background: #fdfdfd;
-  /* Off-white for minimal look */
   --foreground: #000000;
-  /* High contrast black */
-}
 
-/* Remove dark mode preference — strictly non-negotiable */
+  /* ── Central Color System ── */
+
+  /* To-dos (self-assigned, single participant) — Violet */
+  --color-todo-50: #f5f3ff;
+  --color-todo-100: #ede9fe;
+  --color-todo-200: #ddd6fe;
+  --color-todo-400: #a78bfa;
+  --color-todo-500: #8b5cf6;
+  --color-todo-600: #7c3aed;
+  --color-todo-700: #6d28d9;
+  --color-todo-900: #4c1d95;
+
+  /* Tasks I own (created by me, assigned to others) — Indigo */
+  --color-owned-50: #eef2ff;
+  --color-owned-100: #e0e7ff;
+  --color-owned-200: #c7d2fe;
+  --color-owned-400: #818cf8;
+  --color-owned-500: #6366f1;
+  --color-owned-600: #4f46e5;
+  --color-owned-700: #4338ca;
+  --color-owned-900: #312e81;
+
+  /* Tasks assigned to me (others created) — Amber */
+  --color-assigned-50: #fffbeb;
+  --color-assigned-100: #fef3c7;
+  --color-assigned-200: #fde68a;
+  --color-assigned-400: #fbbf24;
+  --color-assigned-500: #f59e0b;
+  --color-assigned-600: #d97706;
+  --color-assigned-700: #b45309;
+  --color-assigned-900: #78350f;
+
+  /* Overdue (deadline passed) — Rose */
+  --color-overdue-50: #fff1f2;
+  --color-overdue-100: #ffe4e6;
+  --color-overdue-200: #fecdd3;
+  --color-overdue-400: #fb7185;
+  --color-overdue-500: #f43f5e;
+  --color-overdue-600: #e11d48;
+  --color-overdue-700: #be123c;
+  --color-overdue-900: #881337;
+}
 
 body {
   color: var(--foreground);
   background: var(--background);
-  /* font-family comes from Tailwind layout */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -23,4 +60,38 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Smooth page transitions */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+
+  to {
+    opacity: 1;
+    max-height: 800px;
+  }
+}
+
+.animate-slide-down {
+  animation: slideDown 0.35s ease-out forwards;
+  overflow: hidden;
 }
