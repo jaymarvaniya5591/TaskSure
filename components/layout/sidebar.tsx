@@ -16,16 +16,12 @@ import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarProvider";
 import {
     Home,
-    CalendarDays,
-    Settings,
     ListChecks,
     X
 } from "lucide-react";
 
 const pageNav = [
     { name: "Home", href: "/home", icon: Home },
-    { name: "Calendar", href: "/calendar", icon: CalendarDays },
-    { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar() {

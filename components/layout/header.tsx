@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Bell, LogOut, Menu } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import { useSidebar } from "@/components/layout/SidebarProvider";
 import { useUserContext } from "@/lib/user-context";
 import SearchEmployee from "@/components/dashboard/SearchEmployee";
@@ -106,15 +107,17 @@ export function Header() {
 
             <div className="flex shrink-0 gap-x-2 sm:gap-x-4 self-stretch lg:gap-x-6 justify-end items-center">
                 <div className="flex items-center gap-x-2 sm:gap-x-4 lg:gap-x-6">
-                    {/* Notifications */}
-                    <button
-                        type="button"
-                        className="-m-2.5 p-2.5 text-gray-500 hover:text-gray-900 relative transition-colors"
+                    {/* WhatsApp */}
+                    <a
+                        href="https://wa.me/919620131867"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="-m-2.5 p-2.5 text-gray-500 hover:text-green-600 relative transition-colors"
+                        title="Contact us on WhatsApp"
                     >
-                        <span className="sr-only">View notifications</span>
-                        <Bell className="h-6 w-6" aria-hidden="true" />
-                        <span className="absolute top-2 right-2.5 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-                    </button>
+                        <span className="sr-only">Contact us on WhatsApp</span>
+                        <FaWhatsapp className="h-6 w-6" aria-hidden="true" />
+                    </a>
 
                     {/* Separator */}
                     <div
