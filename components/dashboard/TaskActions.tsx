@@ -11,6 +11,7 @@
  */
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
     MoreHorizontal,
@@ -58,6 +59,13 @@ function extractUserId(
     if (typeof userRef === "object" && userRef !== null && "id" in userRef)
         return (userRef as Record<string, unknown>).id as string;
     return null;
+}
+
+function PortalModal({ children }: { children: React.ReactNode }) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+    if (!mounted) return null;
+    return createPortal(children, document.body);
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────
@@ -290,53 +298,65 @@ export default function TaskActions({ task, currentUserId }: TaskActionsProps) {
 
             {/* ── Modals ── */}
             {modal === "accept" && (
-                <AcceptTaskModal
-                    onSubmit={handleAccept}
-                    onClose={() => setModal(null)}
-                    loading={loading}
-                />
+                <PortalModal>
+                    <AcceptTaskModal
+                        onSubmit={handleAccept}
+                        onClose={() => setModal(null)}
+                        loading={loading}
+                    />
+                </PortalModal>
             )}
             {modal === "reject" && (
-                <RejectTaskModal
-                    onSubmit={handleReject}
-                    onClose={() => setModal(null)}
-                    loading={loading}
-                />
+                <PortalModal>
+                    <RejectTaskModal
+                        onSubmit={handleReject}
+                        onClose={() => setModal(null)}
+                        loading={loading}
+                    />
+                </PortalModal>
             )}
             {modal === "edit_deadline" && (
-                <EditDeadlineModal
-                    onSubmit={handleEditDeadline}
-                    onClose={() => setModal(null)}
-                    loading={loading}
-                    originalDeadline={task.committed_deadline || task.deadline}
-                />
+                <PortalModal>
+                    <EditDeadlineModal
+                        onSubmit={handleEditDeadline}
+                        onClose={() => setModal(null)}
+                        loading={loading}
+                        originalDeadline={task.committed_deadline || task.deadline}
+                    />
+                </PortalModal>
             )}
             {modal === "create_subtask" && (
-                <CreateSubtaskModal
-                    onSubmit={handleCreateSubtask}
-                    onClose={() => setModal(null)}
-                    loading={loading}
-                    orgUsers={orgUsers}
-                    currentUserId={currentUserId}
-                />
+                <PortalModal>
+                    <CreateSubtaskModal
+                        onSubmit={handleCreateSubtask}
+                        onClose={() => setModal(null)}
+                        loading={loading}
+                        orgUsers={orgUsers}
+                        currentUserId={currentUserId}
+                    />
+                </PortalModal>
             )}
             {modal === "edit_persons" && (
-                <EditPersonsModal
-                    onSubmit={handleEditPersons}
-                    onClose={() => setModal(null)}
-                    loading={loading}
-                    orgUsers={orgUsers}
-                    currentUserId={currentUserId}
-                    currentAssigneeId={extractUserId(task.assigned_to)}
-                />
+                <PortalModal>
+                    <EditPersonsModal
+                        onSubmit={handleEditPersons}
+                        onClose={() => setModal(null)}
+                        loading={loading}
+                        orgUsers={orgUsers}
+                        currentUserId={currentUserId}
+                        currentAssigneeId={extractUserId(task.assigned_to)}
+                    />
+                </PortalModal>
             )}
             {modal === "delete" && (
-                <DeleteConfirmModal
-                    onConfirm={handleDelete}
-                    onClose={() => setModal(null)}
-                    loading={loading}
-                    taskTitle={task.title}
-                />
+                <PortalModal>
+                    <DeleteConfirmModal
+                        onConfirm={handleDelete}
+                        onClose={() => setModal(null)}
+                        loading={loading}
+                        taskTitle={task.title}
+                    />
+                </PortalModal>
             )}
         </>
     );

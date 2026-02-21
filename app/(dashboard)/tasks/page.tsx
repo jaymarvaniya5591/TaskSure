@@ -29,13 +29,15 @@ export default async function AllTasksPage() {
                 .select(
                     "*, created_by:users!tasks_created_by_fkey(id, name), assigned_to:users!tasks_assigned_to_fkey(id, name)"
                 )
-                .eq("created_by", userId),
+                .eq("created_by", userId)
+                .not("status", "in", '("completed","cancelled")'),
             supabase
                 .from("tasks")
                 .select(
                     "*, created_by:users!tasks_created_by_fkey(id, name), assigned_to:users!tasks_assigned_to_fkey(id, name)"
                 )
-                .eq("assigned_to", userId),
+                .eq("assigned_to", userId)
+                .not("status", "in", '("completed","cancelled")'),
             supabase
                 .from("tasks")
                 .select(

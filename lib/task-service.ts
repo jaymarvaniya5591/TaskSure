@@ -300,7 +300,7 @@ export function getAvailableActions(
     const actions: TaskAction[] = [];
     const userIsOwner = isOwner(task, userId);
     const userIsAssignee = isAssignee(task, userId);
-    const taskIsTodo = isTodo(task);
+    const taskIsTodo = isTodo(task); // created_by === assigned_to
     const taskIsCompleted = task.status === "completed";
 
     // ── Completed tasks — limited actions ──
@@ -315,49 +315,53 @@ export function getAvailableActions(
         return actions;
     }
 
-    // ── To-do actions (created_by === assigned_to === me) ──
-    if (taskIsTodo && userIsOwner) {
-        actions.push({
-            type: "complete",
-            label: "Mark as Completed",
-            description: "Marks this to-do as completed.",
-        });
-        actions.push({
-            type: "edit_deadline",
-            label: "Edit Deadline",
-            description:
-                "Change the deadline for this to-do.",
-        });
-        actions.push({
-            type: "edit_persons",
-            label: "Edit Persons",
-            description:
-                "Change the assignee. Adding a different person converts this to-do into a task.",
-        });
+    // ── To-do actions (created_by === assigned_to) ──
+    if (taskIsTodo) {
+        if (userIsOwner) { // Only the single 'todo owner' can act
+            actions.push({
+                type: "complete",
+                label: "Mark as Completed",
+                description: "Marks this to-do as completed.",
+            });
+            actions.push({
+                type: "edit_deadline",
+                label: "Edit Deadline",
+                description: "Change the deadline for this to-do.",
+            });
+            actions.push({
+                type: "edit_persons",
+                label: "Edit Persons",
+                description: "Change the assignee. Adding a different person converts this to-do into a task.",
+            });
+            actions.push({
+                type: "delete",
+                label: "Delete To-do",
+                description: "Delete this to-do permanently.",
+            });
+        }
         return actions;
     }
 
-    // ── Assignee actions ──
+    // ── Task (Multi-participant) actions ──
+
+    // Assignee actions (if I am the assignee, BUT not the owner of this multi-person task)
     if (userIsAssignee && !userIsOwner) {
         if (task.status === "pending") {
             // Not yet accepted
             actions.push({
                 type: "accept",
                 label: "Accept Task",
-                description:
-                    "Accept this task by setting a committed deadline. Required to proceed.",
+                description: "Accept this task by setting a committed deadline.",
             });
             actions.push({
                 type: "reject",
                 label: "Reject Task",
-                description:
-                    "Reject this task with a reason/remark. The owner will be notified.",
+                description: "Reject this task with a reason/remark.",
             });
             actions.push({
                 type: "create_subtask",
                 label: "Create Subtask",
-                description:
-                    "Create a dependency subtask assigned to someone else before accepting.",
+                description: "Create a subtask assigned to someone else before accepting.",
             });
         } else {
             // Already accepted / overdue
@@ -369,14 +373,13 @@ export function getAvailableActions(
             actions.push({
                 type: "create_subtask",
                 label: "Create Subtask",
-                description:
-                    "Create a subtask as a dependency for this task.",
+                description: "Create a subtask as a dependency for this task.",
             });
         }
     }
 
-    // ── Owner actions (only for multi-participant tasks) ──
-    if (userIsOwner && !taskIsTodo) {
+    // Owner actions (if I created this multi-person task)
+    if (userIsOwner && !userIsAssignee) {
         actions.push({
             type: "complete",
             label: "Mark as Completed",
@@ -385,14 +388,12 @@ export function getAvailableActions(
         actions.push({
             type: "edit_persons",
             label: "Edit Persons",
-            description:
-                "Change the assignee of this task. Removing the assignee (setting to yourself) converts it to a to-do.",
+            description: "Change the assignee of this task. Removing the assignee converts it to a to-do.",
         });
         actions.push({
             type: "delete",
             label: "Delete Task",
-            description:
-                "Delete this task. This cancels the task and all its active subtasks.",
+            description: "Delete this task. Cancels the task and all active subtasks.",
         });
     }
 
