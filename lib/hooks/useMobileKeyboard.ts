@@ -75,12 +75,5 @@ export function useMobileKeyboard(): KeyboardState {
         }
     }, []);
 
-    // Automatically attempt to scroll when keyboard opens
-    useEffect(() => {
-        if (isOpen) {
-            scrollToFocused();
-        }
-    }, [isOpen, scrollToFocused]);
-
     return { isOpen, keyboardHeight, viewportHeight, scrollToFocused };
 }

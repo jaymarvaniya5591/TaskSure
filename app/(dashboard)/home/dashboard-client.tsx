@@ -142,7 +142,7 @@ export default function DashboardClient({
 
             {/* ═══ Main Block — Vibrant Yellow Notebook ═══ */}
             <div
-                className="relative rounded-3xl p-3 sm:p-4 mb-8 animate-fade-in-up overflow-hidden"
+                className="relative rounded-3xl p-3 sm:p-4 mb-8 animate-fade-in-up"
                 style={{
                     background: "linear-gradient(135deg, #FFD600 0%, #FFAB00 50%, #FFC107 100%)",
                 }}

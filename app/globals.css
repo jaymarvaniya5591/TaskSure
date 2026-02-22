@@ -123,10 +123,8 @@ body {
 
 /* ── Mobile keyboard & scroll fixes ── */
 
-/* Ensure focused inputs scroll into viewport with enough room above the keyboard */
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 120px;
   overscroll-behavior: none;
 }
 
@@ -134,12 +132,4 @@ html {
 html,
 body {
   overscroll-behavior-y: none;
-}
-
-/* Auto-scroll focused inputs into view on mobile */
-input:focus,
-textarea:focus,
-select:focus {
-  scroll-margin-top: 120px;
-  scroll-margin-bottom: 200px;
 }

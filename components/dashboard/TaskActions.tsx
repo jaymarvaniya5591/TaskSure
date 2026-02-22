@@ -15,7 +15,6 @@
 import { useState, useRef, useEffect, memo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { useMobileKeyboard } from "@/lib/hooks/useMobileKeyboard";
 import {
     MoreHorizontal,
     Calendar,
@@ -105,11 +104,8 @@ function ModalShell({
     onClose: () => void;
     children: React.ReactNode;
 }) {
-    const { keyboardHeight } = useMobileKeyboard();
-    const style = keyboardHeight > 0 ? { paddingBottom: `${Math.max(0, keyboardHeight - 50)}px` } : undefined;
-
     return (
-        <div className={MODAL.overlay} style={style}>
+        <div className={MODAL.overlay}>
             <div className="absolute inset-0" onClick={onClose} />
             <div className={MODAL.panel}>
                 <div className={MODAL.dragHandle}>

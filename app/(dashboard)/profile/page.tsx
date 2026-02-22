@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useUserContext } from "@/lib/user-context";
-import { useMobileKeyboard } from "@/lib/hooks/useMobileKeyboard";
 import { User, Building, Phone, ShieldCheck, CheckCircle2, X } from "lucide-react";
 import { ProfileSkeleton } from "@/components/ui/DashboardSkeleton";
 
@@ -21,9 +20,6 @@ interface UserProfile {
 export default function ProfilePage() {
     const { userId } = useUserContext();
     const supabase = createClient();
-
-    // Call hook to monitor keyboard and automatically scroll focused element into view
-    useMobileKeyboard();
 
     // Edit states
     const [isEditingName, setIsEditingName] = useState(false);
