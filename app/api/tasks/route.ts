@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
                 parent_task_id: parent_task_id || null,
                 status: isSelfAssigned ? "accepted" : "pending",
             })
-            .select()
+            .select("id")
             .single();
 
         if (error) {

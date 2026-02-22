@@ -12,7 +12,7 @@
  * All modals use a unified mobile-first bottom-sheet pattern for uniformity.
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useMobileKeyboard } from "@/lib/hooks/useMobileKeyboard";
@@ -121,6 +121,8 @@ function ModalShell({
     );
 }
 
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 interface TaskActionsProps {
@@ -128,9 +130,10 @@ interface TaskActionsProps {
     currentUserId: string;
 }
 
-export default function TaskActions({ task, currentUserId }: TaskActionsProps) {
+export const TaskActions = memo(function TaskActions({ task, currentUserId }: TaskActionsProps) {
     const router = useRouter();
-    const { orgUsers, allOrgUsers } = useUserContext();
+    const queryClient = useQueryClient();
+    const { orgUsers, allOrgUsers, orgId } = useUserContext();
     const [open, setOpen] = useState(false);
     const [modal, setModal] = useState<
         | "accept"
@@ -163,57 +166,65 @@ export default function TaskActions({ task, currentUserId }: TaskActionsProps) {
 
     // ── Action handlers ─────────────────────────────────────────────────────
 
+    const actionMutation = useMutation({
+        mutationFn: async ({ url, method, body }: { url: string; method: string; body: unknown }) => {
+            const res = await fetch(url, {
+                method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error("Failed to perform action");
+            return res.json();
+        },
+        onSuccess: () => {
+            setModal(null);
+            setLoading(false);
+            if (currentUserId && orgId) {
+                queryClient.invalidateQueries({ queryKey: ["dashboard", currentUserId, orgId] });
+            }
+            router.refresh(); // Fallback for components that haven't been ported yet
+        },
+        onError: (err) => {
+            setLoading(false);
+            console.error("Action error:", err);
+            alert("Failed to perform action"); // Could use toast here
+        }
+    });
+
     async function handleAccept(deadline: string) {
         setLoading(true);
-        await fetch(`/api/tasks/${task.id}`, {
+        actionMutation.mutate({
+            url: `/api/tasks/${task.id}`,
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action: "accept",
-                committed_deadline: deadline,
-            }),
+            body: { action: "accept", committed_deadline: deadline },
         });
-        setModal(null);
-        setLoading(false);
-        router.refresh();
     }
 
     async function handleReject(reason: string) {
         setLoading(true);
-        await fetch(`/api/tasks/${task.id}`, {
+        actionMutation.mutate({
+            url: `/api/tasks/${task.id}`,
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "reject", reject_reason: reason }),
+            body: { action: "reject", reject_reason: reason },
         });
-        setModal(null);
-        setLoading(false);
-        router.refresh();
     }
 
     async function handleComplete() {
         setLoading(true);
-        await fetch(`/api/tasks/${task.id}`, {
+        actionMutation.mutate({
+            url: `/api/tasks/${task.id}`,
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "complete" }),
+            body: { action: "complete" },
         });
-        setLoading(false);
-        router.refresh();
     }
 
     async function handleEditDeadline(deadline: string) {
         setLoading(true);
-        await fetch(`/api/tasks/${task.id}`, {
+        actionMutation.mutate({
+            url: `/api/tasks/${task.id}`,
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action: "edit_deadline",
-                new_deadline: deadline,
-            }),
+            body: { action: "edit_deadline", new_deadline: deadline },
         });
-        setModal(null);
-        setLoading(false);
-        router.refresh();
     }
 
     async function handleCreateSubtask(
@@ -223,35 +234,26 @@ export default function TaskActions({ task, currentUserId }: TaskActionsProps) {
         deadline: string
     ) {
         setLoading(true);
-        await fetch(`/api/tasks`, {
+        actionMutation.mutate({
+            url: `/api/tasks`,
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+            body: {
                 parent_task_id: task.id,
                 assigned_to: assignedToId,
                 title,
                 description,
                 deadline,
-            }),
+            },
         });
-        setModal(null);
-        setLoading(false);
-        router.refresh();
     }
 
     async function handleEditPersons(newAssigneeId: string) {
         setLoading(true);
-        await fetch(`/api/tasks/${task.id}`, {
+        actionMutation.mutate({
+            url: `/api/tasks/${task.id}`,
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action: "edit_persons",
-                new_assigned_to: newAssigneeId,
-            }),
+            body: { action: "edit_persons", new_assigned_to: newAssigneeId },
         });
-        setModal(null);
-        setLoading(false);
-        router.refresh();
     }
 
     async function handleRemovePerson() {
@@ -259,29 +261,20 @@ export default function TaskActions({ task, currentUserId }: TaskActionsProps) {
         const ownerId = extractUserId(task.created_by);
         if (!ownerId) return;
         setLoading(true);
-        await fetch(`/api/tasks/${task.id}`, {
+        actionMutation.mutate({
+            url: `/api/tasks/${task.id}`,
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                action: "edit_persons",
-                new_assigned_to: ownerId,
-            }),
+            body: { action: "edit_persons", new_assigned_to: ownerId },
         });
-        setModal(null);
-        setLoading(false);
-        router.refresh();
     }
 
     async function handleDelete() {
         setLoading(true);
-        await fetch(`/api/tasks/${task.id}`, {
+        actionMutation.mutate({
+            url: `/api/tasks/${task.id}`,
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "delete" }),
+            body: { action: "delete" },
         });
-        setModal(null);
-        setLoading(false);
-        router.refresh();
     }
 
     // Map action type → click handler
@@ -432,8 +425,9 @@ export default function TaskActions({ task, currentUserId }: TaskActionsProps) {
             )}
         </>
     );
-}
+});
 
+export default TaskActions;
 // ─── Accept Task Modal ──────────────────────────────────────────────────────
 
 function AcceptTaskModal({

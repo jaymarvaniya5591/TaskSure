@@ -10,7 +10,8 @@
  * Uses UserContext for data (populated by layout server component).
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,28 @@ export function Sidebar() {
     // Profile fetching logic
     const { userId, userName } = useUserContext();
     const [supabase] = useState(() => createClient());
-    const [profile, setProfile] = useState<UserProfile | null>(null);
+
+    const { data: profile } = useQuery({
+        queryKey: ["user-profile", userId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('users')
+                .select('name, organisation:organisations(name)')
+                .eq('id', userId)
+                .single();
+
+            if (error) throw error;
+
+            return {
+                name: data.name,
+                organisation: Array.isArray(data.organisation)
+                    ? data.organisation[0] || null
+                    : data.organisation,
+            } as UserProfile;
+        },
+        enabled: !!userId,
+        staleTime: 5 * 60 * 1000,
+    });
 
     // Sign out logic
     const handleSignOut = async () => {
@@ -57,32 +79,9 @@ export function Sidebar() {
         }
     };
 
-    useEffect(() => {
-        async function loadProfile() {
-            const { data } = await supabase
-                .from('users')
-                .select('name, organisation:organisations(name)')
-                .eq('id', userId)
-                .single();
-
-            if (data) {
-                setProfile({
-                    name: data.name,
-                    organisation: Array.isArray(data.organisation)
-                        ? data.organisation[0] || null
-                        : data.organisation,
-                });
-            }
-        }
-
-        if (userId) {
-            loadProfile();
-        }
-    }, [supabase, userId]);
-
     const displayName = profile?.name || userName || "Loading...";
     const initials = displayName
-        ? displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+        ? displayName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
         : "..";
     const orgName = profile?.organisation?.name || "";
 

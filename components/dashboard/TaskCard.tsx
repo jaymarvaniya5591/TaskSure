@@ -8,7 +8,7 @@
  * Info icon toggles an inline activity timeline dropdown.
  */
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { format } from "date-fns";
 import { Clock, User, Users, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,7 @@ interface TaskCardProps {
     isOwnProfile?: boolean;
 }
 
-export default function TaskCard({
+export const TaskCard = memo(function TaskCard({
     task,
     category,
     currentUserId,
@@ -161,4 +161,6 @@ export default function TaskCard({
             )}
         </div>
     );
-}
+});
+
+export default TaskCard;

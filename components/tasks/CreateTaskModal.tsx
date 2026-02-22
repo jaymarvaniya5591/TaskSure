@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { X, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -9,6 +10,7 @@ import { type OrgUser } from "@/lib/hierarchy";
 import { getTodayMidnightISO } from "@/lib/date-utils";
 import DateTimePickerBoxes from "@/components/ui/DateTimePickerBoxes";
 import { useMobileKeyboard } from "@/lib/hooks/useMobileKeyboard";
+import { createClient } from "@/lib/supabase/client";
 
 interface TaskUser extends OrgUser {
     avatar_url?: string | null;
@@ -24,6 +26,7 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
     const router = useRouter();
     const { keyboardHeight } = useMobileKeyboard();
     const [mounted, setMounted] = useState(false);
+    const supabase = createClient();
 
     // Form state
     const [title, setTitle] = useState("");
@@ -37,9 +40,6 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
     const [isSearching, setIsSearching] = useState(false);
     const [dateError, setDateError] = useState(false);
 
-    const [users, setUsers] = useState<TaskUser[]>([]);
-    const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -47,12 +47,26 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
         setMounted(true);
     }, []);
 
-    // Fetch users when the modal opens
-    useEffect(() => {
-        if (isOpen && users.length === 0) {
-            fetchUsers();
+    const { data: usersData, isLoading: isLoadingUsers } = useQuery({
+        queryKey: ["org-users-all"],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from("users")
+                .select("id, name, avatar_url")
+                .order("name");
 
-            // Re-initialize state when modal opens
+            if (error) throw new Error(error.message);
+            return data as TaskUser[];
+        },
+        enabled: isOpen,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const users = usersData || [];
+
+    // Reset forms when modal opens
+    useEffect(() => {
+        if (isOpen) {
             setTitle("");
             setDescription("");
             setAssignedTo(null); // No default assignment
@@ -61,22 +75,7 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
             setDateError(false);
             setError(null);
         }
-    }, [isOpen, users.length]);
-
-    const fetchUsers = async () => {
-        setIsLoadingUsers(true);
-        try {
-            const res = await fetch("/api/users");
-            if (res.ok) {
-                const data = await res.json();
-                setUsers(data.users || []);
-            }
-        } catch (error) {
-            console.error("Failed to fetch users", error);
-        } finally {
-            setIsLoadingUsers(false);
-        }
-    };
+    }, [isOpen]);
 
     const isSelfAssigned = assignedTo?.id === currentUserId;
 

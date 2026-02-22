@@ -6,7 +6,7 @@
  * Minimal design inspired by "Process timeline" cards.
  */
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
     Loader2,
@@ -112,29 +112,30 @@ interface TaskTimelineProps {
     taskId: string;
 }
 
-export default function TaskTimeline({ taskId }: TaskTimelineProps) {
-    const [logs, setLogs] = useState<TimelineLog[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+import { createClient } from "@/lib/supabase/client";
 
-    useEffect(() => {
-        async function fetchLogs() {
-            try {
-                const res = await fetch(`/api/tasks/${taskId}/timeline`);
-                const data = await res.json();
-                if (data.success) {
-                    setLogs(data.logs);
-                } else {
-                    setError(data.error || "Failed to load");
-                }
-            } catch {
-                setError("Network error");
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchLogs();
-    }, [taskId]);
+export default function TaskTimeline({ taskId }: TaskTimelineProps) {
+    const supabase = createClient();
+
+    const { data: logs, isLoading: loading, error } = useQuery({
+        queryKey: ["task-timeline", taskId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from("audit_log")
+                .select("id, action, metadata, created_at, user_id, users:user_id(id, name, avatar_url)")
+                .eq("task_id", taskId)
+                .order("created_at", { ascending: false });
+
+            if (error) throw new Error(error.message);
+
+            // Map single user object to be compatible with existing component structure
+            return data.map(log => ({
+                ...log,
+                users: Array.isArray(log.users) ? log.users[0] : log.users
+            })) as TimelineLog[];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
 
     if (loading) {
         return (
@@ -147,12 +148,12 @@ export default function TaskTimeline({ taskId }: TaskTimelineProps) {
     if (error) {
         return (
             <div className="py-4 text-center text-xs font-medium text-red-400">
-                {error}
+                {(error as Error)?.message || "Network error"}
             </div>
         );
     }
 
-    if (logs.length === 0) {
+    if (!logs || logs.length === 0) {
         return (
             <div className="py-4 text-center text-xs font-medium text-gray-400">
                 No activity yet

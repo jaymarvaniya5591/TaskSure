@@ -31,7 +31,7 @@ export async function PATCH(
     // Fetch the task
     const { data: task, error: fetchError } = await supabase
         .from("tasks")
-        .select("*")
+        .select("id, assigned_to, created_by, status, organisation_id, deadline, committed_deadline")
         .eq("id", taskId)
         .single();
 
