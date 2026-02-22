@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // Empty config, rely on Next.js default optimizations
+    experimental: {
+        optimizePackageImports: ['lucide-react', 'date-fns'],
+    },
 };
 export default nextConfig;

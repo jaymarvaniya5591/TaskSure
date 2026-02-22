@@ -1,4 +1,4 @@
-"use client";
+
 
 /**
  * DashboardSkeleton — Reusable shimmer skeleton components for instant page shells.

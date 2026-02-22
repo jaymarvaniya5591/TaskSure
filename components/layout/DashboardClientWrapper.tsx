@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useDashboardData } from "@/lib/hooks/useDashboardData";
 import { UserProvider } from "@/lib/user-context";
 import { SidebarProvider } from "@/components/layout/SidebarProvider";
@@ -27,7 +27,7 @@ export function DashboardClientWrapper({
         await queryClient.invalidateQueries({ queryKey: ["dashboard", userId, orgId] });
     }, [queryClient, userId, orgId]);
 
-    const userContextValue = {
+    const userContextValue = useMemo(() => ({
         userId,
         userName,
         orgId,
@@ -37,7 +37,7 @@ export function DashboardClientWrapper({
         allOrgTasks: data ? data.allOrgTasks : [],
         isLoading,
         refreshData,
-    };
+    }), [userId, userName, orgId, data, isLoading, refreshData]);
 
     return (
         <SidebarProvider>

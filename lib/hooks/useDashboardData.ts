@@ -56,14 +56,15 @@ export function useDashboardData(userId: string, orgId: string) {
             );
 
             // Enrich with computed fields
-            const enrichedTasks: Task[] = Array.from(taskMap.values()).map((task) => ({
-                ...task,
-                participant_count: getParticipantCount(task, allOrgTasks),
-                last_active_participant: getLastActiveParticipant(task, allOrgTasks),
-                pending_from: getPendingInfo(task, userId, allOrgTasks).isPending
-                    ? getPendingInfo(task, userId, allOrgTasks).pendingFrom
-                    : null,
-            }));
+            const enrichedTasks: Task[] = Array.from(taskMap.values()).map((task) => {
+                const pendingInfo = getPendingInfo(task, userId, allOrgTasks);
+                return {
+                    ...task,
+                    participant_count: getParticipantCount(task, allOrgTasks),
+                    last_active_participant: getLastActiveParticipant(task, allOrgTasks),
+                    pending_from: pendingInfo.isPending ? pendingInfo.pendingFrom : null,
+                };
+            });
 
             return {
                 tasks: enrichedTasks,
