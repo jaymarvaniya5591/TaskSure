@@ -20,12 +20,12 @@ export default function AllTasksClient({ todos, tasks, currentUserId }: AllTasks
 
     return (
         <div className="max-w-3xl animate-fade-in-up pb-56">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-50">
+            <div className="flex flex-row items-center justify-between gap-4 mb-6 relative z-50">
                 <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
                     All Tasks
                 </h1>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="flex items-center gap-3 w-auto space-x-0">
                     <button
                         onClick={() => setIsCreateModalOpen(true)}
                         className="shrink-0 flex items-center justify-center p-2.5 sm:px-4 sm:py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
