@@ -67,7 +67,7 @@ export default function WeeklyCalendarStrip({ tasks, selectedDate, onSelectDate 
                         <CalendarDays className="w-4 h-4 text-orange-500" />
                         <h2 className="text-sm font-bold text-gray-900 tracking-tight">Next 7 Days</h2>
                     </div>
-                    <span className="text-sm font-bold text-gray-600 bg-white/50 px-3 py-1 rounded-full border border-white/40 shadow-sm">
+                    <span className="text-sm font-bold text-gray-900 tracking-tight">
                         {format(start, "MMMM yyyy")}
                     </span>
                 </div>

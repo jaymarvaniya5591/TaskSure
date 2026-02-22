@@ -73,7 +73,7 @@ export default function SearchEmployee({ orgUsers, currentUserId, isHeader = fal
                         autoCapitalize="none"
                         spellCheck={false}
                         inputMode="text"
-                        className={cn("flex-1 min-w-0 text-ellipsis px-3 text-sm font-bold text-gray-900 placeholder:text-gray-500 bg-transparent outline-none", isHeader ? "py-2.5" : "py-4")}
+                        className={cn("flex-1 min-w-0 text-ellipsis px-3 text-xs sm:text-sm font-bold text-gray-900 placeholder:text-gray-500 bg-transparent outline-none", isHeader ? "py-2.5" : "py-4")}
                     />
                     {query && (
                         <button
