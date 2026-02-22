@@ -35,13 +35,21 @@ export default function DashboardClient({
     const [taskFilters, setTaskFilters] = useState<Set<string>>(new Set());
     const [todoFilters, setTodoFilters] = useState<Set<string>>(new Set());
 
+    // Determine if today is the selected date (needed for filter logic below)
+    const isTodaySelected = isToday(selectedDate);
+
     // Filter tasks for the selected date
-    const dayStart = startOfDay(selectedDate);
+    // Today: show all tasks with deadline ≤ end of today (includes overdue)
+    // Other days: show strictly that day's tasks
     const dayEnd = endOfDay(selectedDate);
     const selectedDayTasks = allTasks.filter(t => {
         const dl = t.committed_deadline || t.deadline;
         if (!dl) return false;
         const d = new Date(dl);
+        if (isTodaySelected) {
+            return d <= dayEnd;
+        }
+        const dayStart = startOfDay(selectedDate);
         return d >= dayStart && d <= dayEnd;
     });
 
@@ -87,7 +95,7 @@ export default function DashboardClient({
         return { displayTasks: sortedTasks, displayTodos: sortedTodos };
     }, [taskFilters, todoFilters, todaysTasks, todaysTodos, actionRequired, waitingOnOthers, overdueTasks]);
 
-    const isTodaySelected = isToday(selectedDate);
+
 
     const toggleFilter = (filter: string, isTaskFilter: boolean) => {
         if (isTaskFilter) {

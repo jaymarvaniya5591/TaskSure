@@ -9,7 +9,7 @@ import SearchEmployee from "@/components/dashboard/SearchEmployee";
 import { type OrgUser } from "@/lib/hierarchy";
 import { getTodayMidnightISO } from "@/lib/date-utils";
 import DateTimePickerBoxes from "@/components/ui/DateTimePickerBoxes";
-import { useMobileKeyboard } from "@/lib/hooks/useMobileKeyboard";
+
 import { createClient } from "@/lib/supabase/client";
 
 interface TaskUser extends OrgUser {
@@ -24,7 +24,7 @@ interface CreateTaskModalProps {
 
 export default function CreateTaskModal({ isOpen, onClose, currentUserId }: CreateTaskModalProps) {
     const router = useRouter();
-    const { keyboardHeight } = useMobileKeyboard();
+
     const [mounted, setMounted] = useState(false);
     const supabase = createClient();
 
@@ -136,10 +136,8 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
 
     if (!mounted || !isOpen) return null;
 
-    const style = keyboardHeight > 0 ? { paddingBottom: `${Math.max(0, keyboardHeight - 50)}px` } : undefined;
-
     const modalContent = (
-        <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center bg-gray-900/40 sm:p-4 backdrop-blur-sm sm:animate-fade-in transition-all duration-300" style={style}>
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center bg-gray-900/40 sm:p-4 backdrop-blur-sm sm:animate-fade-in transition-all duration-300">
             {/* Backdrop click to close */}
             <div className="absolute inset-0" onClick={onClose} />
 
