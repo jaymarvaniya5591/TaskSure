@@ -122,7 +122,7 @@ export default function DashboardClient({
         <div className="max-w-3xl animate-fade-in-up">
             {/* Greeting */}
             <div className="mb-6">
-                <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight truncate">
                     {greeting}, <span className="bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">{firstName}</span>
                 </h1>
                 <p className="text-gray-500 mt-1 text-sm font-medium">{dateString}</p>
@@ -141,7 +141,7 @@ export default function DashboardClient({
 
             {/* ═══ Main Block — Vibrant Yellow Notebook ═══ */}
             <div
-                className="relative rounded-3xl p-3 sm:p-4 mb-8 animate-fade-in-up"
+                className="relative rounded-3xl p-3 sm:p-4 mb-8 animate-fade-in-up overflow-hidden"
                 style={{
                     background: "linear-gradient(135deg, #FFD600 0%, #FFAB00 50%, #FFC107 100%)",
                 }}
@@ -155,9 +155,9 @@ export default function DashboardClient({
                     }}
                 />
 
-                {/* Subtle corner glow */}
-                <div className="absolute -top-20 -right-20 w-40 h-40 bg-white rounded-full blur-3xl opacity-20 pointer-events-none" />
-                <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-orange-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
+                {/* Subtle corner glow — contained within overflow-hidden parent */}
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl opacity-20 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-orange-300 rounded-full blur-3xl opacity-20 pointer-events-none" />
 
                 <div className="relative z-10 space-y-3 sm:space-y-4">
 

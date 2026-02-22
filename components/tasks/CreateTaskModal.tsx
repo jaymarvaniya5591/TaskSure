@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { X, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import SearchEmployee from "@/components/dashboard/SearchEmployee";
+import { useUserContext } from "@/lib/user-context";
 import { type OrgUser } from "@/lib/hierarchy";
 import { getTodayMidnightISO } from "@/lib/date-utils";
 import DateTimePickerBoxes from "@/components/ui/DateTimePickerBoxes";
-
-import { createClient } from "@/lib/supabase/client";
 
 interface TaskUser extends OrgUser {
     avatar_url?: string | null;
@@ -26,7 +24,7 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
     const router = useRouter();
 
     const [mounted, setMounted] = useState(false);
-    const supabase = createClient();
+    const { allOrgUsers, isLoading: isLoadingUsers } = useUserContext();
 
     // Form state
     const [title, setTitle] = useState("");
@@ -47,22 +45,7 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
         setMounted(true);
     }, []);
 
-    const { data: usersData, isLoading: isLoadingUsers } = useQuery({
-        queryKey: ["org-users-all"],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from("users")
-                .select("id, name, avatar_url")
-                .order("name");
-
-            if (error) throw new Error(error.message);
-            return data as TaskUser[];
-        },
-        enabled: isOpen,
-        staleTime: 5 * 60 * 1000,
-    });
-
-    const users = usersData || [];
+    const users = allOrgUsers || [];
 
     // Reset forms when modal opens
     useEffect(() => {

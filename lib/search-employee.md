@@ -30,17 +30,17 @@ Employee search is used in several places: header search bar, task creation, sub
 
 ### Usage for AI-Created Tasks
 
-When AI creates tasks, it should search for an employee using the same logic:
+When AI creates tasks, it should search for an employee using the same logic. Instead of fetching from an API, use the `useUserContext` hook to get the already loaded, organization-scoped users:
 
-```ts
-// 1. Fetch all org users via the API
-const res = await fetch("/api/users");
-const { users } = await res.json();
-// Returns: { id, name, avatar_url }[] — all users in the org
+```tsx
+import { useUserContext } from "@/lib/user-context";
 
-// 2. Filter by name (case-insensitive substring match)
+// Inside your component:
+const { allOrgUsers } = useUserContext();
+
+// Find a user by name (case-insensitive substring match)
 const query = "search term";
-const matches = users.filter(u =>
+const matches = allOrgUsers.filter(u =>
     u.name.toLowerCase().includes(query.toLowerCase())
 );
 
@@ -61,7 +61,7 @@ await fetch("/api/tasks", {
 
 ### Key Rules
 
-1. **No hierarchy restriction** — AI and task/subtask creation should search across **all** org employees
+1. **No hierarchy restriction** — AI and task/subtask creation should search across **all** org employees using `allOrgUsers` from `UserContext`.
 2. **Self-assignment** creates a **To-do** (status auto-set to `accepted`)
 3. **Deadline** is set by the **assignee**, NOT the creator — only include a deadline if assigning to yourself
-4. The `/api/users` endpoint (GET) returns all users in the caller's organization, ordered by name
+4. Only use `/api/users` if you absolutely need to fetch the users from an API Route where context is not available. Components should ALWAYS use `useUserContext()`.
