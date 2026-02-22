@@ -701,6 +701,7 @@ function CreateSubtaskModal({
                                     currentUserId={currentUserId}
                                     includeSelf={true}
                                     isHeader={false}
+                                    disableAnimation={true}
                                     onSelect={(user) => {
                                         setAssignedTo(user);
                                         setIsSearching(false);

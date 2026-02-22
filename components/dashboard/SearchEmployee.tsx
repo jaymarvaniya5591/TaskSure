@@ -20,9 +20,11 @@ interface SearchEmployeeProps {
     /** When true, the current user will appear in search results (used in task/subtask creation). */
     includeSelf?: boolean;
     onSelect?: (user: OrgUser) => void;
+    /** When true, disables the entrance animation. Useful in modals. */
+    disableAnimation?: boolean;
 }
 
-export default function SearchEmployee({ orgUsers, currentUserId, isHeader = false, includeSelf = false, onSelect }: SearchEmployeeProps) {
+export default function SearchEmployee({ orgUsers, currentUserId, isHeader = false, includeSelf = false, onSelect, disableAnimation = false }: SearchEmployeeProps) {
     const router = useRouter();
     const [query, setQuery] = useState("");
     const [isFocused, setIsFocused] = useState(false);
@@ -41,7 +43,7 @@ export default function SearchEmployee({ orgUsers, currentUserId, isHeader = fal
     const showResults = isFocused && query.trim().length > 0;
 
     return (
-        <section className={cn("relative", !isHeader && "animate-fade-in-up")} style={!isHeader ? { animationDelay: "0.15s" } : {}}>
+        <section className={cn("relative", !isHeader && !disableAnimation && "animate-fade-in-up")} style={(!isHeader && !disableAnimation) ? { animationDelay: "0.15s" } : {}}>
             {!isHeader && (
                 <div className="flex items-center gap-2 mb-4">
                     <div className="p-2 rounded-xl bg-violet-600">

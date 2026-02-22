@@ -170,6 +170,7 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                                         currentUserId={currentUserId}
                                         includeSelf={true}
                                         isHeader={false}
+                                        disableAnimation={true}
                                         onSelect={(user) => {
                                             setAssignedTo(user as TaskUser);
                                             setIsSearching(false);
