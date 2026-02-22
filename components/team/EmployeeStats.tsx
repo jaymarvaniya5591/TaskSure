@@ -195,9 +195,9 @@ export default function EmployeeStats({ allTasks }: EmployeeStatsProps) {
                                     ))}
                                 </Pie>
                                 <Tooltip
-                                    formatter={(value: string | number | undefined) => [`${value} Task${value !== 1 ? 's' : ''}`, undefined]}
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                                    itemStyle={{ fontWeight: 'bold' }}
+                                    formatter={(value: string | number | undefined, name?: string) => [`${value} Task${value !== 1 ? 's' : ''}`, name || '']}
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '13px', fontWeight: 600 }}
+                                    wrapperStyle={{ zIndex: 100 }}
                                 />
                                 <Legend verticalAlign="bottom" height={36} iconType="circle" />
                             </PieChart>

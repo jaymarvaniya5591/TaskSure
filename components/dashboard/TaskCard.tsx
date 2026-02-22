@@ -55,7 +55,7 @@ export default function TaskCard({
                 "group relative rounded-2xl border transition-all duration-200",
                 "z-10 focus-within:z-20 hover:z-20",
                 "hover:shadow-md hover:-translate-y-0.5",
-                styles.bg,
+                "bg-white",
                 styles.border
             )}
         >

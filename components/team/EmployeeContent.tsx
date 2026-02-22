@@ -5,6 +5,7 @@ import EmployeeStats from "./EmployeeStats";
 import EmployeeTaskList from "./EmployeeTaskList";
 import { type Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { BarChart3 } from "lucide-react";
 
 interface EmployeeContentProps {
     assignedTasks: Task[];
@@ -15,71 +16,78 @@ interface EmployeeContentProps {
 }
 
 export default function EmployeeContent({ assignedTasks, commonTasks, otherTasks, employeeId, currentUserId }: EmployeeContentProps) {
-    const [tab, setTab] = useState<"performance" | "tasks">("performance");
-    const [taskFilter, setTaskFilter] = useState<"common" | "all">("common");
+    const [taskFilter, setTaskFilter] = useState<"common" | "other">("common");
+    const [showPerformance, setShowPerformance] = useState(false);
 
     return (
-        <div className="space-y-6">
-            {/* Horizontal Toggle */}
-            <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-xl w-full max-w-sm mx-auto sm:mx-0">
+        <div className="space-y-4">
+            {/* ── Toggle: Common Tasks / Other Tasks (same design as AllTasksClient) ── */}
+            <div className="flex bg-gray-100 rounded-xl p-1">
                 <button
-                    onClick={() => setTab("performance")}
+                    onClick={() => setTaskFilter("common")}
                     className={cn(
-                        "flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200",
-                        tab === "performance" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                        "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200",
+                        taskFilter === "common"
+                            ? "bg-white text-gray-900 shadow-sm"
+                            : "text-gray-500 hover:text-gray-700"
                     )}
                 >
-                    Performance
+                    Common Tasks
+                    <span className={cn(
+                        "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
+                        taskFilter === "common" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
+                    )}>
+                        {commonTasks.length}
+                    </span>
                 </button>
                 <button
-                    onClick={() => setTab("tasks")}
+                    onClick={() => setTaskFilter("other")}
                     className={cn(
-                        "flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-200",
-                        tab === "tasks" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                        "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200",
+                        taskFilter === "other"
+                            ? "bg-white text-gray-900 shadow-sm"
+                            : "text-gray-500 hover:text-gray-700"
                     )}
                 >
-                    Tasks
+                    Other Tasks
+                    <span className={cn(
+                        "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
+                        taskFilter === "other" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
+                    )}>
+                        {otherTasks.length}
+                    </span>
                 </button>
             </div>
 
-            {/* Content Area */}
-            {tab === "performance" ? (
-                <EmployeeStats allTasks={assignedTasks} />
-            ) : (
-                <div className="space-y-4">
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex sm:flex-row flex-col justify-between items-start sm:items-center gap-4">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">
-                            Task List
-                        </h3>
-                        <div className="flex bg-gray-100 p-1 rounded-lg w-full sm:w-auto">
-                            <button
-                                onClick={() => setTaskFilter("common")}
-                                className={cn(
-                                    "px-4 py-1.5 text-xs font-bold rounded-md transition-all flex-1 sm:flex-none",
-                                    taskFilter === "common" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                                )}
-                            >
-                                Common Tasks ({commonTasks.length})
-                            </button>
-                            <button
-                                onClick={() => setTaskFilter("all")}
-                                className={cn(
-                                    "px-4 py-1.5 text-xs font-bold rounded-md transition-all flex-1 sm:flex-none",
-                                    taskFilter === "all" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                                )}
-                            >
-                                Other Tasks ({otherTasks.length})
-                            </button>
-                        </div>
+            {/* Task List */}
+            <EmployeeTaskList
+                tasks={taskFilter === "common" ? commonTasks : otherTasks}
+                employeeId={employeeId}
+                currentUserId={currentUserId}
+                hideToggle={taskFilter === "common"}
+            />
+
+            {/* ── Performance Section ── */}
+            <div className="pt-2">
+                <button
+                    onClick={() => setShowPerformance(!showPerformance)}
+                    className={cn(
+                        "w-full flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-bold transition-all duration-200",
+                        showPerformance
+                            ? "bg-gray-900 text-white border-gray-900"
+                            : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                    )}
+                >
+                    <BarChart3 className="w-4 h-4" />
+                    {showPerformance ? "Hide Performance" : "View Performance"}
+                </button>
+
+                {showPerformance && (
+                    <div className="mt-4 animate-fade-in-up">
+                        <EmployeeStats allTasks={assignedTasks} />
                     </div>
-                    <EmployeeTaskList
-                        tasks={taskFilter === "common" ? commonTasks : otherTasks}
-                        employeeId={employeeId}
-                        currentUserId={currentUserId}
-                        hideToggle={taskFilter === "common"}
-                    />
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
