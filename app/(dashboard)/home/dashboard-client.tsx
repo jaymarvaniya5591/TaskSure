@@ -7,7 +7,7 @@ import { type Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import TaskCard from "@/components/dashboard/TaskCard";
 import { getTaskColorCategory } from "@/lib/colors";
-import { X, AlertTriangle, Clock, AlertCircle } from "lucide-react";
+import { X, AlertTriangle, Clock, AlertCircle, CalendarDays } from "lucide-react";
 
 interface DashboardClientProps {
     currentUserId: string;
@@ -115,6 +115,19 @@ export default function DashboardClient({
     return (
         <div className="max-w-3xl animate-fade-in-up">
 
+            {/* Dashboard Title & Month Label */}
+            <div className="flex items-center justify-between mb-6 pl-1 pr-2 sm:pl-2 sm:pr-3">
+                <div className="flex items-center gap-2.5">
+                    <CalendarDays className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />
+                    <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight">
+                        Next 7 Days
+                    </h1>
+                </div>
+                <span className="text-sm font-bold text-gray-900 tracking-tight">
+                    {format(selectedDate, "MMMM yyyy")}
+                </span>
+            </div>
+
             {/* Section 1: Weekly Calendar Strip */}
             <div className="mb-6">
                 <WeeklyCalendarStrip
@@ -175,53 +188,43 @@ export default function DashboardClient({
                 {mainTab === "tasks" && (
                     <div className="animate-fade-in-up space-y-4" style={{ animationDuration: '0.3s' }}>
                         {/* Task Filters */}
-                        <div className="flex flex-wrap gap-2 items-center">
+                        <div className="flex gap-1.5 sm:gap-2 items-center w-full">
                             <button
                                 onClick={() => toggleFilter('action', true)}
                                 className={cn(
-                                    "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border backdrop-blur-sm",
+                                    "flex-1 px-1 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-[9px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all duration-200 border backdrop-blur-sm text-center leading-tight",
                                     taskFilters.has('action')
                                         ? "bg-red-500/90 text-white border-red-400 shadow-md"
                                         : "bg-white/70 text-gray-700 border-white/50 hover:bg-white/90 shadow-sm"
                                 )}
                             >
-                                <AlertTriangle className="w-3.5 h-3.5" />
-                                Action Required
+                                <AlertTriangle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                <span className="truncate w-full sm:w-auto">Action Req.</span>
                             </button>
                             <button
                                 onClick={() => toggleFilter('waiting', true)}
                                 className={cn(
-                                    "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border backdrop-blur-sm",
+                                    "flex-1 px-1 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-[9px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all duration-200 border backdrop-blur-sm text-center leading-tight",
                                     taskFilters.has('waiting')
                                         ? "bg-blue-500/90 text-white border-blue-400 shadow-md"
                                         : "bg-white/70 text-gray-700 border-white/50 hover:bg-white/90 shadow-sm"
                                 )}
                             >
-                                <Clock className="w-3.5 h-3.5" />
-                                Waiting on Others
+                                <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                <span className="truncate w-full sm:w-auto">Waiting</span>
                             </button>
                             <button
                                 onClick={() => toggleFilter('overdue', true)}
                                 className={cn(
-                                    "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border backdrop-blur-sm",
+                                    "flex-1 px-1 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-[9px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all duration-200 border backdrop-blur-sm text-center leading-tight",
                                     taskFilters.has('overdue')
                                         ? "bg-orange-600/90 text-white border-orange-500 shadow-md"
                                         : "bg-white/70 text-gray-700 border-white/50 hover:bg-white/90 shadow-sm"
                                 )}
                             >
-                                <AlertCircle className="w-3.5 h-3.5" />
-                                Overdue
+                                <AlertCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                <span className="truncate w-full sm:w-auto">Overdue</span>
                             </button>
-
-                            {taskFilters.size > 0 && (
-                                <button
-                                    onClick={() => setTaskFilters(new Set())}
-                                    className="px-2.5 py-1.5 rounded-full text-xs font-bold text-gray-700/70 hover:text-gray-900 hover:bg-white/50 flex items-center gap-1 transition-all"
-                                >
-                                    <X className="w-3 h-3" />
-                                    Clear
-                                </button>
-                            )}
                         </div>
 
                         {/* Task List */}
@@ -251,29 +254,19 @@ export default function DashboardClient({
                 {mainTab === "todos" && (
                     <div className="animate-fade-in-up space-y-4" style={{ animationDuration: '0.3s' }}>
                         {/* Todo Filters */}
-                        <div className="flex flex-wrap gap-2 items-center">
+                        <div className="flex gap-1.5 sm:gap-2 items-center w-full">
                             <button
                                 onClick={() => toggleFilter('overdue', false)}
                                 className={cn(
-                                    "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border backdrop-blur-sm",
+                                    "flex-1 sm:flex-none px-2 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1 sm:gap-1.5 transition-all duration-200 border backdrop-blur-sm",
                                     todoFilters.has('overdue')
                                         ? "bg-red-500/90 text-white border-red-400 shadow-md"
                                         : "bg-white/70 text-gray-700 border-white/50 hover:bg-white/90 shadow-sm"
                                 )}
                             >
-                                <AlertCircle className="w-3.5 h-3.5" />
+                                <AlertCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                 Overdue
                             </button>
-
-                            {todoFilters.size > 0 && (
-                                <button
-                                    onClick={() => setTodoFilters(new Set())}
-                                    className="px-2.5 py-1.5 rounded-full text-xs font-bold text-gray-700/70 hover:text-gray-900 hover:bg-white/50 flex items-center gap-1 transition-all"
-                                >
-                                    <X className="w-3 h-3" />
-                                    Clear
-                                </button>
-                            )}
                         </div>
 
                         {/* Todo List */}

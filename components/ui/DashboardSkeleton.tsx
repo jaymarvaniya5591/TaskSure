@@ -58,14 +58,7 @@ export function SkeletonList({ count = 4 }: { count?: number }) {
 export function SkeletonCalendar() {
     return (
         <div className="backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm rounded-2xl p-1 mb-6">
-            <div className="flex items-center justify-between px-2 pt-2 pb-2 sm:px-3 sm:pt-3 sm:pb-3">
-                <div className="flex items-center gap-2 ml-1">
-                    <Shimmer className="h-4 w-4 rounded bg-gray-200/70" />
-                    <Shimmer className="h-4 w-24 bg-gray-200/70" />
-                </div>
-                <Shimmer className="h-6 w-24 rounded-full bg-gray-200/70" />
-            </div>
-            <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+            <div className="grid grid-cols-7 gap-1 sm:gap-1.5 pt-1 sm:pt-2">
                 {Array.from({ length: 7 }).map((_, i) => (
                     <div key={i} className="flex flex-col items-center gap-2 px-1 py-1.5 sm:px-2 sm:py-2 rounded-xl bg-white/40 border border-white/40">
                         <Shimmer className="h-3 w-8 bg-gray-200/70" />
@@ -136,6 +129,15 @@ export function DashboardHomeSkeleton() {
 
     return (
         <div className="max-w-3xl animate-fade-in-up">
+
+            {/* Dashboard Title & Month Label */}
+            <div className="flex items-center justify-between mb-6 pl-1 pr-2 sm:pl-2 sm:pr-3">
+                <div className="flex items-center gap-2.5">
+                    <Shimmer className="h-5 w-5 sm:h-6 sm:w-6 rounded-md bg-orange-200/70" />
+                    <Shimmer className="h-7 sm:h-8 w-40 rounded-lg bg-gray-200/70" />
+                </div>
+                <Shimmer className="h-5 w-28 rounded bg-gray-200/70" />
+            </div>
 
             {/* Calendar strip */}
             <div className="mb-6">

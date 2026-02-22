@@ -9,7 +9,6 @@
 import { format, addDays, startOfDay, endOfDay, isToday as checkIsToday, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { type Task } from "@/lib/types";
-import { CalendarDays } from "lucide-react";
 
 interface CalendarStripProps {
     tasks: Task[];
@@ -62,17 +61,8 @@ export default function WeeklyCalendarStrip({ tasks, selectedDate, onSelectDate 
     return (
         <section className="backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm rounded-2xl p-1 mb-6 relative overflow-hidden animate-fade-in-up">
             <div className="relative z-10">
-                <div className="flex items-center justify-between px-2 pt-2 pb-2 sm:px-3 sm:pt-3 sm:pb-3">
-                    <div className="flex items-center gap-2 ml-1">
-                        <CalendarDays className="w-4 h-4 text-orange-500" />
-                        <h2 className="text-sm font-bold text-gray-900 tracking-tight">Next 7 Days</h2>
-                    </div>
-                    <span className="text-sm font-bold text-gray-900 tracking-tight">
-                        {format(start, "MMMM yyyy")}
-                    </span>
-                </div>
 
-                <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+                <div className="grid grid-cols-7 gap-1 sm:gap-1.5 pt-1 sm:pt-2">
                     {days.map((day, i) => {
                         const hasItems = day.todosCount + day.tasksCount > 0;
 

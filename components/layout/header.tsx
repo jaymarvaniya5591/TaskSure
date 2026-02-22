@@ -39,7 +39,7 @@ export function Header() {
     };
 
     return (
-        <div className="sticky top-4 sm:top-6 z-40 flex items-center justify-between backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm p-1 gap-0.5 sm:gap-1 mx-4 sm:mx-6 lg:mx-8 rounded-2xl mb-4 sm:mb-6">
+        <div className="sticky top-4 sm:top-6 z-30 flex items-center justify-between backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm p-1 gap-0.5 sm:gap-1 mx-4 sm:mx-6 lg:mx-8 rounded-2xl mb-4 sm:mb-6">
             {/* Hamburger Menu (Mobile Only) */}
             <button
                 type="button"
