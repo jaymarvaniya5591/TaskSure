@@ -67,7 +67,9 @@ function VerifyContent() {
                     .single();
 
                 if (profile) {
-                    router.push('/home');
+                    // Hard-navigate so the dashboard server component
+                    // re-resolves the current user from scratch.
+                    window.location.href = '/home';
                 } else {
                     await supabase.auth.signOut();
                     setNotFound(true);
@@ -118,7 +120,8 @@ function VerifyContent() {
                 .single();
 
             if (profile) {
-                router.push('/home');
+                // Hard-navigate to destroy any stale client-side state
+                window.location.href = '/home';
                 return true;
             } else {
                 await supabase.auth.signOut();

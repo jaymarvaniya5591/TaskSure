@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, PlusCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import SearchEmployee from "@/components/dashboard/SearchEmployee";
 import { useUserContext } from "@/lib/user-context";
 import { type OrgUser } from "@/lib/hierarchy";
 import { getTodayMidnightISO } from "@/lib/date-utils";
 import DateTimePickerBoxes from "@/components/ui/DateTimePickerBoxes";
+import { cn } from "@/lib/utils";
 
 interface TaskUser extends OrgUser {
     avatar_url?: string | null;
@@ -20,6 +21,24 @@ interface CreateTaskModalProps {
     currentUserId: string;
 }
 
+const MODAL = {
+    overlay: "fixed inset-0 z-[9999] flex items-end justify-center sm:items-center bg-gray-900/40 sm:p-4 backdrop-blur-sm transition-all duration-300",
+    panel: "relative w-full sm:max-w-md bg-white rounded-t-[2rem] shadow-2xl sm:rounded-3xl flex flex-col max-h-[92vh] sm:max-h-[85vh] z-10 overflow-hidden",
+    dragHandle: "sm:hidden w-full flex justify-center py-3 bg-white relative z-20",
+    dragPill: "w-12 h-1.5 bg-gray-200 rounded-full",
+    header: "flex items-center justify-between px-5 sm:px-6 pb-4 sm:pt-6 border-b border-gray-100 bg-white relative z-20 shrink-0",
+    title: "text-xl sm:text-2xl font-extrabold tracking-tight text-gray-900",
+    subtitle: "text-xs text-gray-500 mt-0.5",
+    closeBtn: "p-2 sm:p-2.5 -mr-2 sm:-mr-1 bg-gray-50 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all duration-200 flex-shrink-0",
+    body: "p-5 sm:p-6 overflow-y-auto flex-1 bg-white overscroll-contain",
+    footer: "p-5 sm:p-6 border-t border-gray-100 bg-white sm:bg-gray-50/50 mt-auto relative z-20 pb-8 sm:pb-6 shrink-0",
+    label: "block mb-2 text-xs font-bold text-gray-500 uppercase tracking-wider",
+    inputBase: "w-full px-4 py-3.5 sm:py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:bg-white transition-all text-sm sm:text-[15px] font-medium placeholder:font-normal placeholder:text-gray-400",
+    textareaBase: "w-full px-4 py-3.5 sm:py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:bg-white transition-all text-sm sm:text-[15px] resize-none placeholder:text-gray-400",
+    btnCancel: "flex-1 px-4 py-3.5 sm:py-3 rounded-2xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors",
+    errorBox: "mb-4 p-3.5 bg-red-50/80 text-red-700 rounded-2xl text-sm font-medium border border-red-100/50",
+};
+
 export default function CreateTaskModal({ isOpen, onClose, currentUserId }: CreateTaskModalProps) {
     const router = useRouter();
 
@@ -29,11 +48,8 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
     // Form state
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
-
-    // Default deadline to 7 days from now
     const [deadline, setDeadline] = useState("");
 
-    // Initially no one is assigned
     const [assignedTo, setAssignedTo] = useState<TaskUser | null>(null);
     const [isSearching, setIsSearching] = useState(false);
     const [dateError, setDateError] = useState(false);
@@ -47,12 +63,11 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
 
     const users = allOrgUsers || [];
 
-    // Reset forms when modal opens
     useEffect(() => {
         if (isOpen) {
             setTitle("");
             setDescription("");
-            setAssignedTo(null); // No default assignment
+            setAssignedTo(null);
             setIsSearching(false);
             setDeadline(getTodayMidnightISO());
             setDateError(false);
@@ -62,8 +77,7 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
 
     const isSelfAssigned = assignedTo?.id === currentUserId;
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
         setError(null);
 
         if (!title.trim()) {
@@ -107,7 +121,6 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                 throw new Error(data.error || "Failed to create task");
             }
 
-            // Success
             router.refresh();
             onClose();
         } catch (err: unknown) {
@@ -120,70 +133,62 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
     if (!mounted || !isOpen) return null;
 
     const modalContent = (
-        <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center bg-gray-900/40 sm:p-4 backdrop-blur-sm sm:animate-fade-in transition-all duration-300">
-            {/* Backdrop click to close */}
+        <div className={MODAL.overlay}>
             <div className="absolute inset-0" onClick={onClose} />
-
-            <div className="relative w-full sm:max-w-md bg-white rounded-t-[2rem] shadow-2xl sm:rounded-3xl flex flex-col max-h-[92vh] sm:max-h-[85vh] z-10 overflow-hidden sm:animate-scale-in animate-slide-up-mobile">
-
-                {/* Mobile Drag Handle */}
-                <div className="sm:hidden w-full flex justify-center py-3 bg-white relative z-20">
-                    <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
+            <div className={MODAL.panel}>
+                <div className={MODAL.dragHandle}>
+                    <div className={MODAL.dragPill} />
                 </div>
 
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 pb-4 sm:pt-6 border-b border-gray-100 bg-white relative z-20 shrink-0">
-                    <h2 className="text-2xl font-extrabold tracking-tight text-gray-900">Create Task</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-2 sm:p-2.5 -mr-2 sm:-mr-1 bg-gray-50 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all duration-200 flex-shrink-0"
-                    >
-                        <X className="w-5 h-5 sm:w-5 sm:h-5 cursor-pointer" />
+                <div className={MODAL.header}>
+                    <div>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-gray-100">
+                                <PlusCircle className="w-5 h-5 text-gray-900" />
+                            </div>
+                            <div>
+                                <h3 className={MODAL.title}>Create Task</h3>
+                                <p className={MODAL.subtitle}>Assign a task to an employee</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className={MODAL.closeBtn}>
+                        <X className="w-5 h-5 cursor-pointer" />
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="p-6 overflow-y-auto flex-1 bg-white overscroll-contain">
-                    {error && (
-                        <div className="mb-5 p-4 bg-red-50/80 text-red-700 rounded-2xl text-sm font-medium border border-red-100/50">
-                            {error}
-                        </div>
-                    )}
+                <div className={MODAL.body}>
+                    {error && <div className={MODAL.errorBox}>{error}</div>}
 
-                    <div className="space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-900 block">
-                                Assign To <span className="text-red-500">*</span>
-                            </label>
-
+                    <div className="space-y-5">
+                        <div>
+                            <label className={MODAL.label}>Assign To <span className="text-red-500">*</span></label>
                             {!assignedTo || isSearching ? (
-                                <div className="space-y-3 relative">
-                                    <div className="relative">
-                                        <SearchEmployee
-                                            orgUsers={users}
-                                            currentUserId={currentUserId}
-                                            includeSelf={true}
-                                            isHeader={false}
-                                            onSelect={(user) => {
-                                                setAssignedTo(user as TaskUser);
-                                                setIsSearching(false);
-                                            }}
-                                        />
-                                        {assignedTo && (
-                                            <button
-                                                className="absolute right-0 top-0 mt-[1.125rem] mr-4 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors z-10"
-                                                onClick={() => setIsSearching(false)}
-                                            >
-                                                Cancel
-                                            </button>
-                                        )}
-                                    </div>
+                                <div className="relative z-50">
+                                    <SearchEmployee
+                                        orgUsers={users}
+                                        currentUserId={currentUserId}
+                                        includeSelf={true}
+                                        isHeader={false}
+                                        onSelect={(user) => {
+                                            setAssignedTo(user as TaskUser);
+                                            setIsSearching(false);
+                                        }}
+                                    />
+                                    {assignedTo && (
+                                        <button
+                                            className="absolute right-0 top-0 mt-[1.125rem] mr-4 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors z-10"
+                                            onClick={() => setIsSearching(false)}
+                                        >
+                                            Cancel
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/80">
                                     <div className="flex items-center gap-3">
                                         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shrink-0">
-                                            {assignedTo.id === currentUserId ? (
+                                            {isSelfAssigned ? (
                                                 <span className="text-sm font-black text-gray-700 p-0">ME</span>
                                             ) : (
                                                 <span className="text-sm font-black text-gray-700 uppercase">
@@ -192,10 +197,10 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                                             )}
                                         </div>
                                         <div className="flex flex-col">
-                                            <span className="text-[15px] font-bold text-gray-900">
-                                                {assignedTo.id === currentUserId ? "Me (Self)" : assignedTo.name}
+                                            <span className="text-sm sm:text-[15px] font-bold text-gray-900">
+                                                {isSelfAssigned ? "Me (Self)" : assignedTo.name}
                                             </span>
-                                            {assignedTo.id !== currentUserId && (
+                                            {!isSelfAssigned && (
                                                 <span className="text-xs text-gray-500 capitalize">
                                                     {assignedTo.role || "member"}
                                                 </span>
@@ -212,51 +217,39 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                             )}
                         </div>
 
-                        <div className="space-y-2">
-                            <label htmlFor="title" className="text-sm font-bold text-gray-900 block">
-                                Task Title <span className="text-red-500">*</span>
-                            </label>
+                        <div>
+                            <label className={MODAL.label}>Task Title <span className="text-red-500">*</span></label>
                             <input
-                                id="title"
                                 type="text"
-                                placeholder="What needs to be done?"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                autoComplete="new-password"
-                                autoCorrect="off"
-                                autoCapitalize="none"
-                                spellCheck={false}
-                                inputMode="text"
+                                placeholder="What needs to be done?"
+                                autoComplete="off"
+                                autoCorrect="on"
                                 enterKeyHint="next"
-                                className="w-full px-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:bg-white transition-all text-[15px] font-medium placeholder:font-normal placeholder:text-gray-400"
+                                className={MODAL.inputBase}
                                 disabled={isSubmitting}
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <label htmlFor="description" className="text-sm font-bold text-gray-900 block">
-                                Description <span className="text-gray-400 font-medium">(Optional)</span>
-                            </label>
+                        <div>
+                            <label className={MODAL.label}>Description <span className="text-gray-400 font-medium normal-case">(Optional)</span></label>
                             <textarea
-                                id="description"
-                                placeholder="Add more details about this task..."
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Add more details about this task..."
                                 rows={3}
                                 autoComplete="off"
                                 autoCorrect="on"
                                 spellCheck={true}
-                                className="w-full px-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:bg-white transition-all text-[15px] resize-none placeholder:text-gray-400"
+                                className={MODAL.textareaBase}
                                 disabled={isSubmitting}
                             />
                         </div>
 
-                        {/* Only show deadline if creating a to-do (assigned to self) */}
                         {isSelfAssigned && (
-                            <div className="space-y-2 pb-2">
-                                <label htmlFor="deadline" className="text-sm font-bold text-gray-900 block">
-                                    Deadline <span className="text-red-500">*</span>
-                                </label>
+                            <div>
+                                <label className={MODAL.label}>Deadline <span className="text-red-500">*</span></label>
                                 <DateTimePickerBoxes
                                     value={deadline}
                                     onChange={(val) => setDeadline(val)}
@@ -267,28 +260,24 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-gray-100 bg-white sm:bg-gray-50/50 mt-auto relative z-20 pb-8 sm:pb-6 shrink-0">
-                    <button
-                        onClick={handleSubmit}
-                        disabled={
-                            isLoadingUsers ||
-                            isSubmitting ||
-                            !assignedTo ||
-                            !title.trim() ||
-                            (isSelfAssigned && dateError)
-                        }
-                        className="w-full flex items-center justify-center py-[18px] sm:py-4 px-6 bg-gray-900 text-white rounded-2xl font-bold text-[15px] hover:bg-gray-800 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-lg shadow-gray-900/20 active:scale-[0.98]"
-                    >
-                        {isSubmitting ? (
-                            <>
-                                <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                                Creating Task...
-                            </>
-                        ) : (
-                            "Create Task"
-                        )}
-                    </button>
-                </div>
+                {(!isSearching || assignedTo) && (
+                    <div className={MODAL.footer}>
+                        <div className="flex gap-3">
+                            <button onClick={onClose} className={MODAL.btnCancel} disabled={isSubmitting}>Cancel</button>
+                            <button
+                                onClick={handleSubmit}
+                                disabled={isLoadingUsers || isSubmitting || !assignedTo || !title.trim() || (isSelfAssigned && dateError)}
+                                className={cn(
+                                    "flex-1 px-4 py-3.5 sm:py-3 rounded-2xl bg-gray-900 text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2",
+                                    isSubmitting && "opacity-80"
+                                )}
+                            >
+                                {isSubmitting && <Loader2 className="w-4 h-4 animate-spin hidden sm:inline" />}
+                                Create Task
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

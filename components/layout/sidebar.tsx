@@ -40,7 +40,7 @@ export function Sidebar() {
     const currentUserData = allOrgUsers.find(u => u.id === userId);
     const orgName = currentUserData?.role ? currentUserData.role : "";
 
-    // Sign out logic
+    // Sign out logic — clear all cached data so the next login starts fresh
     const handleSignOut = async () => {
         try {
             const supabase = createClient();
@@ -49,7 +49,9 @@ export function Sidebar() {
                 console.error('Error signing out:', error);
                 return;
             }
-            router.push('/login');
+            // Hard-navigate to login so ALL client-side state is destroyed:
+            // React Query cache, component tree, Next.js Router Cache, etc.
+            window.location.href = '/login';
         } catch (error) {
             console.error('Unexpected error signing out:', error);
         }
