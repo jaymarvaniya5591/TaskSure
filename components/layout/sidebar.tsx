@@ -1,17 +1,11 @@
 "use client";
 
 /**
- * Sidebar — Persistent side navigation bar (Feature 2).
- *
- * Two main sections:
- * 1. ALL TASKS — To-dos (single participant) + Tasks (multiple participants), color coded
- * 2. ORGANISATION — Search Employee + View Tree
- *
+ * Sidebar — Persistent side navigation bar.
  * Uses UserContext for data (populated by layout server component).
+ * No individual data fetching — reads from shared context.
  */
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -29,45 +23,27 @@ const pageNav = [
     { name: "Home", href: "/home", icon: Home },
 ];
 
-interface UserProfile {
-    name: string;
-    organisation: { name: string } | null;
-}
-
 export function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const { isMobileOpen, setIsMobileOpen } = useSidebar();
 
-    // Profile fetching logic
-    const { userId, userName } = useUserContext();
-    const [supabase] = useState(() => createClient());
+    const { userId, userName, allOrgUsers } = useUserContext();
 
-    const { data: profile } = useQuery({
-        queryKey: ["user-profile", userId],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('users')
-                .select('name, organisation:organisations(name)')
-                .eq('id', userId)
-                .single();
+    // Derive profile info from context instead of a separate query
+    const displayName = userName || "Loading...";
+    const initials = displayName
+        ? displayName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+        : "..";
 
-            if (error) throw error;
-
-            return {
-                name: data.name,
-                organisation: Array.isArray(data.organisation)
-                    ? data.organisation[0] || null
-                    : data.organisation,
-            } as UserProfile;
-        },
-        enabled: !!userId,
-        staleTime: 5 * 60 * 1000,
-    });
+    // Get org name from the current user's data in the allOrgUsers array
+    const currentUserData = allOrgUsers.find(u => u.id === userId);
+    const orgName = currentUserData?.role ? currentUserData.role : "";
 
     // Sign out logic
     const handleSignOut = async () => {
         try {
+            const supabase = createClient();
             const { error } = await supabase.auth.signOut();
             if (error) {
                 console.error('Error signing out:', error);
@@ -78,12 +54,6 @@ export function Sidebar() {
             console.error('Unexpected error signing out:', error);
         }
     };
-
-    const displayName = profile?.name || userName || "Loading...";
-    const initials = displayName
-        ? displayName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
-        : "..";
-    const orgName = profile?.organisation?.name || "";
 
     return (
         <>

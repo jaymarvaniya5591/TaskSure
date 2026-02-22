@@ -3,6 +3,7 @@
 /**
  * UserContext — Provides current user info + org data to all dashboard components.
  * Populated server-side in the dashboard layout, consumed client-side by sidebar etc.
+ * Includes `isLoading` for skeleton/shimmer states and `refreshData` for manual refresh.
  */
 
 import { createContext, useContext, type ReactNode } from "react";
@@ -19,6 +20,10 @@ export interface UserContextValue {
     allOrgUsers: OrgUser[];
     tasks: Task[];
     allOrgTasks: Task[];
+    /** True while the initial data fetch is in progress */
+    isLoading: boolean;
+    /** Manually trigger a data refresh (the refresh button in header) */
+    refreshData: () => Promise<void>;
 }
 
 const UserCtx = createContext<UserContextValue | null>(null);

@@ -12,6 +12,8 @@ const protectedRoutes = [
     '/stats',
     '/settings',
     '/notifications',
+    '/profile',
+    '/tasks',
 ]
 
 // Routes that authenticated users should NOT see (they get redirected to /home)
@@ -43,6 +45,8 @@ export async function middleware(request: NextRequest) {
         }
     )
 
+    // Only validate auth session — NO database queries here.
+    // Profile resolution happens in the dashboard layout (resolveCurrentUser).
     const {
         data: { user },
     } = await supabase.auth.getUser()
@@ -54,52 +58,7 @@ export async function middleware(request: NextRequest) {
         (route) => pathname === route || pathname.startsWith(route + '/')
     )
 
-    // Check if the user is authenticated but missing a public profile 
-    // We do a lightweight check via the client we just created
-    let profileExists = false;
-    let authUserPhone = user?.phone || "";
-
-    if (user) {
-        // Try to get phone from test email if it's a test user
-        if (!user.phone && user.email) {
-            const match = user.email.match(/test_(\d+)@/);
-            if (match) authUserPhone = `+${match[1]}`;
-        }
-
-        const { data: profile } = await supabase
-            .from('users')
-            .select('id')
-            .eq('id', user.id)
-            .single()
-
-        profileExists = !!profile;
-
-        // Secondary check by phone just in case (like our resolveCurrentUser logic)
-        if (!profileExists && authUserPhone) {
-            const { data: profileByPhone } = await supabase
-                .from('users')
-                .select('id')
-                .eq('phone_number', authUserPhone)
-                .single()
-
-            profileExists = !!profileByPhone;
-        }
-    }
-
-    // SCENARIO 1: Authenticated, NO PROFILE -> MUST go to /signup/profile
-    if (user && !profileExists && pathname !== '/signup/profile') {
-        const url = request.nextUrl.clone()
-        url.pathname = '/signup/profile'
-        if (authUserPhone) url.searchParams.set('phone', authUserPhone);
-
-        const redirectResponse = NextResponse.redirect(url)
-        supabaseResponse.cookies.getAll().forEach((cookie) => {
-            redirectResponse.cookies.set(cookie.name, cookie.value)
-        })
-        return redirectResponse
-    }
-
-    // SCENARIO 2: Unauthenticated trying to access protected -> Login
+    // SCENARIO 1: Unauthenticated trying to access protected -> Login
     if (isProtectedRoute && !user) {
         const url = request.nextUrl.clone()
         url.pathname = '/login'
@@ -110,12 +69,12 @@ export async function middleware(request: NextRequest) {
         return redirectResponse
     }
 
-    // SCENARIO 3: Authenticated AND Has Profile -> Redirect away from auth routes to Home
+    // SCENARIO 2: Authenticated -> Redirect away from auth routes to Home
     const isAuthRoute = authRoutes.some(
         (route) => pathname === route || pathname.startsWith(route + '/')
     )
 
-    if (user && profileExists && (isAuthRoute || pathname === '/')) {
+    if (user && (isAuthRoute || pathname === '/')) {
         const url = request.nextUrl.clone()
         url.pathname = '/home'
         const redirectResponse = NextResponse.redirect(url)
@@ -136,7 +95,6 @@ export const config = {
          * - _next/image (image optimization files)
          * - favicon.ico (favicon file)
          * - api/ (API routes, they handle their own auth)
-         * Feel free to modify this pattern to include more paths.
          */
         '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],

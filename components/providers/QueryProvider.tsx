@@ -1,7 +1,6 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState } from "react";
 
 export default function QueryProvider({ children }: { children: React.ReactNode }) {
@@ -10,8 +9,12 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
             new QueryClient({
                 defaultOptions: {
                     queries: {
-                        staleTime: 5 * 60 * 1000, // 5 minutes global cache
-                        refetchOnWindowFocus: true, // Auto refetch when returning to tab
+                        staleTime: Infinity,           // Data stays fresh for entire session
+                        gcTime: Infinity,              // Never garbage-collect cached data
+                        refetchOnWindowFocus: false,   // Don't refetch when returning to tab
+                        refetchOnMount: false,         // Don't refetch on component remount
+                        refetchOnReconnect: false,     // Don't refetch on network reconnect
+                        retry: 1,                      // Only retry once on failure
                     },
                 },
             })
@@ -20,7 +23,6 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
     return (
         <QueryClientProvider client={queryClient}>
             {children}
-            <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>
     );
 }

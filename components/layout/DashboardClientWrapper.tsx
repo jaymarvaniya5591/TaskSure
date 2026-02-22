@@ -1,12 +1,13 @@
 "use client";
 
+import { useCallback } from "react";
 import { useDashboardData } from "@/lib/hooks/useDashboardData";
 import { UserProvider } from "@/lib/user-context";
 import { SidebarProvider } from "@/components/layout/SidebarProvider";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { getUsersAtOrBelowRank } from "@/lib/hierarchy";
-import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function DashboardClientWrapper({
     children,
@@ -20,6 +21,11 @@ export function DashboardClientWrapper({
     orgId: string;
 }) {
     const { data, isLoading, isError } = useDashboardData(userId, orgId);
+    const queryClient = useQueryClient();
+
+    const refreshData = useCallback(async () => {
+        await queryClient.invalidateQueries({ queryKey: ["dashboard", userId, orgId] });
+    }, [queryClient, userId, orgId]);
 
     const userContextValue = {
         userId,
@@ -29,6 +35,8 @@ export function DashboardClientWrapper({
         allOrgUsers: data ? data.orgUsers : [],
         tasks: data ? data.tasks : [],
         allOrgTasks: data ? data.allOrgTasks : [],
+        isLoading,
+        refreshData,
     };
 
     return (
@@ -40,12 +48,7 @@ export function DashboardClientWrapper({
                         <Header />
                         <main className="flex-1 py-8">
                             <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-                                {isLoading ? (
-                                    <div className="flex flex-col items-center justify-center h-[50vh] animate-fade-in-up">
-                                        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-                                        <p className="mt-4 text-sm font-medium text-gray-500">Loading your workspace...</p>
-                                    </div>
-                                ) : isError || !data ? (
+                                {isError && !data ? (
                                     <div className="flex flex-col items-center justify-center text-center px-4 h-[50vh]">
                                         <p className="text-red-500 font-medium">Failed to load workspace data.</p>
                                         <button

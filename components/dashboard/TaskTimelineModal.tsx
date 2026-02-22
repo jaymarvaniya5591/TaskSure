@@ -123,18 +123,19 @@ export default function TaskTimeline({ taskId }: TaskTimelineProps) {
             const { data, error } = await supabase
                 .from("audit_log")
                 .select("id, action, metadata, created_at, user_id, users:user_id(id, name, avatar_url)")
-                .eq("item_id", taskId)
+                .eq("entity_type", "task")
+                .eq("entity_id", taskId)
                 .order("created_at", { ascending: false });
 
             if (error) throw new Error(error.message);
 
             // Map single user object to be compatible with existing component structure
-            return data.map(log => ({
+            return data.map((log: Record<string, unknown>) => ({
                 ...log,
                 users: Array.isArray(log.users) ? log.users[0] : log.users
             })) as TimelineLog[];
         },
-        staleTime: 5 * 60 * 1000,
+        staleTime: Infinity,
     });
 
     if (loading) {

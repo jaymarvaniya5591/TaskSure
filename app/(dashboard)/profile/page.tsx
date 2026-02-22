@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useUserContext } from "@/lib/user-context";
 import { useMobileKeyboard } from "@/lib/hooks/useMobileKeyboard";
 import { User, Building, Phone, ShieldCheck, CheckCircle2, X } from "lucide-react";
+import { ProfileSkeleton } from "@/components/ui/DashboardSkeleton";
 
 interface UserProfile {
     id: string;
@@ -18,13 +20,10 @@ interface UserProfile {
 
 export default function ProfilePage() {
     const { userId } = useUserContext();
-    const [supabase] = useState(() => createClient());
+    const supabase = createClient();
 
     // Call hook to monitor keyboard and automatically scroll focused element into view
     useMobileKeyboard();
-
-    const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
 
     // Edit states
     const [isEditingName, setIsEditingName] = useState(false);
@@ -45,58 +44,49 @@ export default function ProfilePage() {
     const [managerForCompanyPhone, setManagerForCompanyPhone] = useState("");
     const [companyVerifySent, setCompanyVerifySent] = useState(false);
 
-    useEffect(() => {
-        async function loadProfile() {
-            if (!userId) return;
-            try {
-                // Fetch the basic user profile
-                const { data: userData, error: userError } = await supabase
-                    .from('users')
-                    .select('id, name, phone_number, reporting_manager_id, organisation_id')
-                    .eq('id', userId)
-                    .single();
+    // ── Load profile with React Query (parallel queries, cached per session) ──
+    const { data: profile, isLoading } = useQuery({
+        queryKey: ["user-profile-page", userId],
+        queryFn: async () => {
+            if (!userId) throw new Error("No user ID");
 
-                if (userError) throw userError;
+            // Fetch basic user profile first
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('id, name, phone_number, reporting_manager_id, organisation_id')
+                .eq('id', userId)
+                .single();
 
-                let orgName = null;
-                let managerInfo = null;
+            if (userError) throw userError;
 
-                if (userData.organisation_id) {
-                    const { data: orgData } = await supabase
-                        .from('organisations')
-                        .select('name')
-                        .eq('id', userData.organisation_id)
-                        .single();
-                    if (orgData) orgName = orgData.name;
-                }
+            // Fetch org and manager in parallel
+            const [orgResult, managerResult] = await Promise.all([
+                userData.organisation_id
+                    ? supabase.from('organisations').select('name').eq('id', userData.organisation_id).single()
+                    : Promise.resolve({ data: null }),
+                userData.reporting_manager_id
+                    ? supabase.from('users').select('name, phone_number').eq('id', userData.reporting_manager_id).single()
+                    : Promise.resolve({ data: null }),
+            ]);
 
-                if (userData.reporting_manager_id) {
-                    const { data: managerData } = await supabase
-                        .from('users')
-                        .select('name, phone_number')
-                        .eq('id', userData.reporting_manager_id)
-                        .single();
-                    if (managerData) managerInfo = managerData;
-                }
+            const formattedProfile: UserProfile = {
+                ...userData,
+                phone_number: (userData.phone_number || "").replace(/^\+91/, "").replace(/\D/g, ""),
+                organisation: orgResult.data ? { name: orgResult.data.name } : null,
+                manager: managerResult.data ? {
+                    ...managerResult.data,
+                    phone_number: (managerResult.data.phone_number || "").replace(/^\+91/, "").replace(/\D/g, "")
+                } : null,
+            };
 
-                const formattedProfile: UserProfile = {
-                    ...userData,
-                    phone_number: (userData.phone_number || "").replace(/^\+91/, "").replace(/\D/g, ""),
-                    organisation: orgName ? { name: orgName } : null,
-                    manager: managerInfo ? { ...managerInfo, phone_number: (managerInfo.phone_number || "").replace(/^\+91/, "").replace(/\D/g, "") } : null,
-                };
+            // Initialize edit states
+            setEditName(formattedProfile.name || "");
+            setEditPhone(formattedProfile.phone_number || "");
 
-                setProfile(formattedProfile);
-                setEditName(formattedProfile.name || "");
-                setEditPhone(formattedProfile.phone_number || "");
-            } catch (err) {
-                console.error("Failed to load profile", err);
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        loadProfile();
-    }, [supabase, userId]);
+            return formattedProfile;
+        },
+        enabled: !!userId,
+    });
 
     // Name Update
     const handleSaveName = async () => {
@@ -106,7 +96,6 @@ export default function ProfilePage() {
             alert("Failed to update name");
         } else {
             alert("Name updated successfully!");
-            setProfile(prev => prev ? { ...prev, name: editName } : null);
             setIsEditingName(false);
         }
     };
@@ -125,7 +114,6 @@ export default function ProfilePage() {
             alert("Failed to update phone");
         } else {
             alert("Phone number verified and updated!");
-            setProfile(prev => prev ? { ...prev, phone_number: editPhone } : null);
             setIsEditingPhone(false);
             setOtpSent(false);
             setOtp("");
@@ -163,11 +151,9 @@ export default function ProfilePage() {
         }
     };
 
-    if (isLoading) {
-        return <div className="p-8 text-center text-gray-500 font-medium">Loading profile...</div>;
+    if (isLoading || !profile) {
+        return <ProfileSkeleton />;
     }
-
-    if (!profile) return null;
 
     /* ────────────────────────────────────────────────────────────────────────
        Shared style tokens for uniformity & readability

@@ -1,23 +1,34 @@
 "use client";
 
+import { useState } from "react";
 import { Menu, RefreshCw } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { useSidebar } from "@/components/layout/SidebarProvider";
 import { useUserContext } from "@/lib/user-context";
 import SearchEmployee from "@/components/dashboard/SearchEmployee";
-import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useIsFetching } from "@tanstack/react-query";
+import { useToast } from "@/components/ui/Toast";
 
 export function Header() {
     const { toggleMobileSidebar } = useSidebar();
-    const { orgUsers, userId } = useUserContext();
-    const queryClient = useQueryClient();
-    const [isRefreshing, setIsRefreshing] = useState(false);
+    const { orgUsers, userId, refreshData, isLoading } = useUserContext();
+    const isFetching = useIsFetching();
+    const { showToast } = useToast();
+    const [isManualRefresh, setIsManualRefresh] = useState(false);
+
+    const isRefreshing = isFetching > 0 || isLoading || isManualRefresh;
 
     const handleRefresh = async () => {
-        setIsRefreshing(true);
-        await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-        setIsRefreshing(false);
+        setIsManualRefresh(true);
+        try {
+            await refreshData();
+            showToast("Data refreshed!", "success");
+        } catch {
+            showToast("Refresh failed", "error");
+        } finally {
+            // Keep spinning for at least 600ms so the user can see it
+            setTimeout(() => setIsManualRefresh(false), 600);
+        }
     };
 
     return (
@@ -37,16 +48,19 @@ export function Header() {
                 <SearchEmployee orgUsers={orgUsers} currentUserId={userId} isHeader />
             </div>
 
-            {/* Refresh Button */}
+            {/* Refresh Button — spins while data is being fetched, shows toast when done */}
             <button
                 type="button"
                 onClick={handleRefresh}
                 className="p-2 text-gray-500 hover:text-gray-900 transition-colors shrink-0"
                 title="Refresh dashboard"
-                disabled={isRefreshing}
+                disabled={isManualRefresh}
             >
                 <span className="sr-only">Refresh</span>
-                <RefreshCw className={`h-5 w-5 ${isRefreshing ? "animate-spin text-blue-500" : ""}`} aria-hidden="true" />
+                <RefreshCw
+                    className={`h-5 w-5 transition-all duration-300 ${isRefreshing ? "animate-spin text-blue-500" : ""}`}
+                    aria-hidden="true"
+                />
             </button>
 
             {/* WhatsApp — symmetric padding to hamburger */}

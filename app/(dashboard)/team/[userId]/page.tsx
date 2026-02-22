@@ -1,96 +1,119 @@
-import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { resolveCurrentUser } from "@/lib/user";
+"use client";
+
+/**
+ * Employee Page — 100% Client-Side Rendering
+ * 
+ * Converted from server component to client component for 0ms page transitions.
+ * Data is fetched via React Query (session-cached) while skeleton shows instantly.
+ * The skeleton renders from the local JS bundle — no server round-trip needed.
+ */
+
+import { useParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { useUserContext } from "@/lib/user-context";
 import { type Task } from "@/lib/types";
 import EmployeeProfile from "@/components/team/EmployeeProfile";
 import EmployeeContent from "@/components/team/EmployeeContent";
+import { EmployeeSkeleton } from "@/components/ui/DashboardSkeleton";
 
-interface EmployeePageProps {
-    params: Promise<{ userId: string }>;
-}
+export default function EmployeePage() {
+    const params = useParams();
+    const employeeId = params.userId as string;
+    const { userId: currentUserId, orgId } = useUserContext();
+    const supabase = createClient();
 
-export default async function EmployeePage({ params }: EmployeePageProps) {
-    const { userId } = await params;
-    const supabase = await createClient();
-    const currentUser = await resolveCurrentUser(supabase);
-    if (!currentUser) redirect("/login");
+    const { data, isLoading } = useQuery({
+        queryKey: ["employee-page", employeeId],
+        queryFn: async () => {
+            if (!employeeId || !orgId) throw new Error("Missing IDs");
 
-    // Fetch the employee
-    const { data: employee } = await supabase
-        .from("users")
-        .select("id, name, phone_number, role, reporting_manager_id, avatar_url")
-        .eq("id", userId)
-        .eq("organisation_id", currentUser.organisation_id)
-        .single();
+            // Fetch employee + all tasks in parallel
+            const [employeeResult, allAssignedResult, activeCreatedResult, activeAssignedResult] =
+                await Promise.all([
+                    // Employee profile
+                    supabase
+                        .from("users")
+                        .select("id, name, phone_number, role, reporting_manager_id, avatar_url")
+                        .eq("id", employeeId)
+                        .eq("organisation_id", orgId)
+                        .single(),
+                    // All assigned tasks (for performance stats — includes completed)
+                    supabase
+                        .from("tasks")
+                        .select("*, created_by:users!tasks_created_by_fkey(id, name), assigned_to:users!tasks_assigned_to_fkey(id, name)")
+                        .eq("assigned_to", employeeId)
+                        .not("status", "eq", "cancelled"),
+                    // Active tasks created by this employee
+                    supabase
+                        .from("tasks")
+                        .select("*, created_by:users!tasks_created_by_fkey(id, name), assigned_to:users!tasks_assigned_to_fkey(id, name)")
+                        .eq("created_by", employeeId)
+                        .not("status", "in", '("completed","cancelled")'),
+                    // Active tasks assigned to this employee
+                    supabase
+                        .from("tasks")
+                        .select("*, created_by:users!tasks_created_by_fkey(id, name), assigned_to:users!tasks_assigned_to_fkey(id, name)")
+                        .eq("assigned_to", employeeId)
+                        .not("status", "in", '("completed","cancelled")'),
+                ]);
 
-    if (!employee) notFound();
+            const employee = employeeResult.data;
+            if (!employee) throw new Error("Employee not found");
 
-    // Fetch reporting manager
-    let manager = null;
-    if (employee.reporting_manager_id) {
-        const { data } = await supabase
-            .from("users")
-            .select("id, name, phone_number, role, reporting_manager_id, avatar_url")
-            .eq("id", employee.reporting_manager_id)
-            .single();
-        manager = data;
-    }
+            // Fetch manager (depends on employee data)
+            let manager = null;
+            if (employee.reporting_manager_id) {
+                const { data: mgrData } = await supabase
+                    .from("users")
+                    .select("id, name, phone_number, role, reporting_manager_id, avatar_url")
+                    .eq("id", employee.reporting_manager_id)
+                    .single();
+                manager = mgrData;
+            }
 
-    // Two query sets:
-    //   1. ALL tasks assigned to employee (for performance stats — needs completed count)
-    //   2. ACTIVE tasks only (for task lists — excludes completed/cancelled)
-    const [{ data: allAssigned }, { data: activeCreated }, { data: activeAssigned }] =
-        await Promise.all([
-            // Performance: all statuses for this assignee
-            supabase
-                .from("tasks")
-                .select("*, created_by:users!tasks_created_by_fkey(id, name), assigned_to:users!tasks_assigned_to_fkey(id, name)")
-                .eq("assigned_to", userId)
-                .not("status", "eq", "cancelled"),
-            // Task lists: active only, created by
-            supabase
-                .from("tasks")
-                .select("*, created_by:users!tasks_created_by_fkey(id, name), assigned_to:users!tasks_assigned_to_fkey(id, name)")
-                .eq("created_by", userId)
-                .not("status", "in", '("completed","cancelled")'),
-            // Task lists: active only, assigned to
-            supabase
-                .from("tasks")
-                .select("*, created_by:users!tasks_created_by_fkey(id, name), assigned_to:users!tasks_assigned_to_fkey(id, name)")
-                .eq("assigned_to", userId)
-                .not("status", "in", '("completed","cancelled")'),
-        ]);
+            // Deduplicate active tasks
+            const taskMap = new Map<string, Task>();
+            [...(activeCreatedResult.data || []), ...(activeAssignedResult.data || [])]
+                .forEach((t: Task) => taskMap.set(t.id, t));
+            const activeTasks = Array.from(taskMap.values());
 
-    // Performance stats — all assigned tasks (includes completed)
-    const assignedTasks: Task[] = allAssigned || [];
+            // Common tasks: multi-participant tasks where the current viewer is also involved
+            const commonTasks = activeTasks.filter(t => {
+                const creatorId = typeof t.created_by === "object" ? t.created_by.id : t.created_by;
+                const assigneeId = typeof t.assigned_to === "object" ? t.assigned_to.id : t.assigned_to;
+                if (creatorId === assigneeId) return false; // Skip to-dos
+                return creatorId === currentUserId || assigneeId === currentUserId;
+            });
 
-    // Task lists — deduplicated active tasks
-    const taskMap = new Map<string, Task>();
-    [...(activeCreated || []), ...(activeAssigned || [])].forEach((t: Task) => taskMap.set(t.id, t));
-    const activeTasks = Array.from(taskMap.values());
+            const commonTaskIds = new Set(commonTasks.map(t => t.id));
+            const otherTasks = activeTasks.filter(t => !commonTaskIds.has(t.id));
 
-    // Common tasks between the viewer and this employee
-    // MUST be multi-participant (not to-dos) — to-dos are personal, can't be "common"
-    const commonTasks = activeTasks.filter(t => {
-        const creatorId = typeof t.created_by === "object" ? t.created_by.id : t.created_by;
-        const assigneeId = typeof t.assigned_to === "object" ? t.assigned_to.id : t.assigned_to;
-        if (creatorId === assigneeId) return false;
-        return creatorId === currentUser.id || assigneeId === currentUser.id;
+            return {
+                employee,
+                manager,
+                assignedTasks: (allAssignedResult.data || []) as Task[],
+                commonTasks,
+                otherTasks,
+            };
+        },
+        enabled: !!employeeId && !!orgId,
     });
 
-    // Other tasks = active tasks that are NOT common with the viewer
-    const commonTaskIds = new Set(commonTasks.map(t => t.id));
-    const otherTasks = activeTasks.filter(t => !commonTaskIds.has(t.id));
+    // Instant skeleton from JS bundle — no server round-trip
+    if (isLoading || !data) {
+        return <EmployeeSkeleton />;
+    }
 
     return (
         <div className="space-y-6">
-            <EmployeeProfile employee={employee} manager={manager} />
+            <EmployeeProfile employee={data.employee} manager={data.manager} />
             <EmployeeContent
-                assignedTasks={assignedTasks}
-                commonTasks={commonTasks}
-                otherTasks={otherTasks}
-                employeeId={userId}
-                currentUserId={currentUser.id}
+                assignedTasks={data.assignedTasks}
+                commonTasks={data.commonTasks}
+                otherTasks={data.otherTasks}
+                employeeId={employeeId}
+                currentUserId={currentUserId}
             />
         </div>
     );

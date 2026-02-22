@@ -10,11 +10,16 @@ import {
     extractUserId,
     getPendingInfo,
 } from "@/lib/task-service";
+import { DashboardHomeSkeleton } from "@/components/ui/DashboardSkeleton";
 
 export default function HomePage() {
-    const { userId, userName, tasks: allTasks, allOrgTasks } = useUserContext();
+    const { userId, userName, tasks: allTasks, allOrgTasks, isLoading } = useUserContext();
 
     const { actionRequired, waitingOnOthers, overdueTasks } = useMemo(() => {
+        if (isLoading || !allTasks.length) {
+            return { actionRequired: [], waitingOnOthers: [], overdueTasks: [] };
+        }
+
         const now = new Date();
 
         const actionReq = allTasks.filter((t) => {
@@ -49,7 +54,12 @@ export default function HomePage() {
         });
 
         return { actionRequired: actionReq, waitingOnOthers: waitingOthers, overdueTasks: overdue };
-    }, [allTasks, allOrgTasks, userId]);
+    }, [allTasks, allOrgTasks, userId, isLoading]);
+
+    // Show skeleton while data is loading
+    if (isLoading) {
+        return <DashboardHomeSkeleton />;
+    }
 
     const now = new Date();
     const hour = now.getHours();
