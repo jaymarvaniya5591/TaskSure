@@ -129,39 +129,55 @@ export default function DashboardClient({
                 />
             </div>
 
-            {/* Immersive Wrapper Block */}
-            <div className="bg-[#FFCE34] rounded-[36px] p-2 sm:p-3 mb-8 shadow-sm animate-fade-in-up border-b-4 border-r-4 border-[#E2B11B]">
+            {/* Clean White Card Wrapper */}
+            <div className="bg-white rounded-3xl p-3 sm:p-4 mb-8 shadow-sm animate-fade-in-up border border-gray-200">
 
-                {/* Envelope Toggles */}
-                <div className="flex px-2 mb-3 mt-1 gap-2">
+                {/* Tab Toggles — matching AllTasksClient pattern */}
+                <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
                     <button
                         onClick={() => setMainTab("tasks")}
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-3xl text-sm sm:text-base font-bold transition-all duration-300",
+                            "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200",
                             mainTab === "tasks"
-                                ? "bg-[#FFE070] text-[#1D2125] shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)] border border-[#FFEA91]"
-                                : "text-amber-950/60 hover:text-amber-950"
+                                ? "bg-white text-gray-900 shadow-sm"
+                                : "text-gray-500 hover:text-gray-700"
                         )}
                     >
                         Tasks
+                        {todaysTasks.length > 0 && (
+                            <span className={cn(
+                                "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
+                                mainTab === "tasks" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
+                            )}>
+                                {todaysTasks.length}
+                            </span>
+                        )}
                     </button>
                     <button
                         onClick={() => setMainTab("todos")}
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-3xl text-sm sm:text-base font-bold transition-all duration-300",
+                            "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200",
                             mainTab === "todos"
-                                ? "bg-[#FFE070] text-[#1D2125] shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)] border border-[#FFEA91]"
-                                : "text-[#7B631C] hover:text-[#52410F]"
+                                ? "bg-white text-gray-900 shadow-sm"
+                                : "text-gray-500 hover:text-gray-700"
                         )}
                     >
                         To-dos
+                        {todaysTodos.length > 0 && (
+                            <span className={cn(
+                                "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
+                                mainTab === "todos" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
+                            )}>
+                                {todaysTodos.length}
+                            </span>
+                        )}
                     </button>
                 </div>
 
                 {/* Filter Area & List */}
-                <div className="bg-[#FFE27B]/60 backdrop-blur-xl rounded-[32px] p-4 sm:p-6 shadow-[inset_0_1px_4px_rgba(255,255,255,0.6)] border border-[#FFE795] min-h-[400px]">
+                <div className="bg-gray-50/80 rounded-2xl p-3 sm:p-5 border border-gray-100 min-h-[400px]">
                     {mainTab === "tasks" && (
-                        <div className="animate-fade-in-up space-y-6" style={{ animationDuration: '0.3s' }}>
+                        <div className="animate-fade-in-up space-y-5" style={{ animationDuration: '0.3s' }}>
                             {/* Task Filters */}
                             <div className="flex flex-wrap gap-2 items-center">
                                 <button
@@ -169,8 +185,8 @@ export default function DashboardClient({
                                     className={cn(
                                         "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border",
                                         taskFilters.has('action')
-                                            ? "bg-red-50 text-red-700 border-red-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)]"
-                                            : "bg-[#FFF2B2]/50 text-[#52410F] border-[#FFF8DD]/40 hover:bg-[#FFF2B2]/70 shadow-sm"
+                                            ? "bg-red-50 text-red-700 border-red-200 shadow-sm"
+                                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 shadow-sm"
                                     )}
                                 >
                                     <AlertTriangle className="w-3.5 h-3.5" />
@@ -181,8 +197,8 @@ export default function DashboardClient({
                                     className={cn(
                                         "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border",
                                         taskFilters.has('waiting')
-                                            ? "bg-blue-50 text-blue-700 border-blue-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)]"
-                                            : "bg-[#FFF2B2]/50 text-[#52410F] border-[#FFF8DD]/40 hover:bg-[#FFF2B2]/70 shadow-sm"
+                                            ? "bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
+                                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 shadow-sm"
                                     )}
                                 >
                                     <Clock className="w-3.5 h-3.5" />
@@ -193,8 +209,8 @@ export default function DashboardClient({
                                     className={cn(
                                         "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border",
                                         taskFilters.has('overdue')
-                                            ? "bg-orange-50 text-orange-700 border-orange-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)]"
-                                            : "bg-[#FFF2B2]/50 text-[#52410F] border-[#FFF8DD]/40 hover:bg-[#FFF2B2]/70 shadow-sm"
+                                            ? "bg-orange-50 text-orange-700 border-orange-200 shadow-sm"
+                                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 shadow-sm"
                                     )}
                                 >
                                     <AlertCircle className="w-3.5 h-3.5" />
@@ -204,7 +220,7 @@ export default function DashboardClient({
                                 {taskFilters.size > 0 && (
                                     <button
                                         onClick={() => setTaskFilters(new Set())}
-                                        className="px-2.5 py-1.5 rounded-full text-xs font-bold text-[#7B631C] hover:text-[#52410F] hover:bg-[#FFE27B]/30 flex items-center gap-1 transition-all"
+                                        className="px-2.5 py-1.5 rounded-full text-xs font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-100 flex items-center gap-1 transition-all"
                                     >
                                         <X className="w-3 h-3" />
                                         Clear
@@ -213,10 +229,10 @@ export default function DashboardClient({
                             </div>
 
                             {/* Task List */}
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {displayTasks.length === 0 ? (
-                                    <div className="px-10 py-16 mt-6 text-center bg-[#FFE898]/50 backdrop-blur-md rounded-2xl border border-[#FFF6CF]/40 shadow-[inset_0_1px_3px_rgba(255,255,255,0.3)]">
-                                        <p className="text-sm text-[#52410F] font-bold tracking-wide">
+                                    <div className="px-6 py-14 mt-4 text-center bg-white rounded-2xl border border-dashed border-gray-200">
+                                        <p className="text-sm text-gray-500 font-medium">
                                             {taskFilters.size > 0
                                                 ? "No tasks match the selected filters."
                                                 : `No tasks for ${isTodaySelected ? 'today' : format(selectedDate, 'MMM d')}.`}
@@ -237,7 +253,7 @@ export default function DashboardClient({
                     )}
 
                     {mainTab === "todos" && (
-                        <div className="animate-fade-in-up space-y-6" style={{ animationDuration: '0.3s' }}>
+                        <div className="animate-fade-in-up space-y-5" style={{ animationDuration: '0.3s' }}>
                             {/* Todo Filters */}
                             <div className="flex flex-wrap gap-2 items-center">
                                 <button
@@ -245,8 +261,8 @@ export default function DashboardClient({
                                     className={cn(
                                         "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border",
                                         todoFilters.has('overdue')
-                                            ? "bg-red-50 text-red-700 border-red-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)]"
-                                            : "bg-[#FFF2B2]/50 text-[#52410F] border-[#FFF8DD]/40 hover:bg-[#FFF2B2]/70 shadow-sm"
+                                            ? "bg-red-50 text-red-700 border-red-200 shadow-sm"
+                                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 shadow-sm"
                                     )}
                                 >
                                     <AlertCircle className="w-3.5 h-3.5" />
@@ -256,7 +272,7 @@ export default function DashboardClient({
                                 {todoFilters.size > 0 && (
                                     <button
                                         onClick={() => setTodoFilters(new Set())}
-                                        className="px-2.5 py-1.5 rounded-full text-xs font-bold text-[#7B631C] hover:text-[#52410F] hover:bg-[#FFE27B]/30 flex items-center gap-1 transition-all"
+                                        className="px-2.5 py-1.5 rounded-full text-xs font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-100 flex items-center gap-1 transition-all"
                                     >
                                         <X className="w-3 h-3" />
                                         Clear
@@ -265,10 +281,10 @@ export default function DashboardClient({
                             </div>
 
                             {/* Todo List */}
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {displayTodos.length === 0 ? (
-                                    <div className="px-10 py-16 mt-6 text-center bg-[#FFE898]/50 backdrop-blur-md rounded-2xl border border-[#FFF6CF]/40 shadow-[inset_0_1px_3px_rgba(255,255,255,0.3)]">
-                                        <p className="text-sm text-[#52410F] font-bold tracking-wide">
+                                    <div className="px-6 py-14 mt-4 text-center bg-white rounded-2xl border border-dashed border-gray-200">
+                                        <p className="text-sm text-gray-500 font-medium">
                                             {todoFilters.size > 0
                                                 ? "No to-dos match the selected filters."
                                                 : `No to-dos for ${isTodaySelected ? 'today' : format(selectedDate, 'MMM d')}.`}

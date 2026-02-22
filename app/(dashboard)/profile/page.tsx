@@ -165,46 +165,52 @@ export default function ProfilePage() {
 
     if (!profile) return null;
 
+    /* ────────────────────────────────────────────────────────────────────────
+       Shared style tokens for uniformity & readability
+       ──────────────────────────────────────────────────────────────────────── */
+    const sectionCard = "bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100";
+    const sectionIcon = "w-10 h-10 sm:w-12 sm:h-12 rounded-full shrink-0 flex items-center justify-center";
+    const sectionLabel = "text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wider";
+    const inputBase = "w-full h-12 border border-gray-200 rounded-xl px-4 text-sm sm:text-[15px] font-semibold focus:border-gray-400 focus:ring-0 outline-none transition-colors bg-white";
+    const btnPrimary = "h-12 px-6 rounded-xl text-sm font-bold flex items-center justify-center transition-colors whitespace-nowrap";
+    const btnCancel = "h-10 w-10 shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors";
+    const valueDisplay = "text-base sm:text-lg font-bold text-gray-900 break-words";
+
     return (
         <div className="max-w-3xl mx-auto pb-12 animate-fade-in-up">
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight mb-8">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-6 sm:mb-8">
                 Your Profile
             </h1>
 
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
 
-                {/* 1. Name Section */}
-                <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                    <div className="flex items-start gap-4 flex-1 min-w-0">
-                        <div className="w-12 h-12 rounded-full shrink-0 bg-blue-50 text-blue-600 flex items-center justify-center pt-0.5">
-                            <User className="w-6 h-6" />
+                {/* ── 1. Name Section ── */}
+                <div className={sectionCard}>
+                    <div className="flex items-start gap-3 sm:gap-4">
+                        <div className={`${sectionIcon} bg-blue-50 text-blue-600`}>
+                            <User className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
-                        <div className="flex-1 min-w-0 pt-0.5">
-                            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Full Name</h2>
-                            <div className="flex items-center w-full gap-2 mt-1.5 h-10">
-                                <div className="flex-1 min-w-0 h-full flex items-center">
-                                    {isEditingName ? (
+                        <div className="flex-1 min-w-0">
+                            <h2 className={sectionLabel}>Full Name</h2>
+                            <div className="mt-2">
+                                {isEditingName ? (
+                                    <div className="space-y-3">
                                         <input
                                             type="text"
                                             value={editName}
                                             onChange={(e) => setEditName(e.target.value)}
-                                            className="w-full h-full border border-gray-200 rounded-xl px-3 text-[13px] font-semibold focus:border-gray-400 focus:ring-0 outline-none transition-colors"
+                                            className={inputBase}
                                             placeholder="First and Last Name"
                                         />
-                                    ) : (
-                                        <p className="text-base font-bold text-gray-900 truncate">{profile.name}</p>
-                                    )}
-                                </div>
-                                <div className="w-[72px] shrink-0 h-full">
-                                    {isEditingName ? (
-                                        <button onClick={handleSaveName} className="w-full h-full bg-blue-600 text-white rounded-xl text-xs font-bold flex items-center justify-center hover:bg-blue-700 transition-colors truncate px-2">Save</button>
-                                    ) : (
-                                        <button onClick={() => setIsEditingName(true)} className="w-full h-full text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl flex items-center justify-center transition-colors truncate px-2">Edit</button>
-                                    )}
-                                </div>
-                                {isEditingName && (
-                                    <div className="w-8 h-full shrink-0 flex items-center justify-center">
-                                        <button onClick={() => setIsEditingName(false)} className="text-gray-400 hover:text-gray-900 hover:bg-gray-100 p-1.5 rounded-xl transition-colors"><X className="w-5 h-5" /></button>
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={handleSaveName} className={`${btnPrimary} flex-1 bg-blue-600 text-white hover:bg-blue-700`}>Save</button>
+                                            <button onClick={() => setIsEditingName(false)} className={btnCancel}><X className="w-5 h-5" /></button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between gap-3 min-h-[44px]">
+                                        <p className={valueDisplay}>{profile.name}</p>
+                                        <button onClick={() => setIsEditingName(true)} className={`${btnPrimary} bg-blue-50 text-blue-600 hover:bg-blue-100`}>Edit</button>
                                     </div>
                                 )}
                             </div>
@@ -212,46 +218,41 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
-                {/* 2. Phone Number Section */}
-                <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                    <div className="flex items-start gap-4 flex-1 min-w-0">
-                        <div className="w-12 h-12 rounded-full shrink-0 bg-green-50 text-green-600 flex items-center justify-center pt-0.5">
-                            <Phone className="w-6 h-6" />
+                {/* ── 2. Phone Number Section ── */}
+                <div className={sectionCard}>
+                    <div className="flex items-start gap-3 sm:gap-4">
+                        <div className={`${sectionIcon} bg-green-50 text-green-600`}>
+                            <Phone className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
-                        <div className="flex-1 min-w-0 pt-0.5">
-                            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Phone Number</h2>
-                            <div className="flex items-center w-full gap-2 mt-1.5 h-10">
-                                <div className="flex-1 min-w-0 h-full flex items-center">
-                                    {isEditingPhone ? (
+                        <div className="flex-1 min-w-0">
+                            <h2 className={sectionLabel}>Phone Number</h2>
+                            <div className="mt-2">
+                                {isEditingPhone ? (
+                                    <div className="space-y-3">
                                         <input
                                             type={otpSent ? "text" : "tel"}
                                             value={otpSent ? otp : editPhone}
                                             onChange={(e) => otpSent ? setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)) : setEditPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                                            className="w-full h-full border border-gray-200 rounded-xl px-3 text-[13px] font-semibold focus:border-gray-400 focus:ring-0 outline-none transition-colors"
-                                            placeholder={otpSent ? "6-digit OTP" : "10-digit phone"}
+                                            className={inputBase}
+                                            placeholder={otpSent ? "Enter 6-digit OTP" : "10-digit phone number"}
                                             maxLength={otpSent ? 6 : 10}
                                         />
-                                    ) : (
-                                        <div className="flex items-center gap-1.5 truncate">
-                                            <p className="text-base font-bold text-gray-900 truncate">{profile.phone_number || "Not set"}</p>
-                                            {profile.phone_number && <CheckCircle2 className="shrink-0 w-4 h-4 text-green-600" />}
+                                        <div className="flex items-center gap-2">
+                                            {otpSent ? (
+                                                <button onClick={handleVerifyPhone} className={`${btnPrimary} flex-1 bg-gray-900 text-white hover:bg-gray-800`}>Verify</button>
+                                            ) : (
+                                                <button onClick={handleSendPhoneOtp} className={`${btnPrimary} flex-1 bg-green-600 text-white hover:bg-green-700`}>Send OTP</button>
+                                            )}
+                                            <button onClick={() => { setIsEditingPhone(false); setOtpSent(false); }} className={btnCancel}><X className="w-5 h-5" /></button>
                                         </div>
-                                    )}
-                                </div>
-                                <div className="w-[72px] shrink-0 h-full">
-                                    {isEditingPhone ? (
-                                        otpSent ? (
-                                            <button onClick={handleVerifyPhone} className="w-full h-full bg-gray-900 text-white rounded-xl text-xs font-bold flex items-center justify-center hover:bg-gray-800 transition-colors truncate px-2">Verify</button>
-                                        ) : (
-                                            <button onClick={handleSendPhoneOtp} className="w-full h-full bg-green-600 text-white rounded-xl text-xs font-bold flex items-center justify-center hover:bg-green-700 transition-colors truncate px-2">Send</button>
-                                        )
-                                    ) : (
-                                        <button onClick={() => { setIsEditingPhone(true); setOtpSent(false); }} className="w-full h-full text-xs font-bold text-green-600 bg-green-50 hover:bg-green-100 rounded-xl flex items-center justify-center transition-colors truncate px-2">Edit</button>
-                                    )}
-                                </div>
-                                {isEditingPhone && (
-                                    <div className="w-8 h-full shrink-0 flex items-center justify-center">
-                                        <button onClick={() => { setIsEditingPhone(false); setOtpSent(false); }} className="text-gray-400 hover:text-gray-900 hover:bg-gray-100 p-1.5 rounded-xl transition-colors"><X className="w-5 h-5" /></button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between gap-3 min-h-[44px]">
+                                        <div className="flex items-center gap-2">
+                                            <p className={valueDisplay}>{profile.phone_number || "Not set"}</p>
+                                            {profile.phone_number && <CheckCircle2 className="shrink-0 w-4 h-4 sm:w-5 sm:h-5 text-green-600" />}
+                                        </div>
+                                        <button onClick={() => { setIsEditingPhone(true); setOtpSent(false); }} className={`${btnPrimary} bg-green-50 text-green-600 hover:bg-green-100`}>Edit</button>
                                     </div>
                                 )}
                             </div>
@@ -259,51 +260,44 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
-                {/* 3. Manager Section */}
-                <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                    <div className="flex items-start gap-4 flex-1 min-w-0">
-                        <div className="w-12 h-12 rounded-full shrink-0 bg-purple-50 text-purple-600 flex items-center justify-center pt-0.5">
-                            <ShieldCheck className="w-6 h-6" />
+                {/* ── 3. Manager Section ── */}
+                <div className={sectionCard}>
+                    <div className="flex items-start gap-3 sm:gap-4">
+                        <div className={`${sectionIcon} bg-purple-50 text-purple-600`}>
+                            <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
-                        <div className="flex-1 min-w-0 pt-0.5">
-                            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Your Manager</h2>
-                            <div className="flex items-center w-full gap-2 mt-1.5 h-10">
-                                <div className="flex-1 min-w-0 h-full flex items-center">
-                                    {isEditingManager ? (
-                                        managerVerifySent ? (
-                                            <div className="w-full h-full flex items-center px-3 bg-amber-50 border border-amber-100 rounded-xl text-[13px] font-medium text-amber-600 truncate">Pending approval</div>
+                        <div className="flex-1 min-w-0">
+                            <h2 className={sectionLabel}>Your Manager</h2>
+                            <div className="mt-2">
+                                {isEditingManager ? (
+                                    <div className="space-y-3">
+                                        {managerVerifySent ? (
+                                            <div className="w-full h-12 flex items-center px-4 bg-amber-50 border border-amber-100 rounded-xl text-sm font-medium text-amber-600">Pending approval from manager</div>
                                         ) : (
                                             <input
                                                 type="tel"
                                                 value={newManagerPhone}
                                                 onChange={(e) => setNewManagerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                                                className="w-full h-full border border-gray-200 rounded-xl px-3 text-[13px] font-semibold focus:border-gray-400 focus:ring-0 outline-none transition-colors"
-                                                placeholder="10-digit phone"
+                                                className={inputBase}
+                                                placeholder="Manager's 10-digit phone number"
                                                 maxLength={10}
                                             />
-                                        )
-                                    ) : (
-                                        <div className="flex items-center min-w-0 w-full h-full">
-                                            {profile.manager ? (
-                                                <p className="text-base font-bold text-gray-900 truncate">{profile.manager.name}</p>
-                                            ) : (
-                                                <p className="text-base font-bold text-gray-400 italic truncate">No manager assigned</p>
+                                        )}
+                                        <div className="flex items-center gap-2">
+                                            {!managerVerifySent && (
+                                                <button onClick={handleRequestManagerChange} className={`${btnPrimary} flex-1 bg-purple-600 text-white hover:bg-purple-700`}>Send Request</button>
                                             )}
+                                            <button onClick={() => setIsEditingManager(false)} className={btnCancel}><X className="w-5 h-5" /></button>
                                         </div>
-                                    )}
-                                </div>
-                                <div className="w-[72px] shrink-0 h-full">
-                                    {isEditingManager ? (
-                                        !managerVerifySent && (
-                                            <button onClick={handleRequestManagerChange} className="w-full h-full bg-purple-600 text-white rounded-xl text-xs font-bold flex items-center justify-center hover:bg-purple-700 transition-colors truncate px-2">Send</button>
-                                        )
-                                    ) : (
-                                        <button onClick={() => { setIsEditingManager(true); setNewManagerPhone(profile.manager?.phone_number || ''); }} className="w-full h-full text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center justify-center transition-colors truncate px-2">Edit</button>
-                                    )}
-                                </div>
-                                {isEditingManager && (
-                                    <div className="w-8 h-full shrink-0 flex items-center justify-center">
-                                        <button onClick={() => setIsEditingManager(false)} className="text-gray-400 hover:text-gray-900 hover:bg-gray-100 p-1.5 rounded-xl transition-colors"><X className="w-5 h-5" /></button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between gap-3 min-h-[44px]">
+                                        {profile.manager ? (
+                                            <p className={valueDisplay}>{profile.manager.name}</p>
+                                        ) : (
+                                            <p className="text-base font-bold text-gray-400 italic">No manager assigned</p>
+                                        )}
+                                        <button onClick={() => { setIsEditingManager(true); setNewManagerPhone(profile.manager?.phone_number || ''); }} className={`${btnPrimary} bg-purple-50 text-purple-600 hover:bg-purple-100`}>Edit</button>
                                     </div>
                                 )}
                             </div>
@@ -311,50 +305,45 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
-                {/* 4. Company Section */}
-                <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                    <div className="flex items-start gap-4 flex-1 min-w-0">
-                        <div className="w-12 h-12 rounded-full shrink-0 bg-orange-50 text-orange-600 flex items-center justify-center pt-0.5">
-                            <Building className="w-6 h-6" />
+                {/* ── 4. Company Section ── */}
+                <div className={sectionCard}>
+                    <div className="flex items-start gap-3 sm:gap-4">
+                        <div className={`${sectionIcon} bg-orange-50 text-orange-600`}>
+                            <Building className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
-                        <div className="flex-1 min-w-0 pt-0.5">
-                            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Company / Organisation</h2>
-                            <div className="flex items-center w-full gap-2 mt-1.5 h-10">
-                                <div className="flex-1 min-w-0 h-full flex items-center">
-                                    {isEditingCompany ? (
-                                        !companyAction ? (
-                                            <div className="flex items-center gap-2 w-full h-full">
-                                                <button onClick={() => setCompanyAction('join')} className="flex-1 h-full border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-bold text-gray-700 transition-colors">Join</button>
-                                                <button onClick={() => setCompanyAction('create')} className="flex-1 h-full border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-bold text-gray-700 transition-colors">Create</button>
+                        <div className="flex-1 min-w-0">
+                            <h2 className={sectionLabel}>Company / Organisation</h2>
+                            <div className="mt-2">
+                                {isEditingCompany ? (
+                                    <div className="space-y-3">
+                                        {!companyAction ? (
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setCompanyAction('join')} className="flex-1 h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-bold text-gray-700 transition-colors">Join Existing</button>
+                                                <button onClick={() => setCompanyAction('create')} className="flex-1 h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-bold text-gray-700 transition-colors">Create New</button>
                                             </div>
                                         ) : companyVerifySent ? (
-                                            <div className="w-full h-full flex items-center px-3 bg-amber-50 border border-amber-100 rounded-xl text-[13px] font-medium text-amber-600 truncate">Pending approval</div>
+                                            <div className="w-full h-12 flex items-center px-4 bg-amber-50 border border-amber-100 rounded-xl text-sm font-medium text-amber-600">Pending approval from manager</div>
                                         ) : (
                                             <input
                                                 type={companyAction === "join" ? "tel" : "text"}
                                                 value={companyAction === "join" ? managerForCompanyPhone : newCompanyName}
                                                 onChange={(e) => companyAction === "join" ? setManagerForCompanyPhone(e.target.value.replace(/\D/g, '').slice(0, 10)) : setNewCompanyName(e.target.value)}
-                                                className="w-full h-full border border-gray-200 rounded-xl px-3 text-[13px] font-semibold focus:border-gray-400 focus:ring-0 outline-none transition-colors"
-                                                placeholder={companyAction === "join" ? "10-digit phone" : "Company Name"}
+                                                className={inputBase}
+                                                placeholder={companyAction === "join" ? "Manager's 10-digit phone number" : "Company Name"}
                                                 maxLength={companyAction === "join" ? 10 : undefined}
                                             />
-                                        )
-                                    ) : (
-                                        <p className="text-base font-bold text-gray-900 truncate">{profile.organisation?.name || "Independent / Not Assigned"}</p>
-                                    )}
-                                </div>
-                                <div className="w-[72px] shrink-0 h-full">
-                                    {isEditingCompany ? (
-                                        companyAction && !companyVerifySent && (
-                                            <button onClick={handleCompanySubmit} className="w-full h-full bg-orange-600 text-white rounded-xl text-xs font-bold flex items-center justify-center hover:bg-orange-700 transition-colors truncate px-2">Submit</button>
-                                        )
-                                    ) : (
-                                        <button onClick={() => setIsEditingCompany(true)} className="w-full h-full text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-xl flex items-center justify-center transition-colors truncate px-2">Edit</button>
-                                    )}
-                                </div>
-                                {isEditingCompany && (
-                                    <div className="w-8 h-full shrink-0 flex items-center justify-center">
-                                        <button onClick={() => { setIsEditingCompany(false); setCompanyVerifySent(false); setCompanyAction(null); }} className="text-gray-400 hover:text-gray-900 hover:bg-gray-100 p-1.5 rounded-xl transition-colors"><X className="w-5 h-5" /></button>
+                                        )}
+                                        <div className="flex items-center gap-2">
+                                            {companyAction && !companyVerifySent && (
+                                                <button onClick={handleCompanySubmit} className={`${btnPrimary} flex-1 bg-orange-600 text-white hover:bg-orange-700`}>Submit</button>
+                                            )}
+                                            <button onClick={() => { setIsEditingCompany(false); setCompanyVerifySent(false); setCompanyAction(null); }} className={btnCancel}><X className="w-5 h-5" /></button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between gap-3 min-h-[44px]">
+                                        <p className={valueDisplay}>{profile.organisation?.name || "Independent / Not Assigned"}</p>
+                                        <button onClick={() => setIsEditingCompany(true)} className={`${btnPrimary} bg-orange-50 text-orange-600 hover:bg-orange-100`}>Edit</button>
                                     </div>
                                 )}
                             </div>

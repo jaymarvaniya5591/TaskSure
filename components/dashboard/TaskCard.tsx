@@ -68,14 +68,14 @@ export default function TaskCard({
             />
 
             {/* Main row */}
-            <div className={cn("flex items-center justify-between", compact ? "p-3" : "p-4")}>
-                <div className="flex flex-col gap-1 pl-3 flex-1 min-w-0">
-                    <p className="font-semibold text-[15px] pr-2 text-gray-900 line-clamp-2">
+            <div className={cn("flex items-start justify-between gap-2", compact ? "p-3" : "p-3 sm:p-4")}>
+                <div className="flex flex-col gap-1.5 pl-3 flex-1 min-w-0">
+                    <p className="font-semibold text-sm sm:text-[15px] pr-1 text-gray-900 line-clamp-2 break-words">
                         {task.title}
                     </p>
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
                         {/* Deadline or NA */}
-                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <span className="text-xs text-gray-500 flex items-center gap-1 whitespace-nowrap">
                             <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                             {effectiveDeadline
                                 ? format(
@@ -88,10 +88,10 @@ export default function TaskCard({
                         {/* Person display */}
                         {showOwner && displayPerson && (
                             <>
-                                <span className="w-1 h-1 rounded-full bg-gray-300" />
+                                <span className="w-1 h-1 rounded-full bg-gray-300 hidden sm:block" />
                                 <span className="text-xs text-gray-500 flex items-center gap-1">
                                     <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                    {displayPerson}
+                                    <span className="break-words">{displayPerson}</span>
                                 </span>
                             </>
                         )}
@@ -99,7 +99,7 @@ export default function TaskCard({
                         {/* Participant count (only for multi-participant tasks) */}
                         {task.participant_count && task.participant_count > 1 && (
                             <>
-                                <span className="w-1 h-1 rounded-full bg-gray-300" />
+                                <span className="w-1 h-1 rounded-full bg-gray-300 hidden sm:block" />
                                 <span className="text-xs text-gray-500 flex items-center gap-1">
                                     <Users className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                     {task.participant_count}
@@ -111,21 +111,20 @@ export default function TaskCard({
                         {(isOwnProfile || category === "overdue") && (
                             <span
                                 className={cn(
-                                    "px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide",
+                                    "px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide whitespace-nowrap",
                                     styles.badge
                                 )}
                             >
                                 {styles.label}
                             </span>
                         )}
-
-                        {/* Pending from indicator */}
-                        {pendingFrom && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-wide">
-                                Pending: {pendingFrom.name || "..."}
-                            </span>
-                        )}
                     </div>
+                    {/* Pending from indicator — on its own row for full visibility */}
+                    {pendingFrom && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-wide self-start">
+                            Pending: {pendingFrom.name || "..."}
+                        </span>
+                    )}
                 </div>
 
                 <div className="shrink-0 ml-2 flex items-center">

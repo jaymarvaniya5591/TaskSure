@@ -8,6 +8,8 @@
  *   ASSIGNEE + accepted:    Edit Deadline, Create Subtask
  *   OWNER (multi-person):   Mark Complete, Edit Persons, Delete
  *   TODO (self-assigned):   Mark Complete, Edit Deadline, Edit Persons
+ *
+ * All modals use a unified mobile-first bottom-sheet pattern for uniformity.
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -22,6 +24,7 @@ import {
     UserPlus,
     Trash2,
     Loader2,
+    X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Task } from "@/lib/types";
@@ -34,6 +37,29 @@ import SearchEmployee from "@/components/dashboard/SearchEmployee";
 import { type OrgUser } from "@/lib/hierarchy";
 import { getTodayMidnightISO } from "@/lib/date-utils";
 import DateTimePickerBoxes from "@/components/ui/DateTimePickerBoxes";
+
+// ── Shared style tokens for uniform modal styling ────────────────────────────
+const MODAL = {
+    overlay: "fixed inset-0 z-[9999] flex items-end justify-center sm:items-center bg-gray-900/40 sm:p-4 backdrop-blur-sm transition-all duration-300",
+    panel: "relative w-full sm:max-w-md bg-white rounded-t-[2rem] shadow-2xl sm:rounded-3xl flex flex-col max-h-[92vh] sm:max-h-[85vh] z-10 overflow-hidden",
+    dragHandle: "sm:hidden w-full flex justify-center py-3 bg-white relative z-20",
+    dragPill: "w-12 h-1.5 bg-gray-200 rounded-full",
+    header: "flex items-center justify-between px-5 sm:px-6 pb-4 sm:pt-6 border-b border-gray-100 bg-white relative z-20 shrink-0",
+    title: "text-xl sm:text-2xl font-extrabold tracking-tight text-gray-900",
+    subtitle: "text-xs text-gray-500 mt-0.5",
+    closeBtn: "p-2 sm:p-2.5 -mr-2 sm:-mr-1 bg-gray-50 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all duration-200 flex-shrink-0",
+    body: "p-5 sm:p-6 overflow-y-auto flex-1 bg-white overscroll-contain",
+    footer: "p-5 sm:p-6 border-t border-gray-100 bg-white sm:bg-gray-50/50 mt-auto relative z-20 pb-8 sm:pb-6 shrink-0",
+    label: "block mb-2 text-xs font-bold text-gray-500 uppercase tracking-wider",
+    inputBase: "w-full px-4 py-3.5 sm:py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:bg-white transition-all text-sm sm:text-[15px] font-medium placeholder:font-normal placeholder:text-gray-400",
+    textareaBase: "w-full px-4 py-3.5 sm:py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:bg-white transition-all text-sm sm:text-[15px] resize-none placeholder:text-gray-400",
+    btnCancel: "flex-1 px-4 py-3.5 sm:py-3 rounded-2xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors",
+    errorBox: "mb-4 p-3.5 bg-red-50/80 text-red-700 rounded-2xl text-sm font-medium border border-red-100/50",
+};
+
+function makeBtnPrimary(color: string) {
+    return `flex-1 px-4 py-3.5 sm:py-3 rounded-2xl ${color} text-white text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2`;
+}
 
 // ─── Icon mapping ───────────────────────────────────────────────────────────
 
@@ -68,6 +94,27 @@ function PortalModal({ children }: { children: React.ReactNode }) {
     useEffect(() => setMounted(true), []);
     if (!mounted) return null;
     return createPortal(children, document.body);
+}
+
+// ─── ModalShell — unified modal container ────────────────────────────────────
+function ModalShell({
+    onClose,
+    children,
+}: {
+    onClose: () => void;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className={MODAL.overlay}>
+            <div className="absolute inset-0" onClick={onClose} />
+            <div className={MODAL.panel}>
+                <div className={MODAL.dragHandle}>
+                    <div className={MODAL.dragPill} />
+                </div>
+                {children}
+            </div>
+        </div>
+    );
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────
@@ -409,61 +456,44 @@ function AcceptTaskModal({
     };
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <div
-                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="flex items-center gap-3 mb-5">
-                    <div className="p-2 rounded-xl bg-emerald-50">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-900">
-                            Accept Task
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                            Set a deadline to accept this task
-                        </p>
+        <ModalShell onClose={onClose}>
+            <div className={MODAL.header}>
+                <div>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-emerald-50">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div>
+                            <h3 className={MODAL.title}>Accept Task</h3>
+                            <p className={MODAL.subtitle}>Set a deadline to accept this task</p>
+                        </div>
                     </div>
                 </div>
+                <button onClick={onClose} className={MODAL.closeBtn}>
+                    <X className="w-5 h-5 cursor-pointer" />
+                </button>
+            </div>
 
-                {error && (
-                    <div className="mb-4 p-3 bg-red-50/80 text-red-700 rounded-xl text-xs font-medium border border-red-100/50">
-                        {error}
-                    </div>
-                )}
-
-                <label className="block mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Committed Deadline
-                </label>
+            <div className={MODAL.body}>
+                {error && <div className={MODAL.errorBox}>{error}</div>}
+                <label className={MODAL.label}>Committed Deadline</label>
                 <DateTimePickerBoxes
                     value={deadline}
                     onChange={(val) => setDeadline(val)}
                     onError={(err) => setDateError(err)}
                 />
+            </div>
 
-                <div className="flex gap-3 mt-6">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading || dateError}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
+            <div className={MODAL.footer}>
+                <div className="flex gap-3">
+                    <button onClick={onClose} className={MODAL.btnCancel}>Cancel</button>
+                    <button onClick={handleSubmit} disabled={loading || dateError} className={makeBtnPrimary("bg-emerald-600")}>
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                         Accept
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalShell>
     );
 }
 
@@ -481,57 +511,49 @@ function RejectTaskModal({
     const [reason, setReason] = useState("");
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <div
-                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="flex items-center gap-3 mb-5">
-                    <div className="p-2 rounded-xl bg-red-50">
-                        <XCircle className="w-5 h-5 text-red-500" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-900">
-                            Reject Task
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                            Provide a reason for rejecting
-                        </p>
+        <ModalShell onClose={onClose}>
+            <div className={MODAL.header}>
+                <div>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-red-50">
+                            <XCircle className="w-5 h-5 text-red-500" />
+                        </div>
+                        <div>
+                            <h3 className={MODAL.title}>Reject Task</h3>
+                            <p className={MODAL.subtitle}>Provide a reason for rejecting</p>
+                        </div>
                     </div>
                 </div>
+                <button onClick={onClose} className={MODAL.closeBtn}>
+                    <X className="w-5 h-5 cursor-pointer" />
+                </button>
+            </div>
 
-                <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Reason for Rejection
-                </label>
+            <div className={MODAL.body}>
+                <label className={MODAL.label}>Reason for Rejection</label>
                 <textarea
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                     placeholder="Why are you rejecting this task?"
                     rows={3}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-[15px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10 outline-none transition-all resize-none"
+                    className={MODAL.textareaBase}
                 />
+            </div>
 
-                <div className="flex gap-3 mt-6">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                        Cancel
-                    </button>
+            <div className={MODAL.footer}>
+                <div className="flex gap-3">
+                    <button onClick={onClose} className={MODAL.btnCancel}>Cancel</button>
                     <button
                         onClick={() => onSubmit(reason)}
                         disabled={loading || !reason.trim()}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        className={makeBtnPrimary("bg-red-500")}
                     >
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                         Reject
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalShell>
     );
 }
 
@@ -566,61 +588,44 @@ function EditDeadlineModal({
     };
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <div
-                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="flex items-center gap-3 mb-5">
-                    <div className="p-2 rounded-xl bg-blue-50">
-                        <Calendar className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-900">
-                            Edit Deadline
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                            Update the deadline for this task
-                        </p>
+        <ModalShell onClose={onClose}>
+            <div className={MODAL.header}>
+                <div>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-blue-50">
+                            <Calendar className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                            <h3 className={MODAL.title}>Edit Deadline</h3>
+                            <p className={MODAL.subtitle}>Update the deadline for this task</p>
+                        </div>
                     </div>
                 </div>
+                <button onClick={onClose} className={MODAL.closeBtn}>
+                    <X className="w-5 h-5 cursor-pointer" />
+                </button>
+            </div>
 
-                {error && (
-                    <div className="mb-4 p-3 bg-red-50/80 text-red-700 rounded-xl text-xs font-medium border border-red-100/50">
-                        {error}
-                    </div>
-                )}
-
-                <label className="block mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    New Deadline
-                </label>
+            <div className={MODAL.body}>
+                {error && <div className={MODAL.errorBox}>{error}</div>}
+                <label className={MODAL.label}>New Deadline</label>
                 <DateTimePickerBoxes
                     value={deadline}
                     onChange={(val) => setDeadline(val)}
                     onError={(err) => setDateError(err)}
                 />
+            </div>
 
-                <div className="flex gap-3 mt-6">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading || dateError}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
+            <div className={MODAL.footer}>
+                <div className="flex gap-3">
+                    <button onClick={onClose} className={MODAL.btnCancel}>Cancel</button>
+                    <button onClick={handleSubmit} disabled={loading || dateError} className={makeBtnPrimary("bg-blue-600")}>
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                         Save
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalShell>
     );
 }
 
@@ -663,40 +668,31 @@ function CreateSubtaskModal({
     };
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <div
-                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="flex items-center gap-3 mb-5">
-                    <div className="p-2 rounded-xl bg-teal-50">
-                        <PlusCircle className="w-5 h-5 text-teal-600" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-900">
-                            Create Subtask
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                            Assign a subtask to an employee
-                        </p>
+        <ModalShell onClose={onClose}>
+            <div className={MODAL.header}>
+                <div>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-teal-50">
+                            <PlusCircle className="w-5 h-5 text-teal-600" />
+                        </div>
+                        <div>
+                            <h3 className={MODAL.title}>Create Subtask</h3>
+                            <p className={MODAL.subtitle}>Assign a subtask to an employee</p>
+                        </div>
                     </div>
                 </div>
+                <button onClick={onClose} className={MODAL.closeBtn}>
+                    <X className="w-5 h-5 cursor-pointer" />
+                </button>
+            </div>
 
-                {error && (
-                    <div className="mb-4 p-3 bg-red-50/80 text-red-700 rounded-xl text-xs font-medium border border-red-100/50">
-                        {error}
-                    </div>
-                )}
+            <div className={MODAL.body}>
+                {error && <div className={MODAL.errorBox}>{error}</div>}
 
-                <div className="space-y-4">
+                <div className="space-y-5">
                     {/* Assignee Selection */}
                     <div>
-                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Assign To
-                        </label>
+                        <label className={MODAL.label}>Assign To</label>
                         {!assignedTo || isSearching ? (
                             <div className="relative z-50">
                                 <SearchEmployee
@@ -718,18 +714,25 @@ function CreateSubtaskModal({
                                 )}
                             </div>
                         ) : (
-                            <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-teal-200 bg-teal-50/50">
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-semibold text-gray-900">
-                                        {assignedTo.name}
-                                    </span>
-                                    <span className="text-xs text-gray-500 capitalize">
-                                        {assignedTo.role}
-                                    </span>
+                            <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/80">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shrink-0">
+                                        <span className="text-sm font-black text-gray-700 uppercase">
+                                            {assignedTo.name.substring(0, 2)}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm sm:text-[15px] font-bold text-gray-900">
+                                            {assignedTo.name}
+                                        </span>
+                                        <span className="text-xs text-gray-500 capitalize">
+                                            {assignedTo.role}
+                                        </span>
+                                    </div>
                                 </div>
                                 <button
                                     onClick={() => setIsSearching(true)}
-                                    className="text-xs font-bold text-teal-600 hover:text-teal-700 transition-colors"
+                                    className="text-sm font-bold text-gray-900 hover:underline transition-all"
                                 >
                                     Change
                                 </button>
@@ -738,35 +741,29 @@ function CreateSubtaskModal({
                     </div>
 
                     <div>
-                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Task Title
-                        </label>
+                        <label className={MODAL.label}>Task Title</label>
                         <input
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            placeholder="Brief task title..."
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-[15px] font-medium text-gray-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all"
+                            placeholder="What needs to be done?"
+                            className={MODAL.inputBase}
                         />
                     </div>
 
                     <div>
-                        <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Description
-                        </label>
+                        <label className={MODAL.label}>Description</label>
                         <textarea
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Describe what needs to be done..."
+                            placeholder="Add more details about this task..."
                             rows={3}
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-[15px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all resize-none"
+                            className={MODAL.textareaBase}
                         />
                     </div>
 
                     <div>
-                        <label className="block mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Deadline
-                        </label>
+                        <label className={MODAL.label}>Deadline</label>
                         <DateTimePickerBoxes
                             value={deadline}
                             onChange={(val) => setDeadline(val)}
@@ -774,30 +771,22 @@ function CreateSubtaskModal({
                         />
                     </div>
                 </div>
+            </div>
 
-                <div className="flex gap-3 mt-8">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                        Cancel
-                    </button>
+            <div className={MODAL.footer}>
+                <div className="flex gap-3">
+                    <button onClick={onClose} className={MODAL.btnCancel}>Cancel</button>
                     <button
                         onClick={handleSubmit}
-                        disabled={
-                            loading ||
-                            !assignedTo ||
-                            !title.trim() ||
-                            dateError
-                        }
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        disabled={loading || !assignedTo || !title.trim() || dateError}
+                        className={makeBtnPrimary("bg-teal-600")}
                     >
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                         Assign Subtask
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalShell>
     );
 }
 
@@ -837,43 +826,38 @@ function EditPersonsModal({
     const assigneeRole = currentAssignee?.role || "member";
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <div
-                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="flex items-center gap-3 mb-5">
-                    <div className="p-2 rounded-xl bg-violet-50">
-                        <UserPlus className="w-5 h-5 text-violet-600" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-900">
-                            Edit Persons
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                            Manage the assigned person for this task
-                        </p>
+        <ModalShell onClose={onClose}>
+            <div className={MODAL.header}>
+                <div>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-violet-50">
+                            <UserPlus className="w-5 h-5 text-violet-600" />
+                        </div>
+                        <div>
+                            <h3 className={MODAL.title}>Edit Persons</h3>
+                            <p className={MODAL.subtitle}>Manage the assigned person</p>
+                        </div>
                     </div>
                 </div>
+                <button onClick={onClose} className={MODAL.closeBtn}>
+                    <X className="w-5 h-5 cursor-pointer" />
+                </button>
+            </div>
 
+            <div className={MODAL.body}>
                 {/* Current Assignee Section */}
                 {currentAssigneeId && !isSelfAssigned && (
                     <div className="mb-5">
-                        <label className="block mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Current Assignee
-                        </label>
-                        <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/80">
-                            <div className="flex items-center gap-3">
+                        <label className={MODAL.label}>Current Assignee</label>
+                        <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/80">
+                            <div className="flex items-center gap-3 min-w-0">
                                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-100 to-violet-200 flex items-center justify-center shrink-0">
                                     <span className="text-sm font-black text-violet-700 uppercase">
                                         {assigneeName ? assigneeName.substring(0, 2) : "??"}
                                     </span>
                                 </div>
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-semibold text-gray-900">
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-sm font-semibold text-gray-900 break-words">
                                         {assigneeName || "Unknown"}
                                     </span>
                                     <span className="text-xs text-gray-500 capitalize">
@@ -885,7 +869,7 @@ function EditPersonsModal({
                                 <button
                                     onClick={onRemove}
                                     disabled={loading}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 shrink-0 ml-2"
                                 >
                                     <Trash2 className="w-3.5 h-3.5" />
                                     Remove
@@ -896,13 +880,13 @@ function EditPersonsModal({
                 )}
 
                 {/* Add / Replace Assignee Section */}
-                <label className="block mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <label className={MODAL.label}>
                     {currentAssigneeId && !isSelfAssigned ? "Replace With" : "Assign To"}
                 </label>
                 {!selected && !showSearch ? (
                     <button
                         onClick={() => setShowSearch(true)}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm font-semibold text-gray-500 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/30 transition-all"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl border-2 border-dashed border-gray-200 text-sm font-semibold text-gray-500 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50/30 transition-all"
                     >
                         <UserPlus className="w-4 h-4" />
                         Search Employee
@@ -926,15 +910,15 @@ function EditPersonsModal({
                         </button>
                     </div>
                 ) : (
-                    <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-violet-200 bg-violet-50/50">
-                        <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-violet-200 bg-violet-50/50">
+                        <div className="flex items-center gap-3 min-w-0">
                             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-100 to-violet-200 flex items-center justify-center shrink-0">
                                 <span className="text-sm font-black text-violet-700 uppercase">
                                     {selected.name.substring(0, 2)}
                                 </span>
                             </div>
-                            <div className="flex flex-col">
-                                <span className="text-sm font-semibold text-gray-900">
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-sm font-semibold text-gray-900 break-words">
                                     {selected.name}
                                 </span>
                                 <span className="text-xs text-gray-500 capitalize">
@@ -944,7 +928,7 @@ function EditPersonsModal({
                         </div>
                         <button
                             onClick={() => setSelected(null)}
-                            className="text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors"
+                            className="text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors shrink-0 ml-2"
                         >
                             Change
                         </button>
@@ -958,25 +942,22 @@ function EditPersonsModal({
                             : "The new assignee will need to accept the task."}
                     </p>
                 )}
+            </div>
 
-                <div className="flex gap-3 mt-6">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                        Cancel
-                    </button>
+            <div className={MODAL.footer}>
+                <div className="flex gap-3">
+                    <button onClick={onClose} className={MODAL.btnCancel}>Cancel</button>
                     <button
                         onClick={() => onSubmit(selected!.id)}
                         disabled={loading || !selected}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        className={makeBtnPrimary("bg-violet-600")}
                     >
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                         Update
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalShell>
     );
 }
 
@@ -994,53 +975,43 @@ function DeleteConfirmModal({
     taskTitle: string;
 }) {
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <div
-                className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4 p-6"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="flex items-center gap-3 mb-5">
-                    <div className="p-2 rounded-xl bg-red-50">
-                        <Trash2 className="w-5 h-5 text-red-500" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-900">
-                            Delete Task
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                            This will cancel the task and all its subtasks
-                        </p>
+        <ModalShell onClose={onClose}>
+            <div className={MODAL.header}>
+                <div>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-red-50">
+                            <Trash2 className="w-5 h-5 text-red-500" />
+                        </div>
+                        <div>
+                            <h3 className={MODAL.title}>Delete Task</h3>
+                            <p className={MODAL.subtitle}>This will cancel the task and all subtasks</p>
+                        </div>
                     </div>
                 </div>
+                <button onClick={onClose} className={MODAL.closeBtn}>
+                    <X className="w-5 h-5 cursor-pointer" />
+                </button>
+            </div>
 
-                <div className="p-4 bg-red-50 border border-red-100 rounded-xl mb-4">
+            <div className={MODAL.body}>
+                <div className="p-4 bg-red-50 border border-red-100 rounded-2xl">
                     <p className="text-sm text-gray-700">
                         Are you sure you want to delete{" "}
                         <strong>&quot;{taskTitle}&quot;</strong>? This action
                         cannot be undone.
                     </p>
                 </div>
+            </div>
 
+            <div className={MODAL.footer}>
                 <div className="flex gap-3">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={onConfirm}
-                        disabled={loading}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
+                    <button onClick={onClose} className={MODAL.btnCancel}>Cancel</button>
+                    <button onClick={onConfirm} disabled={loading} className={makeBtnPrimary("bg-red-500")}>
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                         Delete
                     </button>
                 </div>
             </div>
-        </div>
+        </ModalShell>
     );
 }
