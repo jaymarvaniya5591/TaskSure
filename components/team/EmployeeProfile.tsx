@@ -40,7 +40,7 @@ export default function EmployeeProfile({ employee, manager }: EmployeeProfilePr
     }, [showInfo]);
 
     return (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-row items-center justify-between gap-3 px-1">
             {/* Name heading */}
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight truncate">
                 {employee.name}
