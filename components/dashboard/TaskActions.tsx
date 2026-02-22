@@ -698,7 +698,7 @@ function CreateSubtaskModal({
                             Assign To
                         </label>
                         {!assignedTo || isSearching ? (
-                            <div className="relative">
+                            <div className="relative z-50">
                                 <SearchEmployee
                                     orgUsers={orgUsers}
                                     currentUserId={currentUserId}
@@ -908,7 +908,7 @@ function EditPersonsModal({
                         Search Employee
                     </button>
                 ) : !selected ? (
-                    <div className="relative">
+                    <div className="relative z-50">
                         <SearchEmployee
                             orgUsers={orgUsers}
                             currentUserId={currentUserId}

@@ -10,23 +10,81 @@
  * Uses UserContext for data (populated by layout server component).
  */
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarProvider";
+import { useUserContext } from "@/lib/user-context";
+import { createClient } from "@/lib/supabase/client";
 import {
     Home,
     ListChecks,
-    X
+    X,
+    LogOut
 } from "lucide-react";
 
 const pageNav = [
     { name: "Home", href: "/home", icon: Home },
 ];
 
+interface UserProfile {
+    name: string;
+    organisation: { name: string } | null;
+}
+
 export function Sidebar() {
     const pathname = usePathname();
+    const router = useRouter();
     const { isMobileOpen, setIsMobileOpen } = useSidebar();
+
+    // Profile fetching logic
+    const { userId, userName } = useUserContext();
+    const [supabase] = useState(() => createClient());
+    const [profile, setProfile] = useState<UserProfile | null>(null);
+
+    // Sign out logic
+    const handleSignOut = async () => {
+        try {
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                console.error('Error signing out:', error);
+                return;
+            }
+            router.push('/login');
+        } catch (error) {
+            console.error('Unexpected error signing out:', error);
+        }
+    };
+
+    useEffect(() => {
+        async function loadProfile() {
+            const { data } = await supabase
+                .from('users')
+                .select('name, organisation:organisations(name)')
+                .eq('id', userId)
+                .single();
+
+            if (data) {
+                setProfile({
+                    name: data.name,
+                    organisation: Array.isArray(data.organisation)
+                        ? data.organisation[0] || null
+                        : data.organisation,
+                });
+            }
+        }
+
+        if (userId) {
+            loadProfile();
+        }
+    }, [supabase, userId]);
+
+    const displayName = profile?.name || userName || "Loading...";
+    const initials = displayName
+        ? displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+        : "..";
+    const orgName = profile?.organisation?.name || "";
 
     return (
         <>
@@ -40,7 +98,7 @@ export function Sidebar() {
 
             {/* Sidebar container */}
             <div className={cn(
-                "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white border-r border-gray-100 transition-transform duration-300 ease-in-out lg:translate-x-0",
+                "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white border-r border-gray-100 transition-transform duration-300 ease-in-out lg:translate-x-0 h-full",
                 isMobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
             )}>
                 {/* Logo & Mobile Close Button */}
@@ -65,7 +123,7 @@ export function Sidebar() {
                 <div className="flex-1 overflow-y-auto px-4 pb-4">
 
                     {/* Page Navigation */}
-                    <nav className="mb-4">
+                    <nav className="mb-4 mt-2">
                         <ul className="space-y-0.5">
                             {pageNav.map(item => {
                                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -118,6 +176,45 @@ export function Sidebar() {
                     </div>
 
                 </div>
+
+                {/* Bottom Profile Widget */}
+                <div className="mt-auto p-4 border-t border-gray-100 bg-gray-50/50">
+                    <div className="flex items-center gap-x-2">
+                        <Link
+                            href="/profile"
+                            onClick={() => setIsMobileOpen(false)}
+                            className="flex-1 flex items-center gap-x-3 hover:bg-white p-2 rounded-xl transition-colors cursor-pointer min-w-0"
+                        >
+                            <span className="sr-only">Your profile</span>
+                            <div className="h-10 w-10 rounded-full bg-accent-100 flex shrink-0 items-center justify-center text-accent-700 font-bold text-sm shadow-sm border border-accent-200/50">
+                                {initials}
+                            </div>
+                            <div className="flex flex-col min-w-0 flex-1">
+                                <span
+                                    className="text-sm font-bold truncate leading-5 text-gray-900"
+                                    aria-hidden="true"
+                                >
+                                    {displayName}
+                                </span>
+                                {orgName && (
+                                    <span className="text-xs font-medium truncate leading-4 text-gray-500">
+                                        {orgName}
+                                    </span>
+                                )}
+                            </div>
+                        </Link>
+
+                        {/* Sign Out Button */}
+                        <button
+                            onClick={handleSignOut}
+                            className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                            title="Sign out"
+                        >
+                            <LogOut className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                    </div>
+                </div>
+
             </div>
         </>
     );

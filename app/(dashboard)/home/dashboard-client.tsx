@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format, isToday, startOfDay, endOfDay } from "date-fns";
 import WeeklyCalendarStrip from "@/components/dashboard/WeeklyCalendarStrip";
-import PendingActions from "@/components/dashboard/PendingActions";
 import { type Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import TaskCard from "@/components/dashboard/TaskCard";
 import { getTaskColorCategory } from "@/lib/colors";
+import { X, AlertTriangle, Clock, AlertCircle } from "lucide-react";
 
 interface DashboardClientProps {
     greeting: string;
@@ -20,8 +20,6 @@ interface DashboardClientProps {
     overdueTasks: Task[];
 }
 
-type TabType = 'list' | 'action' | 'waiting' | 'overdue';
-
 export default function DashboardClient({
     greeting,
     firstName,
@@ -33,7 +31,9 @@ export default function DashboardClient({
     overdueTasks,
 }: DashboardClientProps) {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [activeTab, setActiveTab] = useState<TabType>('list');
+    const [mainTab, setMainTab] = useState<"tasks" | "todos">("tasks");
+    const [taskFilters, setTaskFilters] = useState<Set<string>>(new Set());
+    const [todoFilters, setTodoFilters] = useState<Set<string>>(new Set());
 
     // Filter tasks for the selected date
     const dayStart = startOfDay(selectedDate);
@@ -53,18 +53,59 @@ export default function DashboardClient({
 
     const todaysTasks = selectedDayTasks.filter(t => !isTodo(t));
     const todaysTodos = selectedDayTasks.filter(t => isTodo(t));
-    const overdueRealTasks = overdueTasks.filter(t => !isTodo(t));
-    const overdueTodos = overdueTasks.filter(t => isTodo(t));
+
+    // Memoize the filtering logic
+    const { displayTasks, displayTodos } = useMemo(() => {
+        let sortedTasks: Task[] = [];
+        if (taskFilters.size === 0) {
+            sortedTasks = todaysTasks;
+        } else {
+            const tempMap = new Map<string, Task>();
+            if (taskFilters.has('action')) {
+                actionRequired.filter(t => !isTodo(t)).forEach(t => tempMap.set(t.id, t));
+            }
+            if (taskFilters.has('waiting')) {
+                waitingOnOthers.filter(t => !isTodo(t)).forEach(t => tempMap.set(t.id, t));
+            }
+            if (taskFilters.has('overdue')) {
+                overdueTasks.filter(t => !isTodo(t)).forEach(t => tempMap.set(t.id, t));
+            }
+            sortedTasks = Array.from(tempMap.values());
+        }
+
+        let sortedTodos: Task[] = [];
+        if (todoFilters.size === 0) {
+            sortedTodos = todaysTodos;
+        } else {
+            const tempMap = new Map<string, Task>();
+            if (todoFilters.has('overdue')) {
+                overdueTasks.filter(t => isTodo(t)).forEach(t => tempMap.set(t.id, t));
+            }
+            sortedTodos = Array.from(tempMap.values());
+        }
+
+        return { displayTasks: sortedTasks, displayTodos: sortedTodos };
+    }, [taskFilters, todoFilters, todaysTasks, todaysTodos, actionRequired, waitingOnOthers, overdueTasks]);
 
     const isTodaySelected = isToday(selectedDate);
-    const listTabName = isTodaySelected ? "Today's Tasks" : "List of tasks";
 
-    const tabs: { id: TabType; label: string; count: number }[] = [
-        { id: 'list', label: listTabName, count: selectedDayTasks.length },
-        { id: 'action', label: 'Action Required', count: actionRequired.length },
-        { id: 'waiting', label: 'Waiting on Others', count: waitingOnOthers.length },
-        { id: 'overdue', label: 'Overdue', count: overdueTasks.length },
-    ];
+    const toggleFilter = (filter: string, isTaskFilter: boolean) => {
+        if (isTaskFilter) {
+            setTaskFilters(prev => {
+                const next = new Set(prev);
+                if (next.has(filter)) next.delete(filter);
+                else next.add(filter);
+                return next;
+            });
+        } else {
+            setTodoFilters(prev => {
+                const next = new Set(prev);
+                if (next.has(filter)) next.delete(filter);
+                else next.add(filter);
+                return next;
+            });
+        }
+    };
 
     return (
         <div className="max-w-3xl animate-fade-in-up">
@@ -84,166 +125,169 @@ export default function DashboardClient({
                     selectedDate={selectedDate}
                     onSelectDate={(d) => {
                         setSelectedDate(d);
-                        setActiveTab('list'); // Automatically switch to list view when date is clicked
                     }}
                 />
             </div>
 
-            {/* Section 3: 4 Horizontal Tabs */}
-            <div className="grid grid-cols-2 lg:flex bg-gray-100 rounded-xl p-1 mb-6 gap-1">
-                {tabs.map((tab) => (
+            {/* Immersive Wrapper Block */}
+            <div className="bg-[#FFCE34] rounded-[36px] p-2 sm:p-3 mb-8 shadow-sm animate-fade-in-up border-b-4 border-r-4 border-[#E2B11B]">
+
+                {/* Envelope Toggles */}
+                <div className="flex px-2 mb-3 mt-1 gap-2">
                     <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
+                        onClick={() => setMainTab("tasks")}
                         className={cn(
-                            "flex-1 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap",
-                            activeTab === tab.id
-                                ? "bg-white text-gray-900 shadow-sm"
-                                : "text-gray-500 hover:text-gray-700"
+                            "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-3xl text-sm sm:text-base font-bold transition-all duration-300",
+                            mainTab === "tasks"
+                                ? "bg-[#FFE070] text-[#1D2125] shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)] border border-[#FFEA91]"
+                                : "text-amber-950/60 hover:text-amber-950"
                         )}
                     >
-                        {tab.label}
-                        {tab.count > 0 && (
-                            <span className={cn(
-                                "px-1.5 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-full",
-                                activeTab === tab.id
-                                    ? tab.id === 'overdue' ? "bg-red-100 text-red-700" : "bg-gray-900 text-white"
-                                    : "bg-gray-200 text-gray-600"
-                            )}>
-                                {tab.count}
-                            </span>
-                        )}
+                        Tasks
                     </button>
-                ))}
-            </div>
-
-            {/* Tab Content */}
-            <div className="pb-20">
-                {activeTab === 'list' && (
-                    <div className="animate-fade-in-up space-y-6" style={{ animationDuration: '0.3s' }}>
-                        {selectedDayTasks.length === 0 ? (
-                            <div className="p-8 text-center bg-gray-50 rounded-2xl border border-gray-100">
-                                <p className="text-sm text-gray-500 font-medium tracking-wide">
-                                    No tasks for {isTodaySelected ? 'today' : format(selectedDate, 'MMM d')}.
-                                </p>
-                            </div>
-                        ) : (
-                            <TaskTodoToggleList tasks={todaysTasks} todos={todaysTodos} currentUserId={currentUserId} emptyMessage="No tasks or to-dos for today." />
+                    <button
+                        onClick={() => setMainTab("todos")}
+                        className={cn(
+                            "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-3xl text-sm sm:text-base font-bold transition-all duration-300",
+                            mainTab === "todos"
+                                ? "bg-[#FFE070] text-[#1D2125] shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)] border border-[#FFEA91]"
+                                : "text-[#7B631C] hover:text-[#52410F]"
                         )}
-                    </div>
-                )}
+                    >
+                        To-dos
+                    </button>
+                </div>
 
-                {activeTab === 'action' && (
-                    <div className="animate-fade-in-up" style={{ animationDuration: '0.3s' }}>
-                        <PendingActions
-                            actionRequired={actionRequired}
-                            waitingOnOthers={[]}
-                            currentUserId={currentUserId}
-                            hideTitle
-                            forceMode="action"
-                        />
-                    </div>
-                )}
+                {/* Filter Area & List */}
+                <div className="bg-[#FFE27B]/60 backdrop-blur-xl rounded-[32px] p-4 sm:p-6 shadow-[inset_0_1px_4px_rgba(255,255,255,0.6)] border border-[#FFE795] min-h-[400px]">
+                    {mainTab === "tasks" && (
+                        <div className="animate-fade-in-up space-y-6" style={{ animationDuration: '0.3s' }}>
+                            {/* Task Filters */}
+                            <div className="flex flex-wrap gap-2 items-center">
+                                <button
+                                    onClick={() => toggleFilter('action', true)}
+                                    className={cn(
+                                        "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border",
+                                        taskFilters.has('action')
+                                            ? "bg-red-50 text-red-700 border-red-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)]"
+                                            : "bg-[#FFF2B2]/50 text-[#52410F] border-[#FFF8DD]/40 hover:bg-[#FFF2B2]/70 shadow-sm"
+                                    )}
+                                >
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                    Action Required
+                                </button>
+                                <button
+                                    onClick={() => toggleFilter('waiting', true)}
+                                    className={cn(
+                                        "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border",
+                                        taskFilters.has('waiting')
+                                            ? "bg-blue-50 text-blue-700 border-blue-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)]"
+                                            : "bg-[#FFF2B2]/50 text-[#52410F] border-[#FFF8DD]/40 hover:bg-[#FFF2B2]/70 shadow-sm"
+                                    )}
+                                >
+                                    <Clock className="w-3.5 h-3.5" />
+                                    Waiting on Others
+                                </button>
+                                <button
+                                    onClick={() => toggleFilter('overdue', true)}
+                                    className={cn(
+                                        "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border",
+                                        taskFilters.has('overdue')
+                                            ? "bg-orange-50 text-orange-700 border-orange-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)]"
+                                            : "bg-[#FFF2B2]/50 text-[#52410F] border-[#FFF8DD]/40 hover:bg-[#FFF2B2]/70 shadow-sm"
+                                    )}
+                                >
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                    Overdue
+                                </button>
 
-                {activeTab === 'waiting' && (
-                    <div className="animate-fade-in-up" style={{ animationDuration: '0.3s' }}>
-                        <PendingActions
-                            actionRequired={[]}
-                            waitingOnOthers={waitingOnOthers}
-                            currentUserId={currentUserId}
-                            hideTitle
-                            forceMode="waiting"
-                        />
-                    </div>
-                )}
-
-                {activeTab === 'overdue' && (
-                    <div className="animate-fade-in-up space-y-6" style={{ animationDuration: '0.3s' }}>
-                        {overdueTasks.length === 0 ? (
-                            <div className="p-8 text-center bg-gray-50 rounded-2xl border border-gray-100">
-                                <p className="text-sm text-gray-500 font-medium tracking-wide">
-                                    No overdue tasks
-                                </p>
+                                {taskFilters.size > 0 && (
+                                    <button
+                                        onClick={() => setTaskFilters(new Set())}
+                                        className="px-2.5 py-1.5 rounded-full text-xs font-bold text-[#7B631C] hover:text-[#52410F] hover:bg-[#FFE27B]/30 flex items-center gap-1 transition-all"
+                                    >
+                                        <X className="w-3 h-3" />
+                                        Clear
+                                    </button>
+                                )}
                             </div>
-                        ) : (
-                            <TaskTodoToggleList tasks={overdueRealTasks} todos={overdueTodos} currentUserId={currentUserId} emptyMessage="No overdue tasks or to-dos." />
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
 
-function TaskTodoToggleList({ tasks, todos, currentUserId, emptyMessage }: { tasks: Task[], todos: Task[], currentUserId: string, emptyMessage: string }) {
-    const [subTab, setSubTab] = useState<"tasks" | "todos">("tasks");
-
-    if (tasks.length === 0 && todos.length === 0) {
-        return (
-            <div className="p-8 text-center bg-gray-50 rounded-2xl border border-gray-100">
-                <p className="text-sm text-gray-500 font-medium tracking-wide">
-                    {emptyMessage}
-                </p>
-            </div>
-        );
-    }
-
-    const currentList = subTab === "tasks" ? tasks : todos;
-
-    return (
-        <div className="animate-fade-in-up space-y-4" style={{ animationDuration: '0.3s' }}>
-            <div className="flex bg-gray-100 rounded-xl p-1 shadow-sm border border-gray-200/50 max-w-sm">
-                <button
-                    onClick={() => setSubTab("todos")}
-                    className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200",
-                        subTab === "todos"
-                            ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                            : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+                            {/* Task List */}
+                            <div className="space-y-4">
+                                {displayTasks.length === 0 ? (
+                                    <div className="px-10 py-16 mt-6 text-center bg-[#FFE898]/50 backdrop-blur-md rounded-2xl border border-[#FFF6CF]/40 shadow-[inset_0_1px_3px_rgba(255,255,255,0.3)]">
+                                        <p className="text-sm text-[#52410F] font-bold tracking-wide">
+                                            {taskFilters.size > 0
+                                                ? "No tasks match the selected filters."
+                                                : `No tasks for ${isTodaySelected ? 'today' : format(selectedDate, 'MMM d')}.`}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    displayTasks.map(t => (
+                                        <TaskCard
+                                            key={t.id}
+                                            task={t}
+                                            category={getTaskColorCategory(t, currentUserId)}
+                                            currentUserId={currentUserId}
+                                        />
+                                    ))
+                                )}
+                            </div>
+                        </div>
                     )}
-                >
-                    To-dos
-                    <span className={cn(
-                        "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
-                        subTab === "todos" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
-                    )}>
-                        {todos.length}
-                    </span>
-                </button>
-                <button
-                    onClick={() => setSubTab("tasks")}
-                    className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200",
-                        subTab === "tasks"
-                            ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                            : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
-                    )}
-                >
-                    Tasks
-                    <span className={cn(
-                        "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
-                        subTab === "tasks" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
-                    )}>
-                        {tasks.length}
-                    </span>
-                </button>
-            </div>
 
-            <div className="space-y-3">
-                {currentList.length === 0 ? (
-                    <div className="p-6 text-center bg-transparent rounded-2xl border border-dashed border-gray-200">
-                        <p className="text-sm text-gray-500 font-medium tracking-wide">No {subTab} found.</p>
-                    </div>
-                ) : (
-                    currentList.map(t => (
-                        <TaskCard
-                            key={t.id}
-                            task={t}
-                            category={getTaskColorCategory(t, currentUserId)}
-                            currentUserId={currentUserId}
-                        />
-                    ))
-                )}
+                    {mainTab === "todos" && (
+                        <div className="animate-fade-in-up space-y-6" style={{ animationDuration: '0.3s' }}>
+                            {/* Todo Filters */}
+                            <div className="flex flex-wrap gap-2 items-center">
+                                <button
+                                    onClick={() => toggleFilter('overdue', false)}
+                                    className={cn(
+                                        "px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all duration-200 border",
+                                        todoFilters.has('overdue')
+                                            ? "bg-red-50 text-red-700 border-red-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)]"
+                                            : "bg-[#FFF2B2]/50 text-[#52410F] border-[#FFF8DD]/40 hover:bg-[#FFF2B2]/70 shadow-sm"
+                                    )}
+                                >
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                    Overdue
+                                </button>
+
+                                {todoFilters.size > 0 && (
+                                    <button
+                                        onClick={() => setTodoFilters(new Set())}
+                                        className="px-2.5 py-1.5 rounded-full text-xs font-bold text-[#7B631C] hover:text-[#52410F] hover:bg-[#FFE27B]/30 flex items-center gap-1 transition-all"
+                                    >
+                                        <X className="w-3 h-3" />
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Todo List */}
+                            <div className="space-y-4">
+                                {displayTodos.length === 0 ? (
+                                    <div className="px-10 py-16 mt-6 text-center bg-[#FFE898]/50 backdrop-blur-md rounded-2xl border border-[#FFF6CF]/40 shadow-[inset_0_1px_3px_rgba(255,255,255,0.3)]">
+                                        <p className="text-sm text-[#52410F] font-bold tracking-wide">
+                                            {todoFilters.size > 0
+                                                ? "No to-dos match the selected filters."
+                                                : `No to-dos for ${isTodaySelected ? 'today' : format(selectedDate, 'MMM d')}.`}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    displayTodos.map(t => (
+                                        <TaskCard
+                                            key={t.id}
+                                            task={t}
+                                            category={getTaskColorCategory(t, currentUserId)}
+                                            currentUserId={currentUserId}
+                                        />
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

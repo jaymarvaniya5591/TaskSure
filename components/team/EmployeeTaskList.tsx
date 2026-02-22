@@ -47,27 +47,6 @@ export default function EmployeeTaskList({
             {!hideToggle && (
                 <div className="flex bg-gray-100 rounded-xl p-1 mb-4 max-w-sm">
                     <button
-                        onClick={() => setSubTab("todos")}
-                        className={cn(
-                            "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200",
-                            subTab === "todos"
-                                ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-                                : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
-                        )}
-                    >
-                        To-dos
-                        <span
-                            className={cn(
-                                "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
-                                subTab === "todos"
-                                    ? "bg-gray-900 text-white"
-                                    : "bg-gray-200 text-gray-600"
-                            )}
-                        >
-                            {todos.length}
-                        </span>
-                    </button>
-                    <button
                         onClick={() => setSubTab("tasks")}
                         className={cn(
                             "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200",
@@ -86,6 +65,27 @@ export default function EmployeeTaskList({
                             )}
                         >
                             {multiTasks.length}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setSubTab("todos")}
+                        className={cn(
+                            "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200",
+                            subTab === "todos"
+                                ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                                : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+                        )}
+                    >
+                        To-dos
+                        <span
+                            className={cn(
+                                "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
+                                subTab === "todos"
+                                    ? "bg-gray-900 text-white"
+                                    : "bg-gray-200 text-gray-600"
+                            )}
+                        >
+                            {todos.length}
                         </span>
                     </button>
                 </div>

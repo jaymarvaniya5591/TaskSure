@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { LogOut, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { useSidebar } from "@/components/layout/SidebarProvider";
 import { useUserContext } from "@/lib/user-context";
@@ -15,7 +14,6 @@ interface UserProfile {
 }
 
 export function Header() {
-    const router = useRouter();
     const { toggleMobileSidebar } = useSidebar();
     const { orgUsers, userId, userName } = useUserContext();
     const [supabase] = useState(() => createClient());
@@ -44,12 +42,9 @@ export function Header() {
         if (userId) {
             loadProfile();
         }
-    }, [supabase, userId]);
 
-    const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        router.push("/login");
-    };
+
+    }, [supabase, userId]);
 
     const displayName = profile?.name || userName || "Loading...";
     const initials = displayName
@@ -82,48 +77,12 @@ export function Header() {
                         href="https://wa.me/919620131867"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="-m-2.5 p-2.5 text-gray-500 hover:text-green-600 relative transition-colors"
+                        className="-m-2.5 p-2.5 text-[#25D366] hover:text-green-600 relative transition-colors"
                         title="Contact us on WhatsApp"
                     >
                         <span className="sr-only">Contact us on WhatsApp</span>
                         <FaWhatsapp className="h-6 w-6" aria-hidden="true" />
                     </a>
-
-                    {/* Separator */}
-                    <div
-                        className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200"
-                        aria-hidden="true"
-                    />
-
-                    {/* Profile */}
-                    <div className="flex items-center gap-x-4 py-3">
-                        <span className="sr-only">Your profile</span>
-                        <div className="h-9 w-9 rounded-full bg-accent-100 flex items-center justify-center text-accent-700 font-bold text-sm">
-                            {initials}
-                        </div>
-                        <span className="hidden lg:flex lg:flex-col lg:items-start">
-                            <span
-                                className="text-sm font-semibold leading-5 text-gray-900"
-                                aria-hidden="true"
-                            >
-                                {displayName}
-                            </span>
-                            {orgName && (
-                                <span className="text-xs font-medium leading-4 text-gray-500">
-                                    {orgName}
-                                </span>
-                            )}
-                        </span>
-                    </div>
-
-                    {/* Sign Out */}
-                    <button
-                        onClick={handleSignOut}
-                        className="-m-2.5 p-2.5 text-gray-400 hover:text-red-600 transition-colors"
-                        title="Sign out"
-                    >
-                        <LogOut className="h-5 w-5" aria-hidden="true" />
-                    </button>
                 </div>
             </div>
         </div>
