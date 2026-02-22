@@ -132,7 +132,6 @@ export default function DashboardClient({
             <div className="mb-6">
                 <WeeklyCalendarStrip
                     tasks={allTasks}
-                    currentUserId={currentUserId}
                     selectedDate={selectedDate}
                     onSelectDate={(d) => {
                         setSelectedDate(d);

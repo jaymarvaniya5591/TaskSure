@@ -8,18 +8,16 @@
 
 import { format, addDays, startOfDay, endOfDay, isToday as checkIsToday, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import { getTaskColorCategory } from "@/lib/colors";
 import { type Task } from "@/lib/types";
 import { CalendarDays } from "lucide-react";
 
 interface CalendarStripProps {
     tasks: Task[];
-    currentUserId: string;
     selectedDate: Date;
     onSelectDate: (date: Date) => void;
 }
 
-export default function WeeklyCalendarStrip({ tasks, currentUserId, selectedDate, onSelectDate }: CalendarStripProps) {
+export default function WeeklyCalendarStrip({ tasks, selectedDate, onSelectDate }: CalendarStripProps) {
     const today = new Date();
     // Default to the next 7 days starting from today
     const start = startOfDay(today);
@@ -45,8 +43,8 @@ export default function WeeklyCalendarStrip({ tasks, currentUserId, selectedDate
         let tasksCount = 0;
 
         dayTasks.forEach(t => {
-            const cId = typeof t.created_by === 'object' && t.created_by !== null && "id" in t.created_by ? (t.created_by as any).id : t.created_by;
-            const aId = typeof t.assigned_to === 'object' && t.assigned_to !== null && "id" in t.assigned_to ? (t.assigned_to as any).id : t.assigned_to;
+            const cId = typeof t.created_by === 'object' && t.created_by !== null && "id" in t.created_by ? (t.created_by as unknown as Record<string, unknown>).id : t.created_by;
+            const aId = typeof t.assigned_to === 'object' && t.assigned_to !== null && "id" in t.assigned_to ? (t.assigned_to as unknown as Record<string, unknown>).id : t.assigned_to;
 
             if (cId === aId) todosCount++;
             else tasksCount++;
