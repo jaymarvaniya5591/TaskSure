@@ -8,6 +8,7 @@ import SearchEmployee from "@/components/dashboard/SearchEmployee";
 import { type OrgUser } from "@/lib/hierarchy";
 import { getTodayMidnightISO } from "@/lib/date-utils";
 import DateTimePickerBoxes from "@/components/ui/DateTimePickerBoxes";
+import { useMobileKeyboard } from "@/lib/hooks/useMobileKeyboard";
 
 interface TaskUser extends OrgUser {
     avatar_url?: string | null;
@@ -21,8 +22,10 @@ interface CreateTaskModalProps {
 
 export default function CreateTaskModal({ isOpen, onClose, currentUserId }: CreateTaskModalProps) {
     const router = useRouter();
+    const { keyboardHeight } = useMobileKeyboard();
     const [mounted, setMounted] = useState(false);
 
+    // Form state
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
 
@@ -74,8 +77,6 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
             setIsLoadingUsers(false);
         }
     };
-
-    if (!isOpen || !mounted) return null;
 
     const isSelfAssigned = assignedTo?.id === currentUserId;
 
@@ -134,8 +135,12 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
         }
     };
 
+    if (!mounted || !isOpen) return null;
+
+    const style = keyboardHeight > 0 ? { paddingBottom: `${Math.max(0, keyboardHeight - 50)}px` } : undefined;
+
     const modalContent = (
-        <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center bg-gray-900/40 sm:p-4 backdrop-blur-sm sm:animate-fade-in transition-all duration-300">
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center bg-gray-900/40 sm:p-4 backdrop-blur-sm sm:animate-fade-in transition-all duration-300" style={style}>
             {/* Backdrop click to close */}
             <div className="absolute inset-0" onClick={onClose} />
 
@@ -237,6 +242,9 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                                 placeholder="What needs to be done?"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
+                                autoComplete="off"
+                                autoCorrect="on"
+                                enterKeyHint="next"
                                 className="w-full px-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:bg-white transition-all text-[15px] font-medium placeholder:font-normal placeholder:text-gray-400"
                                 disabled={isSubmitting}
                             />
@@ -252,6 +260,9 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 rows={3}
+                                autoComplete="off"
+                                autoCorrect="on"
+                                spellCheck={true}
                                 className="w-full px-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:bg-white transition-all text-[15px] resize-none placeholder:text-gray-400"
                                 disabled={isSubmitting}
                             />

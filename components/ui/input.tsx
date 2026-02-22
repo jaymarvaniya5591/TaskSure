@@ -20,6 +20,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
                 <input
                     id={id}
                     ref={ref}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
                     className={`flex h-[52px] w-full rounded-2xl border-2 border-zinc-200 bg-white px-4 py-2 text-base font-medium text-black shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-400 focus-visible:outline-none focus-visible:border-black focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 ${error ? "border-red-500 focus-visible:border-red-500" : ""
                         } ${className}`}
                     {...props}

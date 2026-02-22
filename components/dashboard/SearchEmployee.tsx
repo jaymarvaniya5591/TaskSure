@@ -68,6 +68,9 @@ export default function SearchEmployee({ orgUsers, currentUserId, isHeader = fal
                         onFocus={() => setIsFocused(true)}
                         onBlur={() => setTimeout(() => setIsFocused(false), 200)}
                         placeholder="Search Employee..."
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
                         className={cn("flex-1 min-w-0 text-ellipsis px-2 sm:px-3 text-sm font-medium text-gray-900 placeholder:text-gray-500 bg-transparent outline-none", isHeader ? "py-2.5 lg:py-2" : "py-4")}
                     />
                     {query && (

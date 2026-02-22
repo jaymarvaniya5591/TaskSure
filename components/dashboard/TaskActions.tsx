@@ -15,6 +15,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useMobileKeyboard } from "@/lib/hooks/useMobileKeyboard";
 import {
     MoreHorizontal,
     Calendar,
@@ -104,8 +105,11 @@ function ModalShell({
     onClose: () => void;
     children: React.ReactNode;
 }) {
+    const { keyboardHeight } = useMobileKeyboard();
+    const style = keyboardHeight > 0 ? { paddingBottom: `${Math.max(0, keyboardHeight - 50)}px` } : undefined;
+
     return (
-        <div className={MODAL.overlay}>
+        <div className={MODAL.overlay} style={style}>
             <div className="absolute inset-0" onClick={onClose} />
             <div className={MODAL.panel}>
                 <div className={MODAL.dragHandle}>
@@ -536,6 +540,9 @@ function RejectTaskModal({
                     onChange={(e) => setReason(e.target.value)}
                     placeholder="Why are you rejecting this task?"
                     rows={3}
+                    autoComplete="off"
+                    autoCorrect="on"
+                    spellCheck={true}
                     className={MODAL.textareaBase}
                 />
             </div>
@@ -758,6 +765,9 @@ function CreateSubtaskModal({
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder="What needs to be done?"
+                            autoComplete="off"
+                            autoCorrect="on"
+                            enterKeyHint="next"
                             className={MODAL.inputBase}
                         />
                     </div>
@@ -769,6 +779,9 @@ function CreateSubtaskModal({
                             onChange={(e) => setDescription(e.target.value)}
                             placeholder="Add more details about this task..."
                             rows={3}
+                            autoComplete="off"
+                            autoCorrect="on"
+                            spellCheck={true}
                             className={MODAL.textareaBase}
                         />
                     </div>

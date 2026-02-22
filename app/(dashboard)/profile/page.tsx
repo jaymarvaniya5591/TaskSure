@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useUserContext } from "@/lib/user-context";
+import { useMobileKeyboard } from "@/lib/hooks/useMobileKeyboard";
 import { User, Building, Phone, ShieldCheck, CheckCircle2, X } from "lucide-react";
 
 interface UserProfile {
@@ -18,6 +19,9 @@ interface UserProfile {
 export default function ProfilePage() {
     const { userId } = useUserContext();
     const [supabase] = useState(() => createClient());
+
+    // Call hook to monitor keyboard and automatically scroll focused element into view
+    useMobileKeyboard();
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -201,6 +205,9 @@ export default function ProfilePage() {
                                             onChange={(e) => setEditName(e.target.value)}
                                             className={inputBase}
                                             placeholder="First and Last Name"
+                                            autoComplete="off"
+                                            autoCorrect="off"
+                                            spellCheck={false}
                                         />
                                         <div className="flex items-center gap-2">
                                             <button onClick={handleSaveName} className={`${btnPrimary} flex-1 bg-blue-600 text-white hover:bg-blue-700`}>Save</button>
@@ -236,6 +243,9 @@ export default function ProfilePage() {
                                             className={inputBase}
                                             placeholder={otpSent ? "Enter 6-digit OTP" : "10-digit phone number"}
                                             maxLength={otpSent ? 6 : 10}
+                                            inputMode={otpSent ? "numeric" : "tel"}
+                                            autoComplete="off"
+                                            autoCorrect="off"
                                         />
                                         <div className="flex items-center gap-2">
                                             {otpSent ? (
@@ -281,6 +291,9 @@ export default function ProfilePage() {
                                                 className={inputBase}
                                                 placeholder="Manager's 10-digit phone number"
                                                 maxLength={10}
+                                                inputMode="tel"
+                                                autoComplete="off"
+                                                autoCorrect="off"
                                             />
                                         )}
                                         <div className="flex items-center gap-2">
@@ -318,8 +331,8 @@ export default function ProfilePage() {
                                     <div className="space-y-3">
                                         {!companyAction ? (
                                             <div className="flex items-center gap-2">
-                                                <button onClick={() => setCompanyAction('join')} className="flex-1 h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-bold text-gray-700 transition-colors">Join Existing</button>
-                                                <button onClick={() => setCompanyAction('create')} className="flex-1 h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-bold text-gray-700 transition-colors">Create New</button>
+                                                <button onClick={() => setCompanyAction('join')} className="flex-1 h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs sm:text-sm font-bold text-gray-700 transition-colors whitespace-nowrap px-3">Join Existing</button>
+                                                <button onClick={() => setCompanyAction('create')} className="flex-1 h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs sm:text-sm font-bold text-gray-700 transition-colors whitespace-nowrap px-3">Create New</button>
                                                 <button onClick={() => { setIsEditingCompany(false); setCompanyVerifySent(false); setCompanyAction(null); }} className={btnCancel}><X className="w-5 h-5" /></button>
                                             </div>
                                         ) : companyVerifySent ? (
@@ -332,6 +345,10 @@ export default function ProfilePage() {
                                                 className={inputBase}
                                                 placeholder={companyAction === "join" ? "Manager's 10-digit phone number" : "Company Name"}
                                                 maxLength={companyAction === "join" ? 10 : undefined}
+                                                inputMode={companyAction === "join" ? "tel" : "text"}
+                                                autoComplete="off"
+                                                autoCorrect="off"
+                                                spellCheck={companyAction === "create"}
                                             />
                                         )}
                                         {companyAction && (
