@@ -10,8 +10,6 @@ import { getTaskColorCategory } from "@/lib/colors";
 import { X, AlertTriangle, Clock, AlertCircle } from "lucide-react";
 
 interface DashboardClientProps {
-    greeting: string;
-    firstName: string;
     currentUserId: string;
     allTasks: Task[];
     actionRequired: Task[];
@@ -20,8 +18,6 @@ interface DashboardClientProps {
 }
 
 export default function DashboardClient({
-    greeting,
-    firstName,
     currentUserId,
     allTasks,
     actionRequired,
@@ -118,12 +114,6 @@ export default function DashboardClient({
 
     return (
         <div className="max-w-3xl animate-fade-in-up">
-            {/* Greeting */}
-            <div className="mb-6">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight truncate">
-                    {greeting}, <span className="bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">{firstName}</span>
-                </h1>
-            </div>
 
             {/* Section 1: Weekly Calendar Strip */}
             <div className="mb-6">

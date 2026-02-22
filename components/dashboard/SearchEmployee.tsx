@@ -51,15 +51,15 @@ export default function SearchEmployee({ orgUsers, currentUserId, isHeader = fal
                 </div>
             )}
 
-            <div className="relative">
+            <div className="relative w-full">
                 <div className={cn(
-                    "relative flex items-center rounded-2xl border transition-all duration-200 bg-white",
-                    isHeader ? "border-transparent bg-gray-100 hover:bg-gray-200/80 focus-within:bg-white focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-200" : "border-2",
-                    (!isHeader && isFocused) ? "border-gray-900 shadow-lg shadow-gray-900/10" : "border-gray-200 hover:border-gray-300"
+                    "relative flex items-center transition-all duration-300",
+                    isHeader ? "bg-white text-gray-900 shadow-md rounded-xl" : "rounded-2xl border-2",
+                    (!isHeader && isFocused) ? "border-gray-900 shadow-lg shadow-gray-900/10" : !isHeader && "border-gray-200 hover:border-gray-300"
                 )}>
                     <Search className={cn(
-                        "w-5 h-5 ml-4 shrink-0 transition-colors",
-                        isFocused ? "text-gray-900" : "text-gray-400"
+                        "w-4 h-4 ml-4 shrink-0 transition-colors",
+                        isFocused || isHeader ? "text-gray-900" : "text-gray-400"
                     )} />
                     <input
                         type="text"
@@ -73,12 +73,12 @@ export default function SearchEmployee({ orgUsers, currentUserId, isHeader = fal
                         autoCapitalize="none"
                         spellCheck={false}
                         inputMode="text"
-                        className={cn("flex-1 min-w-0 text-ellipsis px-2 sm:px-3 text-sm font-medium text-gray-900 placeholder:text-gray-500 bg-transparent outline-none", isHeader ? "py-2.5 lg:py-2" : "py-4")}
+                        className={cn("flex-1 min-w-0 text-ellipsis px-3 text-sm font-bold text-gray-900 placeholder:text-gray-500 bg-transparent outline-none", isHeader ? "py-2.5" : "py-4")}
                     />
                     {query && (
                         <button
                             onClick={() => setQuery("")}
-                            className="mr-3 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors"
+                            className="mr-3 text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors"
                         >
                             Clear
                         </button>

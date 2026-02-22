@@ -13,7 +13,7 @@ import {
 import { DashboardHomeSkeleton } from "@/components/ui/DashboardSkeleton";
 
 export default function HomePage() {
-    const { userId, userName, tasks: allTasks, allOrgTasks, isLoading } = useUserContext();
+    const { userId, tasks: allTasks, allOrgTasks, isLoading } = useUserContext();
 
     const { actionRequired, waitingOnOthers, overdueTasks } = useMemo(() => {
         if (isLoading || !allTasks.length) {
@@ -61,18 +61,10 @@ export default function HomePage() {
         return <DashboardHomeSkeleton />;
     }
 
-    const now = new Date();
-    const hour = now.getHours();
-    let greeting = "Good evening";
-    if (hour < 12) greeting = "Good morning";
-    else if (hour < 17) greeting = "Good afternoon";
 
-    const firstName = userName?.split(" ")[0] || "User";
 
     return (
         <DashboardClient
-            greeting={greeting}
-            firstName={firstName}
             currentUserId={userId}
             allTasks={allTasks}
             actionRequired={actionRequired}

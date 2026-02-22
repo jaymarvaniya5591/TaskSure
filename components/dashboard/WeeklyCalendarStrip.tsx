@@ -60,21 +60,19 @@ export default function WeeklyCalendarStrip({ tasks, selectedDate, onSelectDate 
     });
 
     return (
-        <section className="backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm rounded-3xl p-5 sm:p-6 mb-8 relative overflow-hidden animate-fade-in-up">
+        <section className="backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm rounded-2xl p-1 mb-6 relative overflow-hidden animate-fade-in-up">
             <div className="relative z-10">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-xl bg-white/60 border border-white/50 shadow-sm">
-                            <CalendarDays className="w-4 h-4 text-orange-500" />
-                        </div>
-                        <h2 className="text-lg font-bold text-gray-900 tracking-tight">Next 7 Days</h2>
+                <div className="flex items-center justify-between px-2 pt-2 pb-2 sm:px-3 sm:pt-3 sm:pb-3">
+                    <div className="flex items-center gap-2 ml-1">
+                        <CalendarDays className="w-4 h-4 text-orange-500" />
+                        <h2 className="text-sm font-bold text-gray-900 tracking-tight">Next 7 Days</h2>
                     </div>
-                    <span className="text-sm font-semibold text-gray-600 bg-white/50 px-3 py-1 rounded-full border border-white/40 shadow-sm">
+                    <span className="text-sm font-bold text-gray-600 bg-white/50 px-3 py-1 rounded-full border border-white/40 shadow-sm">
                         {format(start, "MMMM yyyy")}
                     </span>
                 </div>
 
-                <div className="grid grid-cols-7 gap-2 sm:gap-3">
+                <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
                     {days.map((day, i) => {
                         const hasItems = day.todosCount + day.tasksCount > 0;
 
@@ -83,7 +81,7 @@ export default function WeeklyCalendarStrip({ tasks, selectedDate, onSelectDate 
                                 key={i}
                                 onClick={() => onSelectDate(day.date)}
                                 className={cn(
-                                    "flex flex-col items-center px-1.5 py-2 sm:px-2.5 sm:py-2.5 rounded-xl transition-all duration-300 border text-left outline-none",
+                                    "flex flex-col items-center px-1 py-1.5 sm:px-2 sm:py-2 rounded-xl transition-all duration-300 border text-left outline-none",
                                     day.isSelected
                                         ? "bg-white text-gray-900 border-gray-200 shadow-md scale-105"
                                         : day.isToday

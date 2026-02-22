@@ -57,20 +57,20 @@ export function SkeletonList({ count = 4 }: { count?: number }) {
 
 export function SkeletonCalendar() {
     return (
-        <div className="bg-gray-900 rounded-3xl p-5 sm:p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                    <Shimmer className="h-8 w-8 rounded-xl bg-gray-700" />
-                    <Shimmer className="h-5 w-28 bg-gray-700" />
+        <div className="backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm rounded-2xl p-1 mb-6">
+            <div className="flex items-center justify-between px-2 pt-2 pb-2 sm:px-3 sm:pt-3 sm:pb-3">
+                <div className="flex items-center gap-2 ml-1">
+                    <Shimmer className="h-4 w-4 rounded bg-gray-200/70" />
+                    <Shimmer className="h-4 w-24 bg-gray-200/70" />
                 </div>
-                <Shimmer className="h-6 w-24 rounded-full bg-gray-700" />
+                <Shimmer className="h-6 w-24 rounded-full bg-gray-200/70" />
             </div>
-            <div className="grid grid-cols-7 gap-2 sm:gap-3">
+            <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
                 {Array.from({ length: 7 }).map((_, i) => (
-                    <div key={i} className="flex flex-col items-center gap-2 px-1.5 py-2.5 rounded-xl bg-gray-800/40 border border-gray-700/50">
-                        <Shimmer className="h-3 w-8 bg-gray-700" />
-                        <Shimmer className="h-6 w-6 bg-gray-700 rounded-lg" />
-                        <Shimmer className="h-4 w-4 bg-gray-700 rounded-md" />
+                    <div key={i} className="flex flex-col items-center gap-2 px-1 py-1.5 sm:px-2 sm:py-2 rounded-xl bg-white/40 border border-white/40">
+                        <Shimmer className="h-3 w-8 bg-gray-200/70" />
+                        <Shimmer className="h-6 w-6 bg-gray-200/70 rounded-lg" />
+                        <Shimmer className="h-4 w-4 bg-gray-200/70 rounded-md" />
                     </div>
                 ))}
             </div>
@@ -132,45 +132,32 @@ export function DashboardShellSkeleton() {
 // ─── Dashboard home skeleton ─────────────────────────────────────────────────
 
 export function DashboardHomeSkeleton() {
+    const glass = "backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm";
+
     return (
         <div className="max-w-3xl animate-fade-in-up">
-            {/* Greeting */}
-            <div className="mb-6">
-                <Shimmer className="h-8 w-64 mb-2" />
-                <Shimmer className="h-4 w-40" />
-            </div>
 
             {/* Calendar strip */}
             <div className="mb-6">
                 <SkeletonCalendar />
             </div>
 
-            {/* Notebook area */}
-            <div
-                className="relative rounded-3xl p-3 sm:p-4 mb-8 overflow-hidden"
-                style={{
-                    background: "linear-gradient(135deg, #FFD600 0%, #FFAB00 50%, #FFC107 100%)",
-                }}
-            >
-                <div className="relative z-10 space-y-3 sm:space-y-4">
-                    {/* Tab toggle */}
-                    <div className="backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm rounded-2xl p-1">
-                        <div className="flex">
-                            <Shimmer className="flex-1 h-10 rounded-xl bg-white/70" />
-                            <Shimmer className="flex-1 h-10 rounded-xl bg-white/30 ml-1" />
-                        </div>
-                    </div>
-
-                    {/* Content area */}
-                    <div className="backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm rounded-2xl p-3 sm:p-5 min-h-[400px]">
-                        <div className="flex flex-wrap gap-2 mb-4">
-                            <Shimmer className="h-8 w-32 rounded-full bg-white/70" />
-                            <Shimmer className="h-8 w-36 rounded-full bg-white/70" />
-                            <Shimmer className="h-8 w-24 rounded-full bg-white/70" />
-                        </div>
-                        <SkeletonList count={3} />
-                    </div>
+            {/* Tab toggle */}
+            <div className={cn("rounded-2xl p-1 mb-4", glass)}>
+                <div className="flex">
+                    <Shimmer className="flex-1 h-10 rounded-xl bg-white/70" />
+                    <Shimmer className="flex-1 h-10 rounded-xl bg-white/30 ml-1" />
                 </div>
+            </div>
+
+            {/* Content area */}
+            <div className={cn("rounded-2xl p-4 sm:p-6 min-h-[400px]", glass)}>
+                <div className="flex flex-wrap gap-2 mb-4">
+                    <Shimmer className="h-8 w-32 rounded-full bg-white/70" />
+                    <Shimmer className="h-8 w-36 rounded-full bg-white/70" />
+                    <Shimmer className="h-8 w-24 rounded-full bg-white/70" />
+                </div>
+                <SkeletonList count={3} />
             </div>
         </div>
     );

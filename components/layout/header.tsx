@@ -39,48 +39,53 @@ export function Header() {
     };
 
     return (
-        <div className="sticky top-4 sm:top-6 z-40 flex h-16 sm:h-20 shrink-0 items-center border border-white/60 bg-white/60 shadow-sm backdrop-blur-xl px-3 sm:px-4 lg:px-6 gap-3 sm:gap-4 mx-4 sm:mx-6 lg:mx-8 rounded-2xl mb-4 sm:mb-6">
+        <div className="sticky top-4 sm:top-6 z-40 flex items-center justify-between backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm p-1 gap-1 mx-4 sm:mx-6 lg:mx-8 rounded-2xl mb-4 sm:mb-6">
             {/* Hamburger Menu (Mobile Only) */}
             <button
                 type="button"
-                className="p-2 text-gray-700 lg:hidden shrink-0"
+                className="lg:hidden flex items-center justify-center py-2.5 px-3 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-white/40 transition-all duration-200 shrink-0"
                 onClick={toggleMobileSidebar}
             >
                 <span className="sr-only">Open sidebar</span>
-                <Menu className="h-6 w-6" aria-hidden="true" />
+                <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
 
-            {/* Global Search Employee — fills all remaining space */}
-            <div className="flex-1 min-w-0">
-                <SearchEmployee orgUsers={orgUsers} currentUserId={userId} isHeader />
+            {/* Global Search Employee — locked to 60% of the header width explicitly */}
+            <div className="w-[60%] shrink-0 flex items-center justify-center">
+                <div className="w-full">
+                    <SearchEmployee orgUsers={orgUsers} currentUserId={userId} isHeader />
+                </div>
             </div>
 
-            {/* Refresh Button — spins while data is being fetched, shows toast when done */}
-            <button
-                type="button"
-                onClick={handleRefresh}
-                className="p-2 text-gray-500 hover:text-gray-900 transition-colors shrink-0"
-                title="Refresh dashboard"
-                disabled={isManualRefresh}
-            >
-                <span className="sr-only">Refresh</span>
-                <RefreshCw
-                    className={`h-5 w-5 transition-all duration-300 ${isRefreshing ? "animate-spin text-blue-500" : ""}`}
-                    aria-hidden="true"
-                />
-            </button>
+            {/* Actions group */}
+            <div className="flex items-center gap-1 flex-1 justify-end">
+                {/* Refresh Button */}
+                <button
+                    type="button"
+                    onClick={handleRefresh}
+                    className="flex items-center justify-center py-2.5 px-3 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-white/40 transition-all duration-200 shrink-0"
+                    title="Refresh dashboard"
+                    disabled={isManualRefresh}
+                >
+                    <span className="sr-only">Refresh</span>
+                    <RefreshCw
+                        className={`h-5 w-5 transition-all duration-300 ${isRefreshing ? "animate-spin text-blue-500" : ""}`}
+                        aria-hidden="true"
+                    />
+                </button>
 
-            {/* WhatsApp — symmetric padding to hamburger */}
-            <a
-                href="https://wa.me/919620131867"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 text-[#25D366] hover:text-green-600 transition-colors shrink-0"
-                title="Contact us on WhatsApp"
-            >
-                <span className="sr-only">Contact us on WhatsApp</span>
-                <WhatsAppIcon className="h-6 w-6" />
-            </a>
+                {/* WhatsApp */}
+                <a
+                    href="https://wa.me/919620131867"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center py-2.5 px-3 rounded-xl text-[#25D366] hover:bg-white/40 transition-all duration-200 shrink-0"
+                    title="Contact us on WhatsApp"
+                >
+                    <span className="sr-only">Contact us on WhatsApp</span>
+                    <WhatsAppIcon className="h-5 w-5" />
+                </a>
+            </div>
         </div>
     );
 }
