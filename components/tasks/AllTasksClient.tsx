@@ -49,7 +49,7 @@ export default function AllTasksClient({ todos, tasks, currentUserId }: AllTasks
                 >
                     Tasks
                     <span className={cn(
-                        "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
+                        "aspect-square p-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full leading-none",
                         activeTab === "tasks" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
                     )}>
                         {tasks.length}
@@ -66,7 +66,7 @@ export default function AllTasksClient({ todos, tasks, currentUserId }: AllTasks
                 >
                     To-dos
                     <span className={cn(
-                        "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
+                        "aspect-square p-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full leading-none",
                         activeTab === "todos" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
                     )}>
                         {todos.length}

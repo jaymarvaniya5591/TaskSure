@@ -1,17 +1,18 @@
 "use client";
 
 /**
- * EmployeeStats — Performance analytics card with Recharts Donut.
+ * EmployeeStats — Performance analytics card with pure CSS Donut.
+ * No Recharts dependency — uses conic-gradient for the donut ring,
+ * eliminating all focus/tap/outline issues on mobile.
  */
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { ChevronDown, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Task } from "@/lib/types";
 
 interface EmployeeStatsProps {
-    allTasks: Task[]; // all tasks where this employee is assigned_to
+    allTasks: Task[];
 }
 
 export default function EmployeeStats({ allTasks }: EmployeeStatsProps) {
@@ -21,7 +22,6 @@ export default function EmployeeStats({ allTasks }: EmployeeStatsProps) {
     const [customEnd, setCustomEnd] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Close dropdown on outside click
     useEffect(() => {
         function handleClick(e: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -48,10 +48,10 @@ export default function EmployeeStats({ allTasks }: EmployeeStatsProps) {
         } else if (dateFilter === "custom" && customStart && customEnd) {
             startDate = new Date(customStart);
             endDate = new Date(customEnd);
-            endDate.setHours(23, 59, 59, 999); // Include entire end day
+            endDate.setHours(23, 59, 59, 999);
         }
 
-        if (!startDate) return allTasks; // Fallback if custom dates not set
+        if (!startDate) return allTasks;
 
         return allTasks.filter(t => {
             const created = new Date(t.created_at);
@@ -91,10 +91,28 @@ export default function EmployeeStats({ allTasks }: EmployeeStatsProps) {
         };
     }, [filteredTasks]);
 
-    const chartData = [
-        { name: "Active", value: active, color: "#3b82f6" },     // blue-500
-        { name: "Completed", value: completed, color: "#14b8a6" }, // teal-500
-        { name: "Overdue", value: overdue, color: "#f43f5e" },     // rose-500
+    // Build conic-gradient segments
+    const donutGradient = useMemo(() => {
+        if (total === 0) return "conic-gradient(#e5e7eb 0deg 360deg)";
+        const segments: { color: string; value: number }[] = [];
+        if (completed > 0) segments.push({ color: "#14b8a6", value: completed });
+        if (active > 0) segments.push({ color: "#3b82f6", value: active });
+        if (overdue > 0) segments.push({ color: "#f43f5e", value: overdue });
+
+        let currentDeg = 0;
+        const stops: string[] = [];
+        segments.forEach(seg => {
+            const deg = (seg.value / total) * 360;
+            stops.push(`${seg.color} ${currentDeg}deg ${currentDeg + deg}deg`);
+            currentDeg += deg;
+        });
+        return `conic-gradient(${stops.join(", ")})`;
+    }, [total, completed, active, overdue]);
+
+    const legendItems = [
+        { name: "Completed", color: "#14b8a6", value: completed },
+        { name: "Active", color: "#3b82f6", value: active },
+        { name: "Overdue", color: "#f43f5e", value: overdue },
     ].filter(d => d.value > 0);
 
     return (
@@ -177,34 +195,29 @@ export default function EmployeeStats({ allTasks }: EmployeeStatsProps) {
                 </div>
             ) : (
                 <div className="flex flex-col lg:flex-row items-center gap-8">
-                    {/* Donut Chart */}
-                    <div className="w-full lg:w-1/2 h-64 relative">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={chartData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={70}
-                                    outerRadius={90}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {chartData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    formatter={(value: string | number | undefined, name?: string) => [`${value} Task${value !== 1 ? 's' : ''}`, name || '']}
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '13px', fontWeight: 600 }}
-                                    wrapperStyle={{ zIndex: 100 }}
-                                />
-                                <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mb-8">
-                            <span className="text-3xl font-black text-gray-900">{total}</span>
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Total</span>
+                    {/* Pure CSS Donut Chart */}
+                    <div className="w-full lg:w-1/2 flex flex-col items-center gap-4">
+                        <div className="relative w-48 h-48 select-none">
+                            <div
+                                className="w-full h-full rounded-full"
+                                style={{
+                                    background: donutGradient,
+                                    WebkitMaskImage: "radial-gradient(circle, transparent 55%, black 56%)",
+                                    maskImage: "radial-gradient(circle, transparent 55%, black 56%)",
+                                }}
+                            />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <span className="text-3xl font-black text-gray-900">{total}</span>
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Total</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-center gap-4 flex-wrap">
+                            {legendItems.map(item => (
+                                <div key={item.name} className="flex items-center gap-1.5">
+                                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                                    <span className="text-xs font-semibold text-gray-500">{item.name}</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
 

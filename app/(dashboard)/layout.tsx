@@ -82,6 +82,7 @@ export default async function DashboardLayout({
         userName: currentUser.name || "User",
         orgId,
         orgUsers: getUsersAtOrBelowRank(orgUsers || [], userId),
+        allOrgUsers: orgUsers || [],
         tasks: enrichedTasks,
     };
 

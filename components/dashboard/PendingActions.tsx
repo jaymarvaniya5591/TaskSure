@@ -61,7 +61,7 @@ export default function PendingActions({
                         Action Required
                         {actionRequired.length > 0 && (
                             <span className={cn(
-                                "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
+                                "aspect-square p-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full leading-none",
                                 activeToggle === "action" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
                             )}>
                                 {actionRequired.length}
@@ -81,7 +81,7 @@ export default function PendingActions({
                         Waiting on Others
                         {waitingOnOthers.length > 0 && (
                             <span className={cn(
-                                "px-1.5 py-0.5 text-[10px] font-bold rounded-full",
+                                "aspect-square p-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full leading-none",
                                 activeToggle === "waiting" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
                             )}>
                                 {waitingOnOthers.length}

@@ -17,17 +17,19 @@ interface SearchEmployeeProps {
     orgUsers: OrgUser[];
     currentUserId: string;
     isHeader?: boolean;
+    /** When true, the current user will appear in search results (used in task/subtask creation). */
+    includeSelf?: boolean;
     onSelect?: (user: OrgUser) => void;
 }
 
-export default function SearchEmployee({ orgUsers, currentUserId, isHeader = false, onSelect }: SearchEmployeeProps) {
+export default function SearchEmployee({ orgUsers, currentUserId, isHeader = false, includeSelf = false, onSelect }: SearchEmployeeProps) {
     const router = useRouter();
     const [query, setQuery] = useState("");
     const [isFocused, setIsFocused] = useState(false);
 
     const visibleUsers = useMemo(
-        () => orgUsers.filter(u => u.id !== currentUserId),
-        [orgUsers, currentUserId]
+        () => includeSelf ? orgUsers : orgUsers.filter(u => u.id !== currentUserId),
+        [orgUsers, currentUserId, includeSelf]
     );
 
     const results = useMemo(() => {

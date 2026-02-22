@@ -126,7 +126,7 @@ interface TaskActionsProps {
 
 export default function TaskActions({ task, currentUserId }: TaskActionsProps) {
     const router = useRouter();
-    const { orgUsers } = useUserContext();
+    const { orgUsers, allOrgUsers } = useUserContext();
     const [open, setOpen] = useState(false);
     const [modal, setModal] = useState<
         | "accept"
@@ -398,7 +398,7 @@ export default function TaskActions({ task, currentUserId }: TaskActionsProps) {
                         onSubmit={handleCreateSubtask}
                         onClose={() => setModal(null)}
                         loading={loading}
-                        orgUsers={orgUsers}
+                        orgUsers={allOrgUsers}
                         currentUserId={currentUserId}
                     />
                 </PortalModal>
@@ -657,11 +657,15 @@ function CreateSubtaskModal({
     const [error, setError] = useState("");
     const [dateError, setDateError] = useState(false);
 
+    const isSelfAssigned = assignedTo?.id === currentUserId;
+
     const handleSubmit = () => {
         try {
-            if (dateError || !deadline) throw new Error("Please fill out the full deadline correctly");
+            if (!assignedTo) throw new Error("Please select an assignee");
+            if (!title.trim()) throw new Error("Task title is required");
+            if (isSelfAssigned && (dateError || !deadline)) throw new Error("Please fill out the full deadline correctly");
             setError("");
-            onSubmit(assignedTo!.id, title, description, deadline);
+            onSubmit(assignedTo.id, title, description, isSelfAssigned ? deadline : "");
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : String(e));
         }
@@ -698,6 +702,7 @@ function CreateSubtaskModal({
                                 <SearchEmployee
                                     orgUsers={orgUsers}
                                     currentUserId={currentUserId}
+                                    includeSelf={true}
                                     isHeader={false}
                                     onSelect={(user) => {
                                         setAssignedTo(user);
@@ -717,17 +722,23 @@ function CreateSubtaskModal({
                             <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/80">
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shrink-0">
-                                        <span className="text-sm font-black text-gray-700 uppercase">
-                                            {assignedTo.name.substring(0, 2)}
-                                        </span>
+                                        {isSelfAssigned ? (
+                                            <span className="text-sm font-black text-gray-700 p-0">ME</span>
+                                        ) : (
+                                            <span className="text-sm font-black text-gray-700 uppercase">
+                                                {assignedTo.name.substring(0, 2)}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-sm sm:text-[15px] font-bold text-gray-900">
-                                            {assignedTo.name}
+                                            {isSelfAssigned ? "Me (Self)" : assignedTo.name}
                                         </span>
-                                        <span className="text-xs text-gray-500 capitalize">
-                                            {assignedTo.role}
-                                        </span>
+                                        {!isSelfAssigned && (
+                                            <span className="text-xs text-gray-500 capitalize">
+                                                {assignedTo.role || "member"}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <button
@@ -762,30 +773,36 @@ function CreateSubtaskModal({
                         />
                     </div>
 
-                    <div>
-                        <label className={MODAL.label}>Deadline</label>
-                        <DateTimePickerBoxes
-                            value={deadline}
-                            onChange={(val) => setDeadline(val)}
-                            onError={(err) => setDateError(err)}
-                        />
-                    </div>
+                    {/* Only show deadline if creating a to-do (assigned to self) */}
+                    {isSelfAssigned && (
+                        <div>
+                            <label className={MODAL.label}>Deadline</label>
+                            <DateTimePickerBoxes
+                                value={deadline}
+                                onChange={(val) => setDeadline(val)}
+                                onError={(err) => setDateError(err)}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 
-            <div className={MODAL.footer}>
-                <div className="flex gap-3">
-                    <button onClick={onClose} className={MODAL.btnCancel}>Cancel</button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading || !assignedTo || !title.trim() || dateError}
-                        className={makeBtnPrimary("bg-teal-600")}
-                    >
-                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                        Assign Subtask
-                    </button>
+            {/* Hide footer while user is actively searching (no assignee picked yet) to give mobile users more space */}
+            {(!isSearching || assignedTo) && (
+                <div className={MODAL.footer}>
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className={MODAL.btnCancel}>Cancel</button>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={loading || !assignedTo || !title.trim() || (isSelfAssigned && dateError)}
+                            className={makeBtnPrimary("bg-teal-600")}
+                        >
+                            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                            {isSelfAssigned ? "Create To-do" : "Assign Subtask"}
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
         </ModalShell>
     );
 }

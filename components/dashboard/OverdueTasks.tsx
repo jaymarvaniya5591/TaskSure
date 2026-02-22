@@ -27,7 +27,7 @@ export default function OverdueTasks({ tasks, currentUserId, hideTitle }: Overdu
                         <AlertCircle className="w-4 h-4 text-white" />
                     </div>
                     <h2 className="text-lg font-bold text-gray-900 tracking-tight">Overdue</h2>
-                    <span className="ml-auto px-2.5 py-0.5 text-xs font-bold rounded-full bg-overdue-100 text-overdue-700 border border-overdue-200">
+                    <span className="ml-auto aspect-square p-1 inline-flex items-center justify-center text-xs font-bold rounded-full leading-none bg-overdue-100 text-overdue-700 border border-overdue-200">
                         {tasks.length}
                     </span>
                 </div>

@@ -27,7 +27,7 @@ export default function TodaysTasks({ tasks, currentUserId, hideTitle }: TodaysT
                     </div>
                     <h2 className="text-lg font-bold text-gray-900 tracking-tight">Today&apos;s Tasks</h2>
                     {tasks.length > 0 && (
-                        <span className="ml-auto px-2.5 py-0.5 text-xs font-bold rounded-full bg-gray-900 text-white">
+                        <span className="ml-auto aspect-square p-1 inline-flex items-center justify-center text-xs font-bold rounded-full leading-none bg-gray-900 text-white">
                             {tasks.length}
                         </span>
                     )}

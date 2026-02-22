@@ -176,8 +176,8 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                                     <div className="relative">
                                         <SearchEmployee
                                             orgUsers={users}
-                                            // Pass empty string so they can search for themselves
-                                            currentUserId={""}
+                                            currentUserId={currentUserId}
+                                            includeSelf={true}
                                             isHeader={false}
                                             onSelect={(user) => {
                                                 setAssignedTo(user as TaskUser);

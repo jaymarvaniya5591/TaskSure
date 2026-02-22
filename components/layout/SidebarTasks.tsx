@@ -45,7 +45,7 @@ export default function SidebarTasks({ tasks, currentUserId }: SidebarTasksProps
                 <span className="flex items-center gap-1.5">
                     To-dos
                     {todos.length > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-todo-100 text-todo-700 text-[10px] font-bold">
+                        <span className="aspect-square p-0.5 inline-flex items-center justify-center rounded-full bg-todo-100 text-todo-700 text-[10px] font-bold leading-none">
                             {todos.length}
                         </span>
                     )}
@@ -76,7 +76,7 @@ export default function SidebarTasks({ tasks, currentUserId }: SidebarTasksProps
                 <span className="flex items-center gap-1.5">
                     Tasks
                     {multiTasks.length > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-owned-100 text-owned-700 text-[10px] font-bold">
+                        <span className="aspect-square p-0.5 inline-flex items-center justify-center rounded-full bg-owned-100 text-owned-700 text-[10px] font-bold leading-none">
                             {multiTasks.length}
                         </span>
                     )}
