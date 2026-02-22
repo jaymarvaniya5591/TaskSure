@@ -89,6 +89,8 @@ function LoginContent() {
                         </div>
                         <Input
                             type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
                             placeholder="98765 43210"
                             value={phoneNumber}
                             onChange={(e) => {

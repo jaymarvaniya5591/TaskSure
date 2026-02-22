@@ -153,6 +153,10 @@ export default function DateTimePickerBoxes({
             maxLength={1}
             inputMode="numeric"
             pattern="[0-9]*"
+            autoComplete="new-password"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
         />
     );
 

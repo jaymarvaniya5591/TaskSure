@@ -49,9 +49,11 @@ export default function SidebarSearch({ orgUsers, currentUserId }: SidebarSearch
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setTimeout(() => setIsFocused(false), 200)}
                     placeholder="Search employee..."
-                    autoComplete="off"
+                    autoComplete="new-password"
                     autoCorrect="off"
+                    autoCapitalize="none"
                     spellCheck={false}
+                    inputMode="text"
                     className="flex-1 text-xs font-medium text-gray-700 placeholder:text-gray-400 bg-transparent outline-none"
                 />
             </div>

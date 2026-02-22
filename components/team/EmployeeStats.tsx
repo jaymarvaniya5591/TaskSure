@@ -168,6 +168,10 @@ export default function EmployeeStats({ allTasks }: EmployeeStatsProps) {
                                                 type="date"
                                                 value={customStart}
                                                 onChange={e => setCustomStart(e.target.value)}
+                                                autoComplete="new-password"
+                                                autoCorrect="off"
+                                                autoCapitalize="none"
+                                                spellCheck={false}
                                                 className="w-full text-xs font-semibold px-2 py-1.5 rounded-lg border border-gray-200 outline-none focus:border-blue-500"
                                             />
                                         </div>
@@ -177,6 +181,10 @@ export default function EmployeeStats({ allTasks }: EmployeeStatsProps) {
                                                 type="date"
                                                 value={customEnd}
                                                 onChange={e => setCustomEnd(e.target.value)}
+                                                autoComplete="new-password"
+                                                autoCorrect="off"
+                                                autoCapitalize="none"
+                                                spellCheck={false}
                                                 className="w-full text-xs font-semibold px-2 py-1.5 rounded-lg border border-gray-200 outline-none focus:border-blue-500"
                                             />
                                         </div>

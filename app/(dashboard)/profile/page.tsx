@@ -187,9 +187,11 @@ export default function ProfilePage() {
                                             onChange={(e) => setEditName(e.target.value)}
                                             className={inputBase}
                                             placeholder="First and Last Name"
-                                            autoComplete="off"
+                                            autoComplete="new-password"
                                             autoCorrect="off"
+                                            autoCapitalize="none"
                                             spellCheck={false}
+                                            inputMode="text"
                                         />
                                         <div className="flex items-center gap-2">
                                             <button onClick={handleSaveName} className={`${btnPrimary} flex-1 bg-blue-600 text-white hover:bg-blue-700`}>Save</button>
@@ -219,15 +221,17 @@ export default function ProfilePage() {
                                 {isEditingPhone ? (
                                     <div className="space-y-3">
                                         <input
-                                            type={otpSent ? "text" : "tel"}
+                                            type="text"
                                             value={otpSent ? otp : editPhone}
                                             onChange={(e) => otpSent ? setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)) : setEditPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                                             className={inputBase}
                                             placeholder={otpSent ? "Enter 6-digit OTP" : "10-digit phone number"}
                                             maxLength={otpSent ? 6 : 10}
-                                            inputMode={otpSent ? "numeric" : "tel"}
-                                            autoComplete="off"
+                                            inputMode="numeric"
+                                            autoComplete="new-password"
                                             autoCorrect="off"
+                                            autoCapitalize="none"
+                                            spellCheck={false}
                                         />
                                         <div className="flex items-center gap-2">
                                             {otpSent ? (
@@ -267,15 +271,17 @@ export default function ProfilePage() {
                                             <div className="w-full h-12 flex items-center px-4 bg-amber-50 border border-amber-100 rounded-xl text-sm font-medium text-amber-600">Pending approval from manager</div>
                                         ) : (
                                             <input
-                                                type="tel"
+                                                type="text"
                                                 value={newManagerPhone}
                                                 onChange={(e) => setNewManagerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                                                 className={inputBase}
                                                 placeholder="Manager's 10-digit phone number"
                                                 maxLength={10}
-                                                inputMode="tel"
-                                                autoComplete="off"
+                                                inputMode="numeric"
+                                                autoComplete="new-password"
                                                 autoCorrect="off"
+                                                autoCapitalize="none"
+                                                spellCheck={false}
                                             />
                                         )}
                                         <div className="flex items-center gap-2">
@@ -321,15 +327,16 @@ export default function ProfilePage() {
                                             <div className="w-full h-12 flex items-center px-4 bg-amber-50 border border-amber-100 rounded-xl text-sm font-medium text-amber-600">Pending approval from manager</div>
                                         ) : (
                                             <input
-                                                type={companyAction === "join" ? "tel" : "text"}
+                                                type="text"
                                                 value={companyAction === "join" ? managerForCompanyPhone : newCompanyName}
                                                 onChange={(e) => companyAction === "join" ? setManagerForCompanyPhone(e.target.value.replace(/\D/g, '').slice(0, 10)) : setNewCompanyName(e.target.value)}
                                                 className={inputBase}
                                                 placeholder={companyAction === "join" ? "Manager's 10-digit phone number" : "Company Name"}
                                                 maxLength={companyAction === "join" ? 10 : undefined}
-                                                inputMode={companyAction === "join" ? "tel" : "text"}
-                                                autoComplete="off"
+                                                inputMode={companyAction === "join" ? "numeric" : "text"}
+                                                autoComplete="new-password"
                                                 autoCorrect="off"
+                                                autoCapitalize="none"
                                                 spellCheck={companyAction === "create"}
                                             />
                                         )}

@@ -73,7 +73,10 @@ export function OtpInput({ length = 6, value, onChange, error, disabled = false 
                         }}
                         type="text"
                         inputMode="numeric"
-                        autoComplete="off"
+                        autoComplete="one-time-code"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
                         data-form-type="other"
                         pattern="\d{1}"
                         maxLength={length} // allow pasting full string

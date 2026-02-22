@@ -222,8 +222,11 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                                 placeholder="What needs to be done?"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                autoComplete="off"
-                                autoCorrect="on"
+                                autoComplete="new-password"
+                                autoCorrect="off"
+                                autoCapitalize="none"
+                                spellCheck={false}
+                                inputMode="text"
                                 enterKeyHint="next"
                                 className="w-full px-4 py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:bg-white transition-all text-[15px] font-medium placeholder:font-normal placeholder:text-gray-400"
                                 disabled={isSubmitting}
