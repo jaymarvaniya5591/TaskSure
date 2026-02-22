@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { format } from "date-fns";
+
 import { useUserContext } from "@/lib/user-context";
 import DashboardClient from "./dashboard-client";
 import {
@@ -73,7 +73,6 @@ export default function HomePage() {
         <DashboardClient
             greeting={greeting}
             firstName={firstName}
-            dateString={format(now, "EEEE, d MMMM yyyy")}
             currentUserId={userId}
             allTasks={allTasks}
             actionRequired={actionRequired}

@@ -12,7 +12,6 @@ import { X, AlertTriangle, Clock, AlertCircle } from "lucide-react";
 interface DashboardClientProps {
     greeting: string;
     firstName: string;
-    dateString: string;
     currentUserId: string;
     allTasks: Task[];
     actionRequired: Task[];
@@ -23,7 +22,6 @@ interface DashboardClientProps {
 export default function DashboardClient({
     greeting,
     firstName,
-    dateString,
     currentUserId,
     allTasks,
     actionRequired,
