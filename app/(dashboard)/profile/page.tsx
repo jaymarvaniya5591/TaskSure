@@ -317,9 +317,10 @@ export default function ProfilePage() {
                                 {isEditingCompany ? (
                                     <div className="space-y-3">
                                         {!companyAction ? (
-                                            <div className="flex gap-2">
+                                            <div className="flex items-center gap-2">
                                                 <button onClick={() => setCompanyAction('join')} className="flex-1 h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-bold text-gray-700 transition-colors">Join Existing</button>
                                                 <button onClick={() => setCompanyAction('create')} className="flex-1 h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-bold text-gray-700 transition-colors">Create New</button>
+                                                <button onClick={() => { setIsEditingCompany(false); setCompanyVerifySent(false); setCompanyAction(null); }} className={btnCancel}><X className="w-5 h-5" /></button>
                                             </div>
                                         ) : companyVerifySent ? (
                                             <div className="w-full h-12 flex items-center px-4 bg-amber-50 border border-amber-100 rounded-xl text-sm font-medium text-amber-600">Pending approval from manager</div>
@@ -333,12 +334,14 @@ export default function ProfilePage() {
                                                 maxLength={companyAction === "join" ? 10 : undefined}
                                             />
                                         )}
-                                        <div className="flex items-center gap-2">
-                                            {companyAction && !companyVerifySent && (
-                                                <button onClick={handleCompanySubmit} className={`${btnPrimary} flex-1 bg-orange-600 text-white hover:bg-orange-700`}>Submit</button>
-                                            )}
-                                            <button onClick={() => { setIsEditingCompany(false); setCompanyVerifySent(false); setCompanyAction(null); }} className={btnCancel}><X className="w-5 h-5" /></button>
-                                        </div>
+                                        {companyAction && (
+                                            <div className="flex items-center gap-2">
+                                                {!companyVerifySent && (
+                                                    <button onClick={handleCompanySubmit} className={`${btnPrimary} flex-1 bg-orange-600 text-white hover:bg-orange-700`}>Submit</button>
+                                                )}
+                                                <button onClick={() => { setIsEditingCompany(false); setCompanyVerifySent(false); setCompanyAction(null); }} className={btnCancel}><X className="w-5 h-5" /></button>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="flex items-center justify-between gap-3 min-h-[44px]">

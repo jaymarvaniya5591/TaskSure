@@ -81,7 +81,7 @@ export default function WeeklyCalendarStrip({ tasks, currentUserId, selectedDate
                                 key={i}
                                 onClick={() => onSelectDate(day.date)}
                                 className={cn(
-                                    "flex flex-col items-center p-2 sm:p-3 rounded-2xl transition-all duration-300 border text-left",
+                                    "flex flex-col items-center px-1.5 py-2 sm:px-2.5 sm:py-2.5 rounded-xl transition-all duration-300 border text-left",
                                     day.isSelected
                                         ? "bg-white text-gray-900 border-white shadow-[0_0_20px_rgba(255,255,255,0.15)] scale-105"
                                         : day.isToday
@@ -96,7 +96,7 @@ export default function WeeklyCalendarStrip({ tasks, currentUserId, selectedDate
                                     {format(day.date, "EEE")}
                                 </span>
                                 <span className={cn(
-                                    "text-lg sm:text-2xl font-black mb-2 sm:mb-3",
+                                    "text-lg sm:text-xl font-black mb-1.5 sm:mb-2",
                                     day.isSelected ? "text-gray-900" : day.isToday ? "text-white" : "text-gray-300"
                                 )}>
                                     {format(day.date, "d")}
@@ -110,7 +110,7 @@ export default function WeeklyCalendarStrip({ tasks, currentUserId, selectedDate
                                                 title={`${day.todosCount} To-dos`}
                                                 className={cn(
                                                     "w-4 h-4 sm:w-5 sm:h-5 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-colors",
-                                                    day.isSelected ? "bg-todo-100 text-todo-700" : "bg-todo-500/20 text-todo-400 border border-todo-500/30"
+                                                    day.isSelected ? "bg-violet-100 text-violet-700" : "bg-violet-500/25 text-violet-300 border border-violet-400/40"
                                                 )}>{day.todosCount}</span>
                                         )}
                                         {day.tasksCount > 0 && (
@@ -118,7 +118,7 @@ export default function WeeklyCalendarStrip({ tasks, currentUserId, selectedDate
                                                 title={`${day.tasksCount} Tasks`}
                                                 className={cn(
                                                     "w-4 h-4 sm:w-5 sm:h-5 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-colors",
-                                                    day.isSelected ? "bg-owned-100 text-owned-700" : "bg-owned-500/20 text-owned-400 border border-owned-500/30"
+                                                    day.isSelected ? "bg-amber-100 text-amber-700" : "bg-amber-500/25 text-amber-300 border border-amber-400/40"
                                                 )}>{day.tasksCount}</span>
                                         )}
                                     </div>
