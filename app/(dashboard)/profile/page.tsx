@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useUserContext } from "@/lib/user-context";
-import { User, Building, Phone, ShieldCheck, Mail, CheckCircle2, ChevronRight, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { User, Building, Phone, ShieldCheck, CheckCircle2, X } from "lucide-react";
 
 interface UserProfile {
     id: string;

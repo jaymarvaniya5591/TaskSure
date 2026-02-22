@@ -403,8 +403,8 @@ function AcceptTaskModal({
             if (dateError || !deadline) throw new Error("Please fill out the full deadline correctly");
             setError("");
             onSubmit(deadline);
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
         }
     };
 
@@ -560,8 +560,8 @@ function EditDeadlineModal({
             if (dateError || !deadline) throw new Error("Please fill out the full deadline correctly");
             setError("");
             onSubmit(deadline);
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
         }
     };
 
@@ -657,8 +657,8 @@ function CreateSubtaskModal({
             if (dateError || !deadline) throw new Error("Please fill out the full deadline correctly");
             setError("");
             onSubmit(assignedTo!.id, title, description, deadline);
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
         }
     };
 

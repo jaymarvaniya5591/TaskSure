@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Loader2, User as UserIcon, Calendar as CalendarIcon } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import SearchEmployee from "@/components/dashboard/SearchEmployee";
 import { type OrgUser } from "@/lib/hierarchy";
@@ -127,8 +127,8 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
             // Success
             router.refresh();
             onClose();
-        } catch (err: any) {
-            setError(err.message || "An unexpected error occurred");
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "An unexpected error occurred");
         } finally {
             setIsSubmitting(false);
         }

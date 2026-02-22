@@ -52,11 +52,11 @@ export default function DateTimePickerBoxes({
         const hStr = chars.slice(6, 8).join("");
         const minStr = chars.slice(8, 10).join("");
 
-        let day = parseInt(dStr, 10);
-        let month = parseInt(mStr, 10) - 1;
-        let year = parseInt(yStr, 10) + 2000;
+        const day = parseInt(dStr, 10);
+        const month = parseInt(mStr, 10) - 1;
+        const year = parseInt(yStr, 10) + 2000;
         let hour = parseInt(hStr, 10);
-        let minute = parseInt(minStr, 10);
+        const minute = parseInt(minStr, 10);
 
         if (ap === "PM" && hour !== 12) hour += 12;
         else if (ap === "AM" && hour === 12) hour = 0;
