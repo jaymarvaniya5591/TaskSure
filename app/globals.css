@@ -132,15 +132,6 @@ html {
 html,
 body {
   overscroll-behavior-y: none;
-  /* Add padding to the bottom so users can scroll past the virtual keyboard 
-     now that interactiveWidget is set to 'overlays-content' */
-  padding-bottom: env(keyboard-inset-height, 0px);
-}
-
-/* Fallback for browsers that don't support keyboard-inset-height well,
-   ensure there's always enough scrollable space at the bottom of the main content */
-main {
-  padding-bottom: max(env(safe-area-inset-bottom), 50vh);
 }
 
 /* Suppress Chrome autofill suggestion toolbar on mobile */

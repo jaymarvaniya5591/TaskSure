@@ -63,8 +63,8 @@ export function OtpInput({ length = 6, value, onChange, error, disabled = false 
     };
 
     return (
-        <div className="flex flex-col gap-2">
-            <div className="flex gap-2 sm:gap-3 justify-center w-full px-1">
+        <div className="w-full flex flex-col items-center gap-2">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 w-full">
                 {internalValue.map((digit, index) => (
                     <input
                         key={index}
@@ -82,12 +82,12 @@ export function OtpInput({ length = 6, value, onChange, error, disabled = false 
                         onKeyDown={(e) => handleKeyDown(e, index)}
                         onPaste={handlePaste}
                         disabled={disabled}
-                        className={`flex-1 aspect-square max-w-14 text-center text-xl sm:text-2xl font-bold rounded-2xl border-2 bg-white text-black shadow-sm transition-colors focus-visible:outline-none focus-visible:border-black focus-visible:ring-0 disabled:opacity-50 disabled:cursor-not-allowed ${error ? "border-red-500" : "border-zinc-200"
+                        className={`w-11 h-12 sm:w-14 sm:h-14 flex-shrink-0 text-center text-xl sm:text-2xl font-bold rounded-2xl border-2 bg-white text-black shadow-sm transition-colors focus-visible:outline-none focus-visible:border-black focus-visible:ring-0 disabled:opacity-50 disabled:cursor-not-allowed ${error ? "border-red-500" : "border-zinc-200"
                             }`}
                     />
                 ))}
             </div>
-            {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+            {error && <p className="text-sm text-red-500 text-center w-full mt-1">{error}</p>}
         </div>
     );
 }
