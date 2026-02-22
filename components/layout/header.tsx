@@ -39,31 +39,29 @@ export function Header() {
     };
 
     return (
-        <div className="sticky top-4 sm:top-6 z-40 flex items-center justify-between backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm p-1 gap-1 mx-4 sm:mx-6 lg:mx-8 rounded-2xl mb-4 sm:mb-6">
+        <div className="sticky top-4 sm:top-6 z-40 flex items-center justify-between backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm p-1 gap-0.5 sm:gap-1 mx-4 sm:mx-6 lg:mx-8 rounded-2xl mb-4 sm:mb-6">
             {/* Hamburger Menu (Mobile Only) */}
             <button
                 type="button"
-                className="lg:hidden flex items-center justify-center py-2.5 px-3 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-white/40 transition-all duration-200 shrink-0"
+                className="lg:hidden flex items-center justify-center p-2 sm:p-2.5 bg-white shadow-md rounded-xl text-gray-600 hover:text-gray-900 transition-all duration-200 shrink-0"
                 onClick={toggleMobileSidebar}
             >
                 <span className="sr-only">Open sidebar</span>
                 <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
 
-            {/* Global Search Employee — locked to 60% of the header width explicitly */}
-            <div className="w-[60%] shrink-0 flex items-center justify-center">
-                <div className="w-full">
-                    <SearchEmployee orgUsers={orgUsers} currentUserId={userId} isHeader />
-                </div>
+            {/* Global Search Employee — flexes to consume maximum available width (~70%) */}
+            <div className="flex-1 mx-0.5 sm:mx-1 min-w-0">
+                <SearchEmployee orgUsers={orgUsers} currentUserId={userId} isHeader />
             </div>
 
             {/* Actions group */}
-            <div className="flex items-center gap-1 flex-1 justify-end">
+            <div className="flex items-center gap-0.5 shrink-0">
                 {/* Refresh Button */}
                 <button
                     type="button"
                     onClick={handleRefresh}
-                    className="flex items-center justify-center py-2.5 px-3 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-white/40 transition-all duration-200 shrink-0"
+                    className="flex items-center justify-center p-2 sm:p-2.5 bg-white shadow-md rounded-xl text-gray-600 hover:text-gray-900 transition-all duration-200 shrink-0"
                     title="Refresh dashboard"
                     disabled={isManualRefresh}
                 >
@@ -79,7 +77,7 @@ export function Header() {
                     href="https://wa.me/919620131867"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center py-2.5 px-3 rounded-xl text-[#25D366] hover:bg-white/40 transition-all duration-200 shrink-0"
+                    className="flex items-center justify-center p-2 sm:p-2.5 bg-white shadow-md rounded-xl text-[#25D366] hover:text-green-600 transition-all duration-200 shrink-0"
                     title="Contact us on WhatsApp"
                 >
                     <span className="sr-only">Contact us on WhatsApp</span>
