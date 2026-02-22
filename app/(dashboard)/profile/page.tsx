@@ -330,10 +330,10 @@ export default function ProfilePage() {
                                 {isEditingCompany ? (
                                     <div className="space-y-3">
                                         {!companyAction ? (
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => setCompanyAction('join')} className="flex-1 h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs sm:text-sm font-bold text-gray-700 transition-colors whitespace-nowrap px-3">Join Existing</button>
-                                                <button onClick={() => setCompanyAction('create')} className="flex-1 h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs sm:text-sm font-bold text-gray-700 transition-colors whitespace-nowrap px-3">Create New</button>
-                                                <button onClick={() => { setIsEditingCompany(false); setCompanyVerifySent(false); setCompanyAction(null); }} className={btnCancel}><X className="w-5 h-5" /></button>
+                                            <div className="flex items-center gap-1.5 sm:gap-2">
+                                                <button onClick={() => setCompanyAction('join')} className="flex-1 flex items-center justify-center h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-[11px] min-[375px]:text-xs sm:text-sm font-bold text-gray-700 transition-colors px-1 sm:px-3 leading-[1.15] text-center">Join Existing</button>
+                                                <button onClick={() => setCompanyAction('create')} className="flex-1 flex items-center justify-center h-12 border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-xl text-[11px] min-[375px]:text-xs sm:text-sm font-bold text-gray-700 transition-colors px-1 sm:px-3 leading-[1.15] text-center">Create New</button>
+                                                <button onClick={() => { setIsEditingCompany(false); setCompanyVerifySent(false); setCompanyAction(null); }} className={`${btnCancel} shrink-0 ml-0.5 sm:ml-0`}><X className="w-5 h-5" /></button>
                                             </div>
                                         ) : companyVerifySent ? (
                                             <div className="w-full h-12 flex items-center px-4 bg-amber-50 border border-amber-100 rounded-xl text-sm font-medium text-amber-600">Pending approval from manager</div>
