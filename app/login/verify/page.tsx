@@ -139,7 +139,7 @@ function VerifyContent() {
     if (!phone) return null;
 
     return (
-        <Card className="border-none shadow-none bg-transparent px-0 sm:px-8">
+        <Card className="border-none shadow-none bg-transparent px-4 sm:px-8">
             <div className="mb-8">
                 <button
                     onClick={handleBack}
@@ -160,7 +160,7 @@ function VerifyContent() {
                 </p>
             </div>
 
-            <form onSubmit={handleVerify} className="flex flex-col gap-10">
+            <form onSubmit={handleVerify} autoComplete="off" className="flex flex-col gap-10">
                 <OtpInput
                     length={6}
                     value={otp}

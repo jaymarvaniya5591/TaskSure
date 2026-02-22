@@ -150,7 +150,7 @@ function SignupContent() {
                 </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+            <form onSubmit={handleSubmit} autoComplete="off" className="flex flex-col gap-8">
                 <Input
                     label="Full Name"
                     placeholder="e.g. Ramesh Bhai"

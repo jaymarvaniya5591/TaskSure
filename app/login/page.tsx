@@ -81,7 +81,7 @@ function LoginContent() {
                 </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+            <form onSubmit={handleSubmit} autoComplete="off" className="flex flex-col gap-8">
                 <div>
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 flex items-center pl-5 pointer-events-none">
