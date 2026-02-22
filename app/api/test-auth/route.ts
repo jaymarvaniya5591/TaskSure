@@ -93,7 +93,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Use a separate client to verify the token and get a session
-        const sessionClient = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || serviceRoleKey);
+        const sessionClient = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || serviceRoleKey, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
 
         const { data: verifyData, error: verifyError } = await sessionClient.auth.verifyOtp({
             type: 'magiclink',
