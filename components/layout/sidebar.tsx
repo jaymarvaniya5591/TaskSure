@@ -7,7 +7,7 @@
  */
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarProvider";
 import { useUserContext } from "@/lib/user-context";
@@ -25,7 +25,7 @@ const pageNav = [
 
 export function Sidebar() {
     const pathname = usePathname();
-    const router = useRouter();
+
     const { isMobileOpen, setIsMobileOpen } = useSidebar();
 
     const { userId, userName, allOrgUsers } = useUserContext();
