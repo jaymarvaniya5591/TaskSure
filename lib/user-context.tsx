@@ -18,6 +18,7 @@ export interface UserContextValue {
     /** All org users without hierarchy filtering (for task/subtask creation search). */
     allOrgUsers: OrgUser[];
     tasks: Task[];
+    allOrgTasks: Task[];
 }
 
 const UserCtx = createContext<UserContextValue | null>(null);

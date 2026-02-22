@@ -71,7 +71,7 @@ export function useDashboardData(userId: string, orgId: string) {
                 allOrgTasks,
             };
         },
-        staleTime: 5 * 60 * 1000,
+        staleTime: Infinity,
         enabled: Boolean(userId && orgId),
     });
 }

@@ -21,36 +21,14 @@ export function DashboardClientWrapper({
 }) {
     const { data, isLoading, isError } = useDashboardData(userId, orgId);
 
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-gray-50/50 flex flex-col items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-                <p className="mt-4 text-sm font-medium text-gray-500">Loading your workspace...</p>
-            </div>
-        );
-    }
-
-    if (isError || !data) {
-        return (
-            <div className="min-h-screen bg-gray-50/50 flex flex-col items-center justify-center text-center px-4">
-                <p className="text-red-500 font-medium">Failed to load workspace data.</p>
-                <button
-                    onClick={() => window.location.reload()}
-                    className="mt-4 px-4 py-2 bg-gray-900 text-white rounded-xl font-medium"
-                >
-                    Try Again
-                </button>
-            </div>
-        );
-    }
-
     const userContextValue = {
         userId,
         userName,
         orgId,
-        orgUsers: getUsersAtOrBelowRank(data.orgUsers, userId),
-        allOrgUsers: data.orgUsers,
-        tasks: data.tasks,
+        orgUsers: data ? getUsersAtOrBelowRank(data.orgUsers, userId) : [],
+        allOrgUsers: data ? data.orgUsers : [],
+        tasks: data ? data.tasks : [],
+        allOrgTasks: data ? data.allOrgTasks : [],
     };
 
     return (
@@ -62,7 +40,24 @@ export function DashboardClientWrapper({
                         <Header />
                         <main className="flex-1 py-8">
                             <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-                                {children}
+                                {isLoading ? (
+                                    <div className="flex flex-col items-center justify-center h-[50vh] animate-fade-in-up">
+                                        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                                        <p className="mt-4 text-sm font-medium text-gray-500">Loading your workspace...</p>
+                                    </div>
+                                ) : isError || !data ? (
+                                    <div className="flex flex-col items-center justify-center text-center px-4 h-[50vh]">
+                                        <p className="text-red-500 font-medium">Failed to load workspace data.</p>
+                                        <button
+                                            onClick={() => window.location.reload()}
+                                            className="mt-4 px-4 py-2 bg-gray-900 text-white rounded-xl font-medium"
+                                        >
+                                            Try Again
+                                        </button>
+                                    </div>
+                                ) : (
+                                    children
+                                )}
                             </div>
                         </main>
                     </div>

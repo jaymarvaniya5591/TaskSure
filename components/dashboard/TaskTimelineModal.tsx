@@ -123,7 +123,7 @@ export default function TaskTimeline({ taskId }: TaskTimelineProps) {
             const { data, error } = await supabase
                 .from("audit_log")
                 .select("id, action, metadata, created_at, user_id, users:user_id(id, name, avatar_url)")
-                .eq("task_id", taskId)
+                .eq("item_id", taskId)
                 .order("created_at", { ascending: false });
 
             if (error) throw new Error(error.message);
