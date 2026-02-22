@@ -113,7 +113,7 @@ export default function DashboardClient({
     const glass = "backdrop-blur-xl bg-white/60 border border-white/40 shadow-sm";
 
     return (
-        <div className="max-w-3xl animate-fade-in-up">
+        <div className="max-w-3xl animate-fade-in-up pb-56">
 
             {/* Dashboard Title & Month Label */}
             <div className="flex items-center justify-between mb-6 pl-1 pr-2 sm:pl-2 sm:pr-3">

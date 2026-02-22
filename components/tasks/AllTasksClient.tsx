@@ -19,7 +19,7 @@ export default function AllTasksClient({ todos, tasks, currentUserId }: AllTasks
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     return (
-        <div className="max-w-3xl animate-fade-in-up">
+        <div className="max-w-3xl animate-fade-in-up pb-56">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-50">
                 <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
                     All Tasks
