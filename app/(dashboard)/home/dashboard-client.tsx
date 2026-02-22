@@ -7,7 +7,7 @@ import { type Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import TaskCard from "@/components/dashboard/TaskCard";
 import { getTaskColorCategory } from "@/lib/colors";
-import { X, AlertTriangle, Clock, AlertCircle, CalendarDays } from "lucide-react";
+import { AlertTriangle, Clock, AlertCircle, CalendarDays } from "lucide-react";
 
 interface DashboardClientProps {
     currentUserId: string;
