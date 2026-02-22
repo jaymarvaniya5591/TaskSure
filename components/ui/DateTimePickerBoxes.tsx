@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 interface DateTimePickerBoxesProps {
     value: string; // ISO string
@@ -9,218 +10,273 @@ interface DateTimePickerBoxesProps {
     onError?: (hasError: boolean) => void;
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+interface SpinnerSegmentProps {
+    value: string;
+    onUp: () => void;
+    onDown: () => void;
+    onCommit?: (val: string) => void;
+    maxLength?: number;
+    width?: string;
+    isAmpm?: boolean;
+    onToggleAmpm?: () => void;
+}
+
+const SpinnerSegment = ({
+    value,
+    onUp,
+    onDown,
+    onCommit,
+    maxLength = 2,
+    width = "w-9 sm:w-11",
+    isAmpm = false,
+    onToggleAmpm,
+}: SpinnerSegmentProps) => {
+    const [localValue, setLocalValue] = useState(value);
+    const [isFocused, setIsFocused] = useState(false);
+
+    useEffect(() => {
+        if (!isFocused) {
+            setLocalValue(value);
+        }
+    }, [value, isFocused]);
+
+    const handleBlur = () => {
+        setIsFocused(false);
+        if (localValue.trim() === "") {
+            setLocalValue(value);
+        } else {
+            onCommit?.(localValue);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter") {
+            e.currentTarget.blur();
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            onUp();
+        } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            onDown();
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-center">
+            <button
+                onClick={onUp}
+                type="button"
+                className="text-gray-400 hover:text-gray-800 p-1 sm:p-1.5 focus:outline-none focus:text-black"
+                tabIndex={-1}
+            >
+                <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+
+            {isAmpm ? (
+                <button
+                    type="button"
+                    onClick={onToggleAmpm}
+                    className={cn(
+                        width,
+                        "text-center text-base sm:text-lg font-black rounded-lg hover:bg-gray-100 transition-colors py-1 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                    )}
+                >
+                    {value}
+                </button>
+            ) : (
+                <input
+                    type="text"
+                    inputMode={value.match(/^[a-zA-Z]+$/) ? "text" : "numeric"}
+                    className={cn(
+                        width,
+                        "text-center text-lg sm:text-xl font-black bg-transparent outline-none p-0 focus:bg-gray-100 rounded-lg transition-colors"
+                    )}
+                    value={isFocused ? localValue : value}
+                    onChange={(e) => setLocalValue(e.target.value)}
+                    onFocus={() => {
+                        setIsFocused(true);
+                        setLocalValue(""); // remove completely on click so they can type immediately
+                    }}
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
+                    maxLength={maxLength}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                />
+            )}
+
+            <button
+                onClick={onDown}
+                type="button"
+                className="text-gray-400 hover:text-gray-800 p-1 sm:p-1.5 focus:outline-none focus:text-black"
+                tabIndex={-1}
+            >
+                <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+        </div>
+    );
+};
+
 export default function DateTimePickerBoxes({
     value,
     onChange,
     onError,
 }: DateTimePickerBoxesProps) {
-    const d = value ? new Date(value) : new Date();
+    const initialDate = value ? new Date(value) : new Date();
 
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yy = String(d.getFullYear()).slice(-2);
+    const [dd, setDd] = useState<number>(initialDate.getDate());
+    const [mon, setMon] = useState<number>(initialDate.getMonth());
+    const [yy, setYy] = useState<number>(initialDate.getFullYear());
 
-    let hours = d.getHours();
-    const isPM = hours >= 12;
-    const ampm = isPM ? "PM" : "AM";
-    hours = hours % 12;
-    hours = hours ? hours : 12; // '0' should be '12'
-    const hh = String(hours).padStart(2, "0");
-    const mins = String(d.getMinutes()).padStart(2, "0");
+    const h = initialDate.getHours();
+    const [ap, setAp] = useState<"AM" | "PM">(h >= 12 ? "PM" : "AM");
+    const [hh, setHh] = useState<number>(h % 12 || 12);
+    const [mm, setMm] = useState<number>(initialDate.getMinutes());
 
-    const [chars, setChars] = useState<string[]>([
-        dd[0], dd[1],
-        mm[0], mm[1],
-        yy[0], yy[1],
-        hh[0], hh[1],
-        mins[0], mins[1],
-    ]);
-
-    const [ap, setAp] = useState<"AM" | "PM">(ampm as "AM" | "PM");
-    const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+    const daysInMonth = new Date(yy, mon + 1, 0).getDate();
 
     useEffect(() => {
-        const hasEmpty = chars.some((c) => c === "");
-        if (hasEmpty) {
-            onError?.(true);
-            return;
-        }
+        let hour24 = hh;
+        if (ap === "PM" && hh !== 12) hour24 += 12;
+        else if (ap === "AM" && hh === 12) hour24 = 0;
 
-        const dStr = chars.slice(0, 2).join("");
-        const mStr = chars.slice(2, 4).join("");
-        const yStr = chars.slice(4, 6).join("");
-        const hStr = chars.slice(6, 8).join("");
-        const minStr = chars.slice(8, 10).join("");
+        const dateObj = new Date(yy, mon, dd, hour24, mm);
 
-        const day = parseInt(dStr, 10);
-        const month = parseInt(mStr, 10) - 1;
-        const year = parseInt(yStr, 10) + 2000;
-        let hour = parseInt(hStr, 10);
-        const minute = parseInt(minStr, 10);
-
-        if (ap === "PM" && hour !== 12) hour += 12;
-        else if (ap === "AM" && hour === 12) hour = 0;
-
-        const dateObj = new Date(year, month, day, hour, minute);
-
-        // Validate valid date (e.g. no Feb 31)
+        // Ensure date is strictly valid
         if (
-            dateObj.getFullYear() === year &&
-            dateObj.getMonth() === month &&
-            dateObj.getDate() === day &&
+            dateObj.getFullYear() === yy &&
+            dateObj.getMonth() === mon &&
+            dateObj.getDate() === dd &&
             !isNaN(dateObj.getTime())
         ) {
             onError?.(false);
             onChange(dateObj.toISOString());
         } else {
-            // Invalid date like 31 Feb
             onError?.(true);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [chars, ap]);
+    }, [dd, mon, yy, hh, mm, ap, onChange, onError]);
 
-    const handleChange = (index: number, val: string) => {
-        const numericVal = val.replace(/\D/g, ""); // only digits
-        if (!numericVal && val !== "") return; // prevent typing letters
+    // Validation helpers
+    const validateClamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
 
-        const newChars = [...chars];
-        const insertedChar = numericVal.slice(-1);
-        newChars[index] = insertedChar;
-        setChars(newChars);
+    // DD handlers
+    const incDD = () => setDd((d) => (d >= daysInMonth ? 1 : d + 1));
+    const decDD = () => setDd((d) => (d <= 1 ? daysInMonth : d - 1));
+    const commitDD = (val: string) => {
+        const parsed = parseInt(val, 10);
+        if (!isNaN(parsed)) setDd(validateClamp(parsed, 1, daysInMonth));
+    };
 
-        // Auto focus next box
-        if (numericVal && index < 9) {
-            inputRefs.current[index + 1]?.focus();
+    // MM handlers
+    const incMon = () => setMon((m) => (m >= 11 ? 0 : m + 1));
+    const decMon = () => setMon((m) => (m <= 0 ? 11 : m - 1));
+    const commitMon = (val: string) => {
+        const parsed = parseInt(val, 10);
+        if (!isNaN(parsed)) {
+            setMon(validateClamp(parsed, 1, 12) - 1);
+        } else {
+            const idx = MONTHS.findIndex((m) => m.toLowerCase().startsWith(val.toLowerCase()));
+            if (idx !== -1) setMon(idx);
         }
     };
 
-    const handleKeyDown = (
-        index: number,
-        e: React.KeyboardEvent<HTMLInputElement>
-    ) => {
-        if (e.key === "Backspace") {
-            if (!chars[index] && index > 0) {
-                // box is empty, focus prev and clear it?
-                // Just focusing is safer
-                inputRefs.current[index - 1]?.focus();
-            } else {
-                const newChars = [...chars];
-                newChars[index] = "";
-                setChars(newChars);
-            }
-        } else if (e.key === "ArrowLeft" && index > 0) {
-            inputRefs.current[index - 1]?.focus();
-        } else if (e.key === "ArrowRight" && index < 9) {
-            inputRefs.current[index + 1]?.focus();
+    // YY handlers
+    const incYy = () => setYy((y) => y + 1);
+    const decYy = () => setYy((y) => Math.max(2000, y - 1));
+    const commitYy = (val: string) => {
+        const parsed = parseInt(val, 10);
+        if (!isNaN(parsed)) {
+            setYy(parsed < 100 ? 2000 + parsed : parsed);
         }
     };
 
-    const handleInputPaste = (
-        e: React.ClipboardEvent<HTMLInputElement>
-    ) => {
-        e.preventDefault();
-        const pasteData = e.clipboardData.getData("text").replace(/\D/g, "");
-        if (!pasteData) return;
-
-        const newChars = [...chars];
-        let pasteIndex = 0;
-
-        // Find the first empty input to start pasting into, or default to 0
-        let startIndex = chars.findIndex(c => c === "");
-        if (startIndex === -1) startIndex = 0;
-
-        for (let i = startIndex; i < 10 && pasteIndex < pasteData.length; i++) {
-            newChars[i] = pasteData[pasteIndex];
-            pasteIndex++;
-        }
-        setChars(newChars);
-
-        // Focus the last filled or next empty
-        const nextIndex = Math.min(startIndex + pasteData.length, 9);
-        inputRefs.current[nextIndex]?.focus();
+    // HH handlers
+    const incHh = () => setHh((h) => (h >= 12 ? 1 : h + 1));
+    const decHh = () => setHh((h) => (h <= 1 ? 12 : h - 1));
+    const commitHh = (val: string) => {
+        const parsed = parseInt(val, 10);
+        if (!isNaN(parsed)) setHh(validateClamp(parsed, 1, 12));
     };
 
-    const Box = ({ index }: { index: number }) => (
-        <input
-            ref={(el) => {
-                inputRefs.current[index] = el;
-            }}
-            value={chars[index]}
-            onChange={(e) => handleChange(index, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(index, e)}
-            onPaste={handleInputPaste}
-            className="w-10 h-12 text-center text-lg font-bold bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 transition-all outline-none"
-            maxLength={1}
-            inputMode="numeric"
-            pattern="[0-9]*"
-            autoComplete="new-password"
-            autoCorrect="off"
-            autoCapitalize="none"
-            spellCheck={false}
-        />
-    );
+    // mm handlers
+    const incMm = () => setMm((m) => (m >= 59 ? 0 : m + 1));
+    const decMm = () => setMm((m) => (m <= 0 ? 59 : m - 1));
+    const commitMm = (val: string) => {
+        const parsed = parseInt(val, 10);
+        if (!isNaN(parsed)) setMm(validateClamp(parsed, 0, 59));
+    };
+
+    // AM/PM handlers
+    const toggleAp = () => setAp((a) => (a === "AM" ? "PM" : "AM"));
 
     return (
-        <div className="flex flex-col gap-5">
-            {/* Date Row */}
-            <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest pl-1">Date</span>
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                    {/* DD */}
-                    <div className="flex items-center gap-1">
-                        <Box index={0} />
-                        <Box index={1} />
-                    </div>
-                    <span className="text-gray-300 font-black px-0.5 sm:px-1 text-xl">/</span>
-                    {/* MM */}
-                    <div className="flex items-center gap-1">
-                        <Box index={2} />
-                        <Box index={3} />
-                    </div>
-                    <span className="text-gray-300 font-black px-0.5 sm:px-1 text-xl">/</span>
-                    {/* YY */}
-                    <div className="flex items-center gap-1">
-                        <Box index={4} />
-                        <Box index={5} />
-                    </div>
+        <div className="w-full flex flex-col gap-4 p-4 rounded-2xl border-2 bg-white text-black shadow-sm transition-colors focus-within:border-black border-zinc-200">
+            {/* Date Segment */}
+            <div className="flex flex-col items-center w-full">
+                <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Date</span>
+                <div className="flex items-center justify-center gap-1 sm:gap-2 w-full">
+                    <SpinnerSegment
+                        value={String(dd).padStart(2, "0")}
+                        onUp={incDD}
+                        onDown={decDD}
+                        onCommit={commitDD}
+                        width="w-10 sm:w-14"
+                    />
+                    <span className="text-gray-300 font-black text-xl sm:text-2xl">/</span>
+                    <SpinnerSegment
+                        value={MONTHS[mon]}
+                        onUp={incMon}
+                        onDown={decMon}
+                        onCommit={commitMon}
+                        maxLength={3}
+                        width="w-14 sm:w-16"
+                    />
+                    <span className="text-gray-300 font-black text-xl sm:text-2xl">/</span>
+                    <SpinnerSegment
+                        value={String(yy).slice(-2)}
+                        onUp={incYy}
+                        onDown={decYy}
+                        onCommit={commitYy}
+                        width="w-10 sm:w-14"
+                    />
                 </div>
-                <div className="text-[10px] font-semibold text-gray-400 tracking-widest pl-1">DD/MM/YY</div>
             </div>
 
-            {/* Time Row */}
-            <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest pl-1">Time</span>
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                    {/* HH */}
-                    <div className="flex items-center gap-1">
-                        <Box index={6} />
-                        <Box index={7} />
-                    </div>
-                    <span className="text-gray-300 font-black px-0.5 sm:px-1 text-xl">:</span>
-                    {/* mm */}
-                    <div className="flex items-center gap-1">
-                        <Box index={8} />
-                        <Box index={9} />
-                    </div>
+            <div className="w-full h-px bg-gray-100" />
 
-                    <div className="relative ml-1 sm:ml-2">
-                        <select
+            {/* Time Segment */}
+            <div className="flex flex-col items-center w-full">
+                <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Time</span>
+                <div className="flex items-center justify-center gap-1 sm:gap-2 w-full">
+                    <SpinnerSegment
+                        value={String(hh).padStart(2, "0")}
+                        onUp={incHh}
+                        onDown={decHh}
+                        onCommit={commitHh}
+                        width="w-10 sm:w-14"
+                    />
+                    <span className="text-gray-300 font-black text-xl sm:text-2xl">:</span>
+                    <SpinnerSegment
+                        value={String(mm).padStart(2, "0")}
+                        onUp={incMm}
+                        onDown={decMm}
+                        onCommit={commitMm}
+                        width="w-10 sm:w-14"
+                    />
+                    <div className="ml-2 sm:ml-4">
+                        <SpinnerSegment
                             value={ap}
-                            onChange={(e) => setAp(e.target.value as "AM" | "PM")}
-                            className={cn(
-                                "appearance-none h-12 pl-4 pr-10 font-bold border rounded-xl transition-all outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 cursor-pointer text-lg",
-                                "bg-gray-50 border-gray-200 text-gray-900 focus:bg-white"
-                            )}
-                        >
-                            <option value="AM" className="font-bold">AM</option>
-                            <option value="PM" className="font-bold">PM</option>
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
-                        </div>
+                            onUp={toggleAp}
+                            onDown={toggleAp}
+                            isAmpm
+                            onToggleAmpm={toggleAp}
+                            width="w-14 sm:w-16"
+                        />
                     </div>
                 </div>
-                <div className="text-[10px] font-semibold text-gray-400 tracking-widest pl-1">HH:MM</div>
             </div>
         </div>
     );

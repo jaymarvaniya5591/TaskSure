@@ -20,11 +20,9 @@ interface SearchEmployeeProps {
     /** When true, the current user will appear in search results (used in task/subtask creation). */
     includeSelf?: boolean;
     onSelect?: (user: OrgUser) => void;
-    /** When true, disables the entrance animation. Useful in modals. */
-    disableAnimation?: boolean;
 }
 
-export default function SearchEmployee({ orgUsers, currentUserId, isHeader = false, includeSelf = false, onSelect, disableAnimation = false }: SearchEmployeeProps) {
+export default function SearchEmployee({ orgUsers, currentUserId, isHeader = false, includeSelf = false, onSelect }: SearchEmployeeProps) {
     const router = useRouter();
     const [query, setQuery] = useState("");
     const [isFocused, setIsFocused] = useState(false);
@@ -43,7 +41,7 @@ export default function SearchEmployee({ orgUsers, currentUserId, isHeader = fal
     const showResults = isFocused && query.trim().length > 0;
 
     return (
-        <section className={cn("relative", !isHeader && !disableAnimation && "animate-fade-in-up")} style={(!isHeader && !disableAnimation) ? { animationDelay: "0.15s" } : {}}>
+        <section className={cn("relative")}>
             {!isHeader && (
                 <div className="flex items-center gap-2 mb-4">
                     <div className="p-2 rounded-xl bg-violet-600">
@@ -89,39 +87,40 @@ export default function SearchEmployee({ orgUsers, currentUserId, isHeader = fal
 
                 {/* Results dropdown */}
                 {showResults && (
-                    <div className="absolute z-[9999] top-full left-0 right-0 sm:min-w-0 min-w-[260px] mt-2 bg-white rounded-2xl border border-gray-200 shadow-xl shadow-gray-900/10 overflow-hidden animate-fade-in-up" style={{ animationDuration: '0.2s' }}>                     {results.length === 0 ? (
-                        <div className="p-6 text-center">
-                            <p className="text-sm text-gray-500">No employees found for &ldquo;{query}&rdquo;</p>
-                        </div>
-                    ) : (
-                        <ul>
-                            {results.map(user => (
-                                <li key={user.id}>
-                                    <button
-                                        className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors text-left group"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            if (onSelect) {
-                                                onSelect(user);
-                                            } else {
-                                                router.push(`/team/${user.id}`);
-                                            }
-                                            setQuery("");
-                                        }}
-                                    >
-                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shrink-0">
-                                            <User className="w-5 h-5 text-gray-500" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
-                                            <p className="text-xs text-gray-500 capitalize">{user.role || "member"}</p>
-                                        </div>
-                                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+                    <div className="absolute z-[9999] top-full left-0 right-0 sm:min-w-0 min-w-[260px] mt-2 bg-white rounded-2xl border border-gray-200 shadow-xl shadow-gray-900/10 overflow-hidden">
+                        {results.length === 0 ? (
+                            <div className="p-6 text-center">
+                                <p className="text-sm text-gray-500">No employees found for &ldquo;{query}&rdquo;</p>
+                            </div>
+                        ) : (
+                            <ul>
+                                {results.map(user => (
+                                    <li key={user.id}>
+                                        <button
+                                            className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors text-left group"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                if (onSelect) {
+                                                    onSelect(user);
+                                                } else {
+                                                    router.push(`/team/${user.id}`);
+                                                }
+                                                setQuery("");
+                                            }}
+                                        >
+                                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shrink-0">
+                                                <User className="w-5 h-5 text-gray-500" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                                                <p className="text-xs text-gray-500 capitalize">{user.role || "member"}</p>
+                                            </div>
+                                            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
                 )}
             </div>
