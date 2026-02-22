@@ -124,7 +124,6 @@ body {
 /* ── Mobile keyboard & scroll fixes ── */
 
 html {
-  scroll-behavior: smooth;
   overscroll-behavior: none;
 }
 
