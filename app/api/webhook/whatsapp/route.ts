@@ -201,10 +201,17 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     continue
                 }
 
-                // --- STEP C: REGISTERED USER + "signin" message → send dashboard link ---
+                // --- STEP C: REGISTERED USER + auth intent ("signin" OR "signup") → send dashboard link ---
                 const normalizedText = textBody.replace(/\s+/g, '').toLowerCase()
-                if (normalizedText === 'signin' || normalizedText === 'sign-in' || normalizedText === 'login') {
-                    console.log(`[Webhook] Signin request from: ${senderPhone10}`)
+                const isAuthIntent =
+                    normalizedText === 'signin' ||
+                    normalizedText === 'sign-in' ||
+                    normalizedText === 'login' ||
+                    normalizedText.includes('signup') ||
+                    normalizedText.includes('sign-up')
+
+                if (isAuthIntent) {
+                    console.log(`[Webhook] Auth request (signin/signup) from registered user: ${senderPhone10}`)
 
                     try {
                         const tokenResult = await generateAuthToken(senderPhone10, 'signin')
@@ -216,7 +223,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                             await sendWhatsAppMessage(
                                 sendTo,
-                                `🔐 Hi ${registeredUser.name}!\n\nClick below to access your dashboard:\n\n${signinUrl}\n\nThis link expires in 15 minutes.`
+                                `👋 Welcome back, ${registeredUser.name}!\n\n(You already have an account with us.)\n\nClick below to access your dashboard:\n\n${signinUrl}\n\nThis link expires in 15 minutes.`
                             )
                         } else {
                             console.error('[Webhook] Token generation failed:', tokenResult.error)

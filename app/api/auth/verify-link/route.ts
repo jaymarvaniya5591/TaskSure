@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuthToken, consumeAuthToken } from '@/lib/auth-links'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { normalizePhone } from '@/lib/phone'
 
 /**
  * GET /api/auth/verify-link?token=xxx
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
         const supabase = createAdminClient()
         const phone = result.phone  // already 10 digits from auth_tokens
         const testEmail = `test_${phone}@boldo.test`
+        const legacyEmail = `test_91${phone}@boldo.test`
 
         try {
             // Find existing auth user by phone or email
@@ -52,7 +54,9 @@ export async function GET(request: NextRequest) {
             const { data: existingUsers } = await supabase.auth.admin.listUsers()
             if (existingUsers?.users) {
                 const user = existingUsers.users.find(
-                    (u) => u.phone === phone || u.email === testEmail
+                    (u) => (u.phone && normalizePhone(u.phone) === phone) ||
+                        u.email === testEmail ||
+                        u.email === legacyEmail
                 )
                 if (user) authUserId = user.id
             }
