@@ -12,6 +12,8 @@
 export interface OrgUser {
     id: string;
     name: string;
+    first_name?: string | null;
+    last_name?: string | null;
     phone_number?: string;
     role?: string;
     reporting_manager_id: string | null;

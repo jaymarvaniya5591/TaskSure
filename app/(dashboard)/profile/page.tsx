@@ -160,7 +160,7 @@ export default function ProfilePage() {
     const inputBase = "w-full h-12 border border-gray-200 rounded-xl px-4 text-sm sm:text-[15px] font-semibold focus:border-gray-400 focus:ring-0 outline-none transition-colors bg-white";
     const btnPrimary = "h-12 px-6 rounded-xl text-sm font-bold flex items-center justify-center transition-colors whitespace-nowrap";
     const btnCancel = "h-10 w-10 shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors";
-    const valueDisplay = "text-base sm:text-lg font-bold text-gray-900 break-words";
+    const valueDisplay = "text-base sm:text-lg font-bold text-gray-900 break-words break-all min-w-0";
 
     return (
         <div className="max-w-3xl mx-auto pb-12 animate-fade-in-up">

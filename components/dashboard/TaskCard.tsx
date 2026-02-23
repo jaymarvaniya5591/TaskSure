@@ -121,8 +121,8 @@ export const TaskCard = memo(function TaskCard({
                     </div>
                     {/* Pending from indicator — on its own row for full visibility */}
                     {pendingFrom && (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-wide self-start">
-                            Pending: {pendingFrom.name || "..."}
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-wide self-start max-w-full truncate block">
+                            Pending: {("first_name" in pendingFrom && pendingFrom.first_name) ? `${pendingFrom.first_name} ${pendingFrom.last_name || ''}`.trim() : (pendingFrom.name || "...")}
                         </span>
                     )}
                 </div>

@@ -9,6 +9,8 @@
 export interface TaskUser {
     id: string;
     name: string;
+    first_name?: string | null;
+    last_name?: string | null;
     phone_number?: string;
     role?: string;
     avatar_url?: string | null;
@@ -35,9 +37,9 @@ export interface Task {
     /** Count of unique participants (owner + assignee + all active subtask participants) */
     participant_count?: number;
     /** Most recently added participant from the subtask chain */
-    last_active_participant?: { id: string; name: string | null } | null;
+    last_active_participant?: { id: string; name: string | null; first_name?: string | null; last_name?: string | null; } | null;
     /** Person from whom the next action is pending (deadline not set) */
-    pending_from?: { id: string; name: string | null } | null;
+    pending_from?: { id: string; name: string | null; first_name?: string | null; last_name?: string | null; } | null;
 }
 
 /**

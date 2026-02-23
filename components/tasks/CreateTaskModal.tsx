@@ -185,31 +185,26 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                                     )}
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/80">
-                                    <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/80 min-w-0 gap-2">
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
                                         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shrink-0">
                                             {isSelfAssigned ? (
                                                 <span className="text-sm font-black text-gray-700 p-0">ME</span>
                                             ) : (
                                                 <span className="text-sm font-black text-gray-700 uppercase">
-                                                    {assignedTo.name.substring(0, 2)}
+                                                    {assignedTo.first_name ? assignedTo.first_name[0] + (assignedTo.last_name ? assignedTo.last_name[0] : '') : assignedTo.name.substring(0, 2)}
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-sm sm:text-[15px] font-bold text-gray-900">
-                                                {isSelfAssigned ? "Me (Self)" : assignedTo.name}
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="text-sm sm:text-[15px] font-bold text-gray-900 truncate">
+                                                {isSelfAssigned ? "Me (Self)" : (assignedTo.first_name ? `${assignedTo.first_name} ${assignedTo.last_name || ''}`.trim() : assignedTo.name)}
                                             </span>
-                                            {!isSelfAssigned && (
-                                                <span className="text-xs text-gray-500 capitalize">
-                                                    {assignedTo.role || "member"}
-                                                </span>
-                                            )}
                                         </div>
                                     </div>
                                     <button
                                         onClick={() => setIsSearching(true)}
-                                        className="text-sm font-bold text-gray-900 hover:underline transition-all"
+                                        className="text-sm font-bold text-gray-900 hover:underline transition-all shrink-0"
                                     >
                                         Change
                                     </button>
