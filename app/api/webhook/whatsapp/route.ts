@@ -72,12 +72,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
     }
 
-    // Fire-and-forget async processing — do NOT block the response
-    processWebhook(body).catch((err) => {
+    // Await async processing — in Vercel Serverless, execution stops once response is returned
+    try {
+        await processWebhook(body)
+    } catch (err) {
         console.error('[Webhook] Unhandled error in async processing:', err)
-    })
+    }
 
-    // Return 200 OK immediately (< 200ms)
+    // Return 200 OK after processing completes
     return NextResponse.json({ status: 'ok' }, { status: 200 })
 }
 
