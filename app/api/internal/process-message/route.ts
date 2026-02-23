@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 import { callGemini } from '@/lib/gemini'
+import { normalizePhone } from '@/lib/phone'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -168,15 +169,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ status: 'already_processed' }, { status: 200 })
         }
 
-        // 5. Resolve sender user by phone number
+        // 5. Resolve sender user by phone number (10-digit normalized)
+        const senderPhone10 = normalizePhone(msg.phone)
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: senderUser, error: userError } = await (supabase as any)
+        const { data: senderUser } = await (supabase as any)
             .from('users')
             .select('id, name, phone_number, organisation_id')
-            .eq('phone_number', msg.phone)
+            .eq('phone_number', senderPhone10)
             .single()
 
-        if (userError || !senderUser) {
+        if (!senderUser) {
             await handleError(
                 supabase,
                 messageId,

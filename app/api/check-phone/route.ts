@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { normalizePhone } from '@/lib/phone';
 
 // POST /api/check-phone — Checks if a phone number exists in the users table
 // This uses the service role key to bypass RLS since the caller is unauthenticated.
@@ -15,6 +16,8 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+
+        const phone10 = normalizePhone(phone);
 
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest) {
         const { data, error } = await supabase
             .from('users')
             .select('id')
-            .eq('phone_number', phone)
+            .eq('phone_number', phone10)
             .maybeSingle();
 
         if (error) {

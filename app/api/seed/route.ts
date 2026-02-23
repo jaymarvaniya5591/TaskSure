@@ -42,17 +42,16 @@ export async function POST() {
         //  2. Create Auth Users (phone-confirmed)
         // ═══════════════════════════════════════════════════
         const testUsers = [
-            { phone: '+919876543210', name: 'Vikram Mehta', role: 'owner', managerId: null },
-            { phone: '+919876543211', name: 'Priya Shah', role: 'manager', managerId: null },
-            { phone: '+919876543212', name: 'Ramesh Patel', role: 'member', managerId: null },
-            { phone: '+919876543213', name: 'Suresh Kumar', role: 'member', managerId: null },
+            { phone: '9876543210', name: 'Vikram Mehta', role: 'owner', managerId: null },
+            { phone: '9876543211', name: 'Priya Shah', role: 'manager', managerId: null },
+            { phone: '9876543212', name: 'Ramesh Patel', role: 'member', managerId: null },
+            { phone: '9876543213', name: 'Suresh Kumar', role: 'member', managerId: null },
         ];
 
         const authUserIds: Record<string, string> = {};
 
-        // Helper: normalize phone by stripping '+' for comparison
-        // Supabase Auth may store phone without '+' prefix
-        const normalizePhone = (p: string) => p.replace(/^\+/, '');
+        // Helper: normalize phone for Supabase Auth comparison
+        const stripPlus = (p: string) => p.replace(/^\+/, '');
 
         for (const u of testUsers) {
             // Try to create the auth user first
@@ -80,7 +79,7 @@ export async function POST() {
                     if (!listData?.users || listData.users.length === 0) break;
 
                     const match = listData.users.find(
-                        (eu) => normalizePhone(eu.phone || '') === normalizePhone(u.phone)
+                        (eu) => stripPlus(eu.phone || '') === stripPlus(u.phone)
                     );
                     if (match) {
                         authUserIds[u.phone] = match.id;
@@ -98,17 +97,17 @@ export async function POST() {
             }
         }
 
-        const vikramId = authUserIds['+919876543210'];
-        const priyaId = authUserIds['+919876543211'];
-        const rameshId = authUserIds['+919876543212'];
-        const sureshId = authUserIds['+919876543213'];
+        const vikramId = authUserIds['9876543210'];
+        const priyaId = authUserIds['9876543211'];
+        const rameshId = authUserIds['9876543212'];
+        const sureshId = authUserIds['9876543213'];
 
         // ═══════════════════════════════════════════════════
         //  3. Clean up stale data & insert users
         // ═══════════════════════════════════════════════════
         // Old test data may exist with different UUIDs. Clean up in order:
         // todos → tasks → users (respecting foreign key constraints)
-        const testPhones = ['+919876543210', '+919876543211', '+919876543212', '+919876543213'];
+        const testPhones = ['9876543210', '9876543211', '9876543212', '9876543213'];
 
         // Find old user IDs by phone number
         const { data: oldUsers } = await supabase
@@ -130,10 +129,10 @@ export async function POST() {
 
         // Insert fresh users with IDs matching auth.uid()
         const { error: usersError } = await supabase.from('users').insert([
-            { id: vikramId, name: 'Vikram Mehta', phone_number: '+919876543210', organisation_id: orgMehta, role: 'owner', reporting_manager_id: null },
-            { id: priyaId, name: 'Priya Shah', phone_number: '+919876543211', organisation_id: orgMehta, role: 'manager', reporting_manager_id: vikramId },
-            { id: rameshId, name: 'Ramesh Patel', phone_number: '+919876543212', organisation_id: orgMehta, role: 'member', reporting_manager_id: priyaId },
-            { id: sureshId, name: 'Suresh Kumar', phone_number: '+919876543213', organisation_id: orgMehta, role: 'member', reporting_manager_id: priyaId },
+            { id: vikramId, name: 'Vikram Mehta', phone_number: '9876543210', organisation_id: orgMehta, role: 'owner', reporting_manager_id: null },
+            { id: priyaId, name: 'Priya Shah', phone_number: '9876543211', organisation_id: orgMehta, role: 'manager', reporting_manager_id: vikramId },
+            { id: rameshId, name: 'Ramesh Patel', phone_number: '9876543212', organisation_id: orgMehta, role: 'member', reporting_manager_id: priyaId },
+            { id: sureshId, name: 'Suresh Kumar', phone_number: '9876543213', organisation_id: orgMehta, role: 'member', reporting_manager_id: priyaId },
         ]);
 
         if (usersError) throw new Error(`Users: ${usersError.message}`);

@@ -67,11 +67,11 @@ export default function ProfilePage() {
 
             const formattedProfile: UserProfile = {
                 ...userData,
-                phone_number: (userData.phone_number || "").replace(/^\+91/, "").replace(/\D/g, ""),
+                phone_number: userData.phone_number || "",
                 organisation: orgResult.data ? { name: orgResult.data.name } : null,
                 manager: managerResult.data ? {
                     ...managerResult.data,
-                    phone_number: (managerResult.data.phone_number || "").replace(/^\+91/, "").replace(/\D/g, "")
+                    phone_number: managerResult.data.phone_number || ""
                 } : null,
             };
 

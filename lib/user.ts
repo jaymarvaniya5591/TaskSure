@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { normalizePhone } from '@/lib/phone';
 
 export interface ResolvedUser {
     id: string;
@@ -30,19 +31,19 @@ export async function resolveCurrentUser(
 
     if (byId) return byId as ResolvedUser;
 
-    // Build phone candidates
+    // Build phone candidates (all normalized to 10 digits)
     const phoneCandidates: string[] = [];
     if (user.phone) {
-        phoneCandidates.push(user.phone);
-        if (!user.phone.startsWith('+')) phoneCandidates.push(`+${user.phone}`);
+        phoneCandidates.push(normalizePhone(user.phone));
     }
-    // Extract phone from test email: test_919876543210@boldo.test → +919876543210
+    // Extract phone from test email: test_9876543210@boldo.test → 9876543210
     if (user.email) {
         const match = user.email.match(/test_(\d+)@/);
-        if (match) phoneCandidates.push(`+${match[1]}`);
+        if (match) phoneCandidates.push(normalizePhone(match[1]));
     }
 
     for (const phone of phoneCandidates) {
+        if (!phone) continue;
         const { data: byPhone } = await supabase
             .from('users')
             .select('id, name, phone_number, organisation_id, reporting_manager_id, role, avatar_url')

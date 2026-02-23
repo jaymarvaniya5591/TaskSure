@@ -17,12 +17,10 @@ const protectedRoutes = [
 ]
 
 // Routes that authenticated users should NOT see (they get redirected to /home)
-// NOTE: Only exact matches — sub-routes like /signup/verify and /signup/profile
-// are needed DURING the signup flow (user is authenticated but has no profile yet).
 const authRoutes = ['/login', '/signup']
 
-// Sub-routes that authenticated users ARE allowed to visit during signup
-const signupFlowRoutes = ['/signup/verify', '/signup/profile']
+// Routes that BOTH authenticated and unauthenticated users can access
+const openRoutes = ['/signup/complete', '/auth/callback', '/join-request']
 
 export async function middleware(request: NextRequest) {
     let supabaseResponse = NextResponse.next({
@@ -51,12 +49,19 @@ export async function middleware(request: NextRequest) {
     )
 
     // Only validate auth session — NO database queries here.
-    // Profile resolution happens in the dashboard layout (resolveCurrentUser).
     const {
         data: { user },
     } = await supabase.auth.getUser()
 
     const { pathname } = request.nextUrl
+
+    // Allow open routes for everyone (signup completion, auth callback, join requests)
+    const isOpenRoute = openRoutes.some(
+        (route) => pathname === route || pathname.startsWith(route + '/')
+    )
+    if (isOpenRoute) {
+        return supabaseResponse
+    }
 
     // Protect dashboard routes — redirect unauthenticated users to login
     const isProtectedRoute = protectedRoutes.some(
@@ -74,16 +79,9 @@ export async function middleware(request: NextRequest) {
         return redirectResponse
     }
 
-    // Allow authenticated users to stay on signup sub-routes (verify, profile)
-    // They need these pages to complete the signup flow after OTP verification.
-    const isSignupFlowRoute = signupFlowRoutes.some(
-        (route) => pathname === route || pathname.startsWith(route + '/')
-    )
-
     // SCENARIO 2: Authenticated -> Redirect away from auth routes to Home
-    // But NOT if they are on a signup flow sub-route (verify/profile)
-    const isAuthRoute = !isSignupFlowRoute && authRoutes.some(
-        (route) => pathname === route || pathname.startsWith(route + '/')
+    const isAuthRoute = authRoutes.some(
+        (route) => pathname === route
     )
 
     if (user && (isAuthRoute || pathname === '/')) {
