@@ -1,6 +1,8 @@
-# TEMPORARY AUTH HARDCODING — TEST MODE
+# TEMPORARY AUTH HARDCODING — TEST MODE (COMPLETED)
 
-> **This file documents all temporary hardcoded phone numbers used during the testing phase.**
+> **UPDATE: As of the latest change, all test hardcodings have been removed and auth messages routes use dynamic actual sender numbers.**
+
+> *This file documents all temporary hardcoded phone numbers used during the testing phase.*
 > When ready to go live, remove these hardcodings and replace with actual dynamic phone numbers.
 
 ## Two Numbers Involved

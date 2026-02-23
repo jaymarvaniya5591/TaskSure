@@ -14,14 +14,6 @@ import crypto from 'crypto'
 
 const TOKEN_EXPIRY_MINUTES = 15
 
-/**
- * ⚠️  TEMPORARY TEST HARDCODE
- * During testing, all auth links are sent to this number instead of the
- * actual user's phone. See TEMP_AUTH_HARDCODING.md for removal instructions.
- * This is the 10-digit personal number (NOT the bot number).
- */
-export const TEST_PHONE_OVERRIDE = '9727731867'
-
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function generateSecureToken(): string {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { generateAuthToken, buildAuthUrl, TEST_PHONE_OVERRIDE } from '@/lib/auth-links'
+import { generateAuthToken, buildAuthUrl } from '@/lib/auth-links'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 
 /**
@@ -164,8 +164,7 @@ export async function POST(request: NextRequest) {
         if (tokenResult.success && tokenResult.token) {
             const dashboardUrl = buildAuthUrl(tokenResult.token)
 
-            // ⚠️ TEST MODE: Send to test phone instead of actual user
-            const sendTo = `91${TEST_PHONE_OVERRIDE}`
+            const sendTo = joinReq.requester_phone.replace(/\+/g, '')
 
             await sendWhatsAppMessage(
                 sendTo,

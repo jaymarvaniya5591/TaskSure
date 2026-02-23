@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
-import { generateAuthToken, buildAuthUrl, TEST_PHONE_OVERRIDE } from '@/lib/auth-links'
+import { generateAuthToken, buildAuthUrl } from '@/lib/auth-links'
 import { normalizePhone } from '@/lib/phone'
 
 // ---------------------------------------------------------------------------
@@ -168,8 +168,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         if (tokenResult.success && tokenResult.token) {
                             const signupUrl = buildAuthUrl(tokenResult.token)
 
-                            // ⚠️ TEST MODE: Send to test phone (raw format for WhatsApp API)
-                            const sendTo = `91${TEST_PHONE_OVERRIDE}`
+                            const sendTo = rawSenderPhone
 
                             await sendWhatsAppMessage(
                                 sendTo,
@@ -213,8 +212,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         if (tokenResult.success && tokenResult.token) {
                             const signinUrl = buildAuthUrl(tokenResult.token)
 
-                            // ⚠️ TEST MODE: Send to test phone
-                            const sendTo = `91${TEST_PHONE_OVERRIDE}`
+                            const sendTo = rawSenderPhone
 
                             await sendWhatsAppMessage(
                                 sendTo,
@@ -261,7 +259,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
                             const approveUrl = `${baseUrl}/join-request?id=${req.id}&action=accept`
 
-                            const sendTo = `91${TEST_PHONE_OVERRIDE}`
+                            const sendTo = rawSenderPhone
                             await sendWhatsAppMessage(
                                 sendTo,
                                 `🔐 Heads up — someone wants in as an owner.\n\n${req.requester_name} (${req.requester_phone}) has requested to join your organisation with owner-level access.\n\nIf you know them and want to grant access, approve here:\n👉 ${approveUrl}\n\nIf this wasn't expected, you can safely ignore this message.`
