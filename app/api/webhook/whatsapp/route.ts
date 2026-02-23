@@ -201,17 +201,12 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     continue
                 }
 
-                // --- STEP C: REGISTERED USER + auth intent ("signin" OR "signup") → send dashboard link ---
+                // --- STEP C: REGISTERED USER + strict "signin" / "login" → send dashboard link ---
                 const normalizedText = textBody.replace(/\s+/g, '').toLowerCase()
-                const isAuthIntent =
-                    normalizedText === 'signin' ||
-                    normalizedText === 'sign-in' ||
-                    normalizedText === 'login' ||
-                    normalizedText.includes('signup') ||
-                    normalizedText.includes('sign-up')
+                const isSignin = normalizedText === 'signin' || normalizedText === 'login'
 
-                if (isAuthIntent) {
-                    console.log(`[Webhook] Auth request (signin/signup) from registered user: ${senderPhone10}`)
+                if (isSignin) {
+                    console.log(`[Webhook] Signin request from registered user: ${senderPhone10}`)
 
                     try {
                         const tokenResult = await generateAuthToken(senderPhone10, 'signin')
