@@ -191,13 +191,15 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                 // --- Log structured data to incoming_messages ---
                 try {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const { error: insertError } = await (supabase as any)
+                    const { data: insertedMsg, error: insertError } = await (supabase as any)
                         .from('incoming_messages')
                         .insert({
                             phone: senderPhone,
                             raw_text: message.text?.body ?? `[${messageType}]`,
                             payload: body,
                         })
+                        .select('id')
+                        .single()
 
                     if (insertError) {
                         console.error(
@@ -209,6 +211,18 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             senderPhone,
                             'Something went wrong. Please try again.'
                         )
+                    } else if (insertedMsg?.id) {
+                        // Fire-and-forget to the internal processor
+                        fetch('https://boldoai.in/api/internal/process-message', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-internal-secret': process.env.INTERNAL_PROCESSOR_SECRET || '',
+                            },
+                            body: JSON.stringify({ messageId: insertedMsg.id }),
+                        }).catch((err) => {
+                            console.error('[Webhook] Failed to trigger internal processor:', err)
+                        })
                     }
                 } catch (err) {
                     console.error('[Webhook] Error inserting message:', err)
