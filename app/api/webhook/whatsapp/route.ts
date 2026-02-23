@@ -173,7 +173,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                             await sendWhatsAppMessage(
                                 sendTo,
-                                `👋 Welcome to Boldo AI!\n\nYour number is not registered yet. Click the link below to sign up:\n\n${signupUrl}\n\nThis link expires in 15 minutes.`
+                                `Psst... you're not in the system yet. 👀\n\nLet's fix that. Click below to join Boldo AI and get started:\n${signupUrl}\n\n⏳ This link self-destructs in 15 minutes. No pressure.`
                             )
                         } else {
                             await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again later.')
@@ -218,7 +218,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                             await sendWhatsAppMessage(
                                 sendTo,
-                                `👋 Welcome back, ${registeredUser.name}!\n\n(You already have an account with us.)\n\nClick below to access your dashboard:\n\n${signinUrl}\n\nThis link expires in 15 minutes.`
+                                `Hey ${registeredUser.name}, look who's back! 👋\n\nYour dashboard missed you. Here's your personal entry door:\n${signinUrl}\n\n🕐 Link expires in 15 minutes — don't keep it waiting.`
                             )
                         } else {
                             console.error('[Webhook] Token generation failed:', tokenResult.error)
@@ -264,7 +264,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             const sendTo = `91${TEST_PHONE_OVERRIDE}`
                             await sendWhatsAppMessage(
                                 sendTo,
-                                `📩 Join Request\n\n${req.requester_name} (${req.requester_phone}) wants to join your company.\n\nApprove: ${approveUrl}`
+                                `🔐 Heads up — someone wants in as an owner.\n\n${req.requester_name} (${req.requester_phone}) has requested to join your organisation with owner-level access.\n\nIf you know them and want to grant access, approve here:\n👉 ${approveUrl}\n\nIf this wasn't expected, you can safely ignore this message.`
                             )
                         }
                     }

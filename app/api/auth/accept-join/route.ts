@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
 
             await sendWhatsAppMessage(
                 sendTo,
-                `🎉 Your request to join has been approved! Click here to access your dashboard:\n\n${dashboardUrl}`
+                `Great news — you're in! 🎉\n\nYour request was approved. Welcome to the team.\nHead over to your dashboard and make yourself at home:\n${dashboardUrl}`
             )
         }
 

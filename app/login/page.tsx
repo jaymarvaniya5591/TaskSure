@@ -144,15 +144,7 @@ function LoginContent() {
                     </Button>
                 )}
 
-                {!notFound && (
-                    <div className="bg-zinc-50 rounded-2xl p-5 border border-zinc-100">
-                        <p className="text-sm text-zinc-500 font-medium leading-relaxed">
-                            <span className="font-bold text-zinc-700">How it works:</span>{" "}
-                            Clicking &quot;Verify via WhatsApp&quot; opens WhatsApp where you&apos;ll send &quot;Sign in&quot;.
-                            You&apos;ll receive a link to access your dashboard.
-                        </p>
-                    </div>
-                )}
+
             </form>
 
             <div className="mt-8 text-center">
