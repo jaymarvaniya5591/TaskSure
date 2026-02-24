@@ -9,7 +9,8 @@ import { createServerClient } from '@supabase/ssr'
  * Validates the auth token and redirects:
  * - signin token → generates session directly, sets cookies, redirects to /home
  * - signup token → redirects to /signup/complete?token=xxx
- * - invalid/expired → redirects to /login?error=expired
+ * - invalid/expired but session active → redirects to /home (reusable links!)
+ * - invalid/expired and no session → redirects to /login?error=expired
  *
  * PERFORMANCE: Uses direct password auth instead of magic link round trip.
  * Uses findAuthUserIdByPhone() instead of listUsers() for O(1) lookups.
@@ -36,6 +37,44 @@ export async function GET(request: NextRequest) {
 
     if (!result.valid || !result.phone || !result.type) {
         console.warn('[VerifyLink] Invalid token:', result.error)
+
+        // FALLBACK: Token is expired/consumed, but the user may already have
+        // a valid session in their browser cookies from a previous sign-in.
+        // This lets users re-click old WhatsApp links to access the dashboard
+        // instantly without typing "sign in" again.
+        // Security: signOut() clears session cookies, so old links stop working.
+        let sessionResponse = NextResponse.next({ request })
+        const sessionClient = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    getAll() {
+                        return request.cookies.getAll()
+                    },
+                    setAll(cookiesToSet) {
+                        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+                        sessionResponse = NextResponse.next({ request })
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            sessionResponse.cookies.set(name, value, options)
+                        )
+                    },
+                },
+            }
+        )
+
+        const { data: { user } } = await sessionClient.auth.getUser()
+
+        if (user) {
+            console.log(`[VerifyLink] Token invalid but session active for ${user.id}, redirecting to /home (${Date.now() - t0}ms)`)
+            const redirectResponse = NextResponse.redirect(`${baseUrl}/home`)
+            // Carry over any refreshed session cookies
+            sessionResponse.cookies.getAll().forEach((cookie) => {
+                redirectResponse.cookies.set(cookie.name, cookie.value)
+            })
+            return redirectResponse
+        }
+
         return NextResponse.redirect(`${baseUrl}/login?error=expired`)
     }
 
