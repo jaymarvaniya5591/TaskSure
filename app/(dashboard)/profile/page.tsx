@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useUserContext } from "@/lib/user-context";
-import { User, Building, Phone, ShieldCheck, CheckCircle2, X } from "lucide-react";
+import { User, Building, Phone, ShieldCheck, CheckCircle2, X, AlertTriangle, Loader2 } from "lucide-react";
 
 interface UserProfile {
     id: string;
@@ -47,6 +47,11 @@ export default function ProfilePage() {
     const [newCompanyName, setNewCompanyName] = useState("");
     const [managerForCompanyPhone, setManagerForCompanyPhone] = useState("");
     const [companyVerifySent, setCompanyVerifySent] = useState(false);
+
+    // Delete Account states
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+    const [deleteConfirmName, setDeleteConfirmName] = useState("");
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // ── Derive manager from allOrgUsers (already cached, 0ms) ──
     const manager = useMemo(() => {
@@ -169,6 +174,45 @@ export default function ProfilePage() {
                 setCompanyAction(null);
                 setCompanyVerifySent(false);
             }, 3000);
+        }
+    };
+
+    // Delete Account Logic
+    const handleDeleteAccount = async () => {
+        if (!deleteConfirmName) {
+            return alert("Please enter your first name to confirm.");
+        }
+
+        if (deleteConfirmName.trim().toLowerCase() !== userNames?.first_name?.trim().toLowerCase()) {
+            return alert("The name you entered does not match your first name.");
+        }
+
+        setIsDeleting(true);
+
+        try {
+            const response = await fetch("/api/auth/delete-account", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ confirmFirstName: deleteConfirmName }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Sign out locally
+                await supabase.auth.signOut();
+                // Redirect to signup
+                window.location.href = "/signup";
+            } else {
+                alert(data.error || "Failed to delete account. Please try again.");
+                setIsDeleting(false);
+            }
+        } catch (error) {
+            console.error("Error deleting account:", error);
+            alert("An unexpected error occurred. Please try again.");
+            setIsDeleting(false);
         }
     };
 
@@ -397,6 +441,74 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
+            </div>
+
+            {/* ── 5. Danger Zone ── */}
+            <div className="mt-8 pt-8 border-t border-gray-200">
+                <div className="bg-red-50 rounded-2xl p-4 sm:p-5 border border-red-100">
+                    <div className="flex items-start gap-3 sm:gap-4">
+                        <div className={`${sectionIcon} bg-red-100 text-red-600`}>
+                            <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-sm font-bold text-red-800 uppercase tracking-wider">Danger Zone</h2>
+                            <p className="text-sm text-red-600 mt-1 mb-4">
+                                Once you delete your account, there is no going back. Please be certain.
+                            </p>
+
+                            {isDeletingAccount ? (
+                                <div className="space-y-4 bg-white p-4 rounded-xl border border-red-100">
+                                    <p className="text-sm font-medium text-gray-700">
+                                        Type your first name <strong className="text-gray-900 border-b-2 border-red-200 px-1">{userNames?.first_name || profile.name.split(' ')[0]}</strong> to confirm.
+                                    </p>
+                                    <input
+                                        type="text"
+                                        value={deleteConfirmName}
+                                        onChange={(e) => setDeleteConfirmName(e.target.value)}
+                                        className={`${inputBase} border-red-200 focus:border-red-400 focus:ring-red-100`}
+                                        placeholder="Confirm first name"
+                                        autoComplete="off"
+                                        autoCorrect="off"
+                                        spellCheck={false}
+                                    />
+                                    <div className="flex items-center gap-2 pt-2">
+                                        <button
+                                            onClick={handleDeleteAccount}
+                                            disabled={isDeleting || deleteConfirmName.trim().toLowerCase() !== (userNames?.first_name || profile.name.split(' ')[0] || "").trim().toLowerCase()}
+                                            className={`${btnPrimary} flex-1 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                        >
+                                            {isDeleting ? (
+                                                <div className="flex items-center gap-2">
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    Deleting...
+                                                </div>
+                                            ) : (
+                                                "Delete My Account"
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setIsDeletingAccount(false);
+                                                setDeleteConfirmName("");
+                                            }}
+                                            disabled={isDeleting}
+                                            className={`${btnCancel} hover:bg-red-50 hover:text-red-600`}
+                                        >
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setIsDeletingAccount(true)}
+                                    className={`${btnPrimary} bg-red-100 text-red-700 hover:bg-red-200 border border-red-200/50`}
+                                >
+                                    Delete Account
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
