@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
 
         // Create a server-side Supabase client that writes cookies into the response
         const cookieStore = await cookies();
-        let response = NextResponse.json({ success: true });
+        const response = NextResponse.json({ success: true });
 
         const serverClient = createServerClient(supabaseUrl, anonKey, {
             cookies: {
