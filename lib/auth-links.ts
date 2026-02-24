@@ -123,6 +123,62 @@ export async function consumeAuthToken(token: string): Promise<boolean> {
 }
 
 /**
+ * Look up a user's auth UUID from the users table by phone number.
+ * This replaces the slow listUsers() approach — single indexed query.
+ * Returns the auth user ID (UUID) or null if not found.
+ */
+export async function findAuthUserIdByPhone(phone: string): Promise<string | null> {
+    const supabase = createAdminClient()
+    const normalizedPhone = normalizePhone(phone)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
+        .from('users')
+        .select('id')
+        .eq('phone_number', normalizedPhone)
+        .maybeSingle()
+
+    if (error || !data) return null
+    return data.id as string
+}
+
+/**
+ * Generate a session directly using password-based auth.
+ * Skips the magic link generation + client-side exchange round trip.
+ */
+export async function generateDirectSession(
+    phone: string
+): Promise<{ access_token: string; refresh_token: string } | null> {
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!supabaseUrl || !serviceRoleKey) return null
+
+    const normalizedPhone = normalizePhone(phone)
+    const testEmail = `test_${normalizedPhone}@boldo.test`
+
+    const sessionClient = createClient(
+        supabaseUrl,
+        anonKey || serviceRoleKey,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    const { data, error } = await sessionClient.auth.signInWithPassword({
+        email: testEmail,
+        password: 'TestPassword123!',
+    })
+
+    if (error || !data.session) return null
+
+    return {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+    }
+}
+
+/**
  * Build the full URL for a signup or signin link.
  */
 export function buildAuthUrl(token: string): string {

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuthToken, consumeAuthToken } from '@/lib/auth-links'
+import { verifyAuthToken, consumeAuthToken, findAuthUserIdByPhone, generateDirectSession } from '@/lib/auth-links'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@supabase/supabase-js'
 import { normalizePhone } from '@/lib/phone'
 
 /**
@@ -9,6 +8,9 @@ import { normalizePhone } from '@/lib/phone'
  *
  * Completes the signup process after the user fills the signup form.
  * Creates the auth user, organisation, and users table row.
+ *
+ * PERFORMANCE: Uses findAuthUserIdByPhone() instead of listUsers(),
+ * and generateDirectSession() instead of magic link round trip.
  *
  * Body: {
  *   token: string,
@@ -71,16 +73,9 @@ export async function POST(request: NextRequest) {
     try {
         // ─── Create or find auth user ────────────────────────────────────
         const testEmail = `test_${phone}@boldo.test`
-        let authUserId: string | null = null
 
-        // Check if auth user already exists
-        const { data: existingUsers } = await supabase.auth.admin.listUsers()
-        if (existingUsers?.users) {
-            const existing = existingUsers.users.find(
-                (u) => u.phone === phone || u.email === testEmail
-            )
-            if (existing) authUserId = existing.id
-        }
+        // Fast lookup: check users table first (indexed query)
+        let authUserId = await findAuthUserIdByPhone(phone)
 
         if (!authUserId) {
             // Create new auth user
@@ -94,7 +89,7 @@ export async function POST(request: NextRequest) {
                 })
 
             if (createErr) {
-                // If already registered, try to find by listing again
+                // If already registered, try to find by getUserById fallback
                 if (!createErr.message.includes('already registered')) {
                     console.error('[CompleteSignup] Failed to create auth user:', createErr)
                     return NextResponse.json(
@@ -196,8 +191,8 @@ export async function POST(request: NextRequest) {
             // Consume token
             await consumeAuthToken(token)
 
-            // Generate session
-            const session = await generateSession(testEmail, authUserId)
+            // Generate session directly via password auth
+            const session = await generateDirectSession(phone)
             if (!session) {
                 return NextResponse.json(
                     { error: 'Account created but failed to generate session. Please sign in.' },
@@ -333,8 +328,8 @@ export async function POST(request: NextRequest) {
                 // Consume token
                 await consumeAuthToken(token)
 
-                // Generate session
-                const session = await generateSession(testEmail, authUserId)
+                // Generate session directly via password auth
+                const session = await generateDirectSession(phone)
                 if (!session) {
                     return NextResponse.json(
                         { error: 'Account created but failed to generate session. Please sign in.' },
@@ -355,90 +350,5 @@ export async function POST(request: NextRequest) {
         const msg = err instanceof Error ? err.message : 'Unknown error'
         console.error('[CompleteSignup] Unhandled error:', msg)
         return NextResponse.json({ error: msg }, { status: 500 })
-    }
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-async function generateSession(
-    testEmail: string,
-    authUserId: string
-): Promise<{ access_token: string; refresh_token: string } | null> {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !serviceRoleKey) return null
-
-    const adminClient = createAdminClient()
-
-    // Ensure email is set
-    await adminClient.auth.admin.updateUserById(authUserId, {
-        email: testEmail,
-        email_confirm: true,
-        phone_confirm: true,
-    })
-
-    // Generate magic link
-    const { data: linkData, error: linkErr } =
-        await adminClient.auth.admin.generateLink({
-            type: 'magiclink',
-            email: testEmail,
-        })
-
-    if (linkErr || !linkData?.properties?.hashed_token) {
-        // Fallback: try password auth
-        const sessionClient = createClient(
-            supabaseUrl,
-            anonKey || serviceRoleKey,
-            { auth: { autoRefreshToken: false, persistSession: false } }
-        )
-
-        const { data: pwdData, error: pwdErr } =
-            await sessionClient.auth.signInWithPassword({
-                email: testEmail,
-                password: 'TestPassword123!',
-            })
-
-        if (pwdErr || !pwdData.session) return null
-
-        return {
-            access_token: pwdData.session.access_token,
-            refresh_token: pwdData.session.refresh_token,
-        }
-    }
-
-    // Exchange token hash for session
-    const sessionClient = createClient(
-        supabaseUrl,
-        anonKey || serviceRoleKey,
-        { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-
-    const { data: verifyData, error: verifyErr } =
-        await sessionClient.auth.verifyOtp({
-            type: 'magiclink',
-            token_hash: linkData.properties.hashed_token,
-        })
-
-    if (verifyErr || !verifyData.session) {
-        // Fallback: try password
-        const { data: pwdData, error: pwdErr } =
-            await sessionClient.auth.signInWithPassword({
-                email: testEmail,
-                password: 'TestPassword123!',
-            })
-
-        if (pwdErr || !pwdData.session) return null
-
-        return {
-            access_token: pwdData.session.access_token,
-            refresh_token: pwdData.session.refresh_token,
-        }
-    }
-
-    return {
-        access_token: verifyData.session.access_token,
-        refresh_token: verifyData.session.refresh_token,
     }
 }

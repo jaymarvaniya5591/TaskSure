@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { generateAuthToken, buildAuthUrl } from '@/lib/auth-links'
+import { generateAuthToken, buildAuthUrl, findAuthUserIdByPhone } from '@/lib/auth-links'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
+import { normalizePhone } from '@/lib/phone'
 
 /**
  * POST /api/auth/accept-join
  *
  * Accepts or rejects a partner join request.
  * Only the partner (identified by phone) can accept.
+ *
+ * PERFORMANCE: Uses findAuthUserIdByPhone() instead of listUsers().
  *
  * Body: { requestId: string, action: 'accept' | 'reject', acceptorPhone: string }
  */
@@ -84,24 +87,16 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Create auth user for the requester
-        const testEmail = `test_${joinReq.requester_phone.replace(/\+/g, '')}@boldo.test`
+        // Fast lookup: check if auth user already exists via users table
+        const normalizedRequesterPhone = normalizePhone(joinReq.requester_phone)
+        const testEmail = `test_${normalizedRequesterPhone}@boldo.test`
 
-        let authUserId: string | null = null
-        const { data: existingUsers } = await supabase.auth.admin.listUsers()
-        if (existingUsers?.users) {
-            const existing = existingUsers.users.find(
-                (u) =>
-                    u.phone === joinReq.requester_phone ||
-                    u.email === testEmail
-            )
-            if (existing) authUserId = existing.id
-        }
+        let authUserId = await findAuthUserIdByPhone(joinReq.requester_phone)
 
         if (!authUserId) {
             const { data: newUser, error: createErr } =
                 await supabase.auth.admin.createUser({
-                    phone: joinReq.requester_phone,
+                    phone: normalizedRequesterPhone,
                     email: testEmail,
                     email_confirm: true,
                     phone_confirm: true,
@@ -138,7 +133,7 @@ export async function POST(request: NextRequest) {
                 name: joinReq.requester_name,
                 first_name: firstName,
                 last_name: lastName,
-                phone_number: joinReq.requester_phone,
+                phone_number: normalizedRequesterPhone,
                 organisation_id: partner.organisation_id,
                 role: joinReq.role,
                 reporting_manager_id: null,  // Key partner has no manager

@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuthToken, consumeAuthToken } from '@/lib/auth-links'
+import { verifyAuthToken, consumeAuthToken, findAuthUserIdByPhone, generateDirectSession } from '@/lib/auth-links'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { normalizePhone } from '@/lib/phone'
+import { createServerClient } from '@supabase/ssr'
 
 /**
  * GET /api/auth/verify-link?token=xxx
  *
  * Validates the auth token and redirects:
- * - signin token → creates/finds Supabase auth user, sets session, redirects to /home
+ * - signin token → generates session directly, sets cookies, redirects to /home
  * - signup token → redirects to /signup/complete?token=xxx
  * - invalid/expired → redirects to /login?error=expired
+ *
+ * PERFORMANCE: Uses direct password auth instead of magic link round trip.
+ * Uses findAuthUserIdByPhone() instead of listUsers() for O(1) lookups.
  */
 export async function GET(request: NextRequest) {
     const token = request.nextUrl.searchParams.get('token')
@@ -36,65 +39,81 @@ export async function GET(request: NextRequest) {
     }
 
     if (result.type === 'signin') {
-        // Consume the token immediately
-        const consumed = await consumeAuthToken(token)
+        // Consume token and find user in parallel — they're independent
+        const [consumed, authUserId] = await Promise.all([
+            consumeAuthToken(token),
+            findAuthUserIdByPhone(result.phone),
+        ])
+
         if (!consumed) {
             return NextResponse.redirect(`${baseUrl}/login?error=expired`)
         }
 
-        // Create or find auth user, generate session
-        const supabase = createAdminClient()
-        const phone = result.phone  // already 10 digits from auth_tokens
-        const testEmail = `test_${phone}@boldo.test`
-        const legacyEmail = `test_91${phone}@boldo.test`
+        if (!authUserId) {
+            return NextResponse.redirect(`${baseUrl}/login?error=no_account`)
+        }
 
         try {
-            // Find existing auth user by phone or email
-            let authUserId: string | null = null
-            const { data: existingUsers } = await supabase.auth.admin.listUsers()
-            if (existingUsers?.users) {
-                const user = existingUsers.users.find(
-                    (u) => (u.phone && normalizePhone(u.phone) === phone) ||
-                        u.email === testEmail ||
-                        u.email === legacyEmail
-                )
-                if (user) authUserId = user.id
-            }
+            // Ensure auth user has correct email for password auth
+            const supabase = createAdminClient()
+            const phone = result.phone
+            const testEmail = `test_${phone}@boldo.test`
 
-            if (!authUserId) {
-                // This shouldn't happen for signin (user should exist), but handle gracefully
-                return NextResponse.redirect(`${baseUrl}/login?error=no_account`)
-            }
-
-            // Ensure email exists for magic link generation
             await supabase.auth.admin.updateUserById(authUserId, {
                 email: testEmail,
                 email_confirm: true,
                 phone_confirm: true,
             })
 
-            // Generate a magic link and exchange for session
-            const { data: linkData, error: linkError } =
-                await supabase.auth.admin.generateLink({
-                    type: 'magiclink',
-                    email: testEmail,
-                })
+            // Generate session directly via password — no magic link round trip
+            const session = await generateDirectSession(phone)
 
-            if (linkError || !linkData) {
-                console.error('[VerifyLink] Failed to generate magic link:', linkError)
-                return NextResponse.redirect(`${baseUrl}/login?error=auth_failed`)
+            if (!session) {
+                console.error('[VerifyLink] Direct session failed, falling back to magic link')
+                // Fallback: use magic link approach
+                const { data: linkData, error: linkError } =
+                    await supabase.auth.admin.generateLink({
+                        type: 'magiclink',
+                        email: testEmail,
+                    })
+
+                if (linkError || !linkData?.properties?.hashed_token) {
+                    return NextResponse.redirect(`${baseUrl}/login?error=auth_failed`)
+                }
+
+                return NextResponse.redirect(
+                    `${baseUrl}/auth/callback?token_hash=${encodeURIComponent(linkData.properties.hashed_token)}&type=magiclink&next=/home`
+                )
             }
 
-            const tokenHash = linkData.properties?.hashed_token
-            if (!tokenHash) {
-                return NextResponse.redirect(`${baseUrl}/login?error=auth_failed`)
-            }
+            // Set session cookies directly and redirect to /home
+            // Build response with session cookies
+            const response = NextResponse.redirect(`${baseUrl}/home`)
 
-            // Build redirect URL that the client will use to set the session
-            // We redirect to a client page that handles session setup
-            return NextResponse.redirect(
-                `${baseUrl}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=magiclink&next=/home`
-            )
+            // Create a Supabase server client to properly set auth cookies
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+            const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+            const cookieClient = createServerClient(supabaseUrl, supabaseAnonKey, {
+                cookies: {
+                    getAll() {
+                        return request.cookies.getAll()
+                    },
+                    setAll(cookiesToSet) {
+                        cookiesToSet.forEach(({ name, value, options }) => {
+                            response.cookies.set(name, value, options)
+                        })
+                    },
+                },
+            })
+
+            // Set the session — this writes the auth cookies onto the response
+            await cookieClient.auth.setSession({
+                access_token: session.access_token,
+                refresh_token: session.refresh_token,
+            })
+
+            return response
         } catch (err) {
             console.error('[VerifyLink] Error creating session:', err)
             return NextResponse.redirect(`${baseUrl}/login?error=auth_failed`)
