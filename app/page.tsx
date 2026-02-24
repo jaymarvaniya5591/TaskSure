@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 
 export default function Home() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
+    <main className="relative min-h-screen flex flex-col items-center justify-center p-4 bg-background">
       <div className="text-center max-w-2xl mx-auto space-y-8">
         <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight text-black">
           Boldo AI.
@@ -24,6 +24,12 @@ export default function Home() {
             </Button>
           </Link>
         </div>
+      </div>
+
+      <div className="absolute bottom-8 left-0 right-0 text-center">
+        <p className="text-sm font-medium text-zinc-400 tracking-wide">
+          A Trufactory product
+        </p>
       </div>
     </main>
   );
