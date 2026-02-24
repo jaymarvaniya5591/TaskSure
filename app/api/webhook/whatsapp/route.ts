@@ -175,7 +175,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                             // Pre-warm the server BEFORE sending the link.
                             // By the time user reads the message and taps the link, server is hot.
-                            fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
+                            fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
 
                             await sendWhatsAppMessage(
                                 sendTo,
@@ -223,7 +223,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                             // Pre-warm the server BEFORE sending the link.
                             // User reads WhatsApp → taps link → server already warm.
-                            fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
+                            fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
 
                             await sendWhatsAppMessage(
                                 sendTo,
