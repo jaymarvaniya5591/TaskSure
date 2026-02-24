@@ -1,14 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizePhone } from '@/lib/phone';
+import { cookies } from 'next/headers';
 
 // POST /api/test-auth — Generates a valid session for any user bypassing OTP
-// Body: { phone: "+919876543210" }
+// Sets session cookies directly so the browser can navigate to /home immediately.
+// Body: { phone: "+919876543210" } or { phone: "9876543210" }
 export async function POST(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
         return NextResponse.json(
             { error: 'Server configuration error' },
             { status: 500 }
@@ -25,10 +29,10 @@ export async function POST(request: NextRequest) {
 
         // Normalize to 10 digits for consistency
         const phone10 = normalizePhone(phone);
-        // Build the canonical +91 format for Supabase auth lookups
         const phoneE164 = `+91${phone10}`;
 
-        const supabase = createClient(supabaseUrl, serviceRoleKey, {
+        // Admin client for user management
+        const adminClient = createClient(supabaseUrl, serviceRoleKey, {
             auth: { autoRefreshToken: false, persistSession: false }
         });
 
@@ -38,26 +42,24 @@ export async function POST(request: NextRequest) {
         // 1. Try to find existing auth user
         let authUserId: string | null = null;
 
-        // Fast path: lookup via public.users table (avoids listing all auth users)
-        const { data: userLookup } = await supabase
+        // Fast path: lookup via public.users table
+        const { data: userLookup } = await adminClient
             .from('users')
             .select('id')
             .eq('phone_number', phone10)
             .maybeSingle();
 
         if (userLookup) {
-            // We found the public.users record — use its ID (same as auth user ID)
             authUserId = userLookup.id;
         }
 
         if (!authUserId) {
-            // Fallback: search auth users by phone or email
-            // Use paginated search to handle large user bases
+            // Fallback: search auth users by phone or email with pagination
             let page = 1;
             const perPage = 100;
             let found = false;
             while (!found) {
-                const { data: listData, error: listError } = await supabase.auth.admin.listUsers({
+                const { data: listData, error: listError } = await adminClient.auth.admin.listUsers({
                     page,
                     perPage,
                 });
@@ -77,8 +79,8 @@ export async function POST(request: NextRequest) {
         }
 
         if (!authUserId) {
-            // Create a new auth user with consistent phone format
-            const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+            // Create a new auth user
+            const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
                 phone: phoneE164,
                 email: testEmail,
                 email_confirm: true,
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
             authUserId = newUser.user.id;
         } else {
             // Ensure the auth user has the test email set and confirmed
-            await supabase.auth.admin.updateUserById(authUserId, {
+            await adminClient.auth.admin.updateUserById(authUserId, {
                 email: testEmail,
                 email_confirm: true,
                 phone_confirm: true,
@@ -103,7 +105,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Generate a magic link token
-        const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+        const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
             type: 'magiclink',
             email: testEmail,
         });
@@ -123,43 +125,51 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Use a separate client to verify the token and get a session
-        const sessionClient = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || serviceRoleKey, {
-            auth: { autoRefreshToken: false, persistSession: false }
+        // Create a server-side Supabase client that writes cookies into the response
+        const cookieStore = await cookies();
+        let response = NextResponse.json({ success: true });
+
+        const serverClient = createServerClient(supabaseUrl, anonKey, {
+            cookies: {
+                getAll() {
+                    return cookieStore.getAll();
+                },
+                setAll(cookiesToSet) {
+                    cookiesToSet.forEach(({ name, value, options }) => {
+                        // Set on the outgoing NextResponse
+                        response.cookies.set(name, value, {
+                            ...options,
+                            // Ensure cookies work on the full domain
+                            path: '/',
+                        });
+                    });
+                },
+            },
         });
 
-        const { data: verifyData, error: verifyError } = await sessionClient.auth.verifyOtp({
+        // Verify OTP to create a real session — cookies are written to `response`
+        const { data: verifyData, error: verifyError } = await serverClient.auth.verifyOtp({
             type: 'magiclink',
             token_hash: tokenHash,
         });
 
         if (verifyError || !verifyData.session) {
-            // Fallback: Try password
-            const { data: pwdData, error: pwdError } = await sessionClient.auth.signInWithPassword({
+            // Fallback: try password login
+            const { data: pwdData, error: pwdError } = await serverClient.auth.signInWithPassword({
                 email: testEmail,
                 password: 'TestPassword123!'
             });
 
             if (pwdError || !pwdData.session) {
                 return NextResponse.json(
-                    { error: `Failed to create session: ${verifyError?.message || 'No session returned'}. Password fallback also failed: ${pwdError?.message || 'unknown'}` },
+                    { error: `Failed to create session: ${verifyError?.message || 'No session'}. Password fallback: ${pwdError?.message || 'no session'}` },
                     { status: 500 }
                 );
             }
-
-            return NextResponse.json({
-                success: true,
-                access_token: pwdData.session.access_token,
-                refresh_token: pwdData.session.refresh_token,
-            });
         }
 
-        // Return the session tokens so the client can set them
-        return NextResponse.json({
-            success: true,
-            access_token: verifyData.session.access_token,
-            refresh_token: verifyData.session.refresh_token,
-        });
+        // The response already has Set-Cookie headers from the serverClient
+        return response;
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ error: msg }, { status: 500 });
