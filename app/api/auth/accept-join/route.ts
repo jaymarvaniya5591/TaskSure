@@ -4,6 +4,9 @@ import { generateAuthToken, buildAuthUrl, findAuthUserIdByPhone } from '@/lib/au
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 import { normalizePhone } from '@/lib/phone'
 
+// Co-locate this function with Supabase (ap-southeast-1 / Singapore)
+export const preferredRegion = 'sin1'
+
 /**
  * POST /api/auth/accept-join
  *

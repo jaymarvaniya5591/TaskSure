@@ -13,17 +13,26 @@ import { createServerClient } from '@supabase/ssr'
  *
  * PERFORMANCE: Uses direct password auth instead of magic link round trip.
  * Uses findAuthUserIdByPhone() instead of listUsers() for O(1) lookups.
+ * Co-located with Supabase via preferredRegion.
  */
+
+// Co-locate this function with Supabase (ap-southeast-1 / Singapore)
+export const preferredRegion = 'sin1'
+
 export async function GET(request: NextRequest) {
     const token = request.nextUrl.searchParams.get('token')
     const baseUrl = request.nextUrl.origin
+    const t0 = Date.now()
 
     if (!token) {
         return NextResponse.redirect(`${baseUrl}/login?error=missing_token`)
     }
 
     // 1. Verify the token
+    const t1 = Date.now()
     const result = await verifyAuthToken(token)
+    const t2 = Date.now()
+    console.log(`[VerifyLink] verifyAuthToken: ${t2 - t1}ms`)
 
     if (!result.valid || !result.phone || !result.type) {
         console.warn('[VerifyLink] Invalid token:', result.error)
@@ -32,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     // 2. Route based on token type
     if (result.type === 'signup') {
-        // Don't consume yet - user needs to fill the form first
+        console.log(`[VerifyLink] Signup redirect total: ${Date.now() - t0}ms`)
         return NextResponse.redirect(
             `${baseUrl}/signup/complete?token=${encodeURIComponent(token)}`
         )
@@ -40,10 +49,13 @@ export async function GET(request: NextRequest) {
 
     if (result.type === 'signin') {
         // Consume token and find user in parallel — they're independent
+        const t3 = Date.now()
         const [consumed, authUserId] = await Promise.all([
             consumeAuthToken(token),
             findAuthUserIdByPhone(result.phone),
         ])
+        const t4 = Date.now()
+        console.log(`[VerifyLink] parallel consume+lookup: ${t4 - t3}ms`)
 
         if (!consumed) {
             return NextResponse.redirect(`${baseUrl}/login?error=expired`)
@@ -59,14 +71,20 @@ export async function GET(request: NextRequest) {
             const phone = result.phone
             const testEmail = `test_${phone}@boldo.test`
 
+            const t5 = Date.now()
             await supabase.auth.admin.updateUserById(authUserId, {
                 email: testEmail,
                 email_confirm: true,
                 phone_confirm: true,
             })
+            const t6 = Date.now()
+            console.log(`[VerifyLink] updateUserById: ${t6 - t5}ms`)
 
             // Generate session directly via password — no magic link round trip
+            const t7 = Date.now()
             const session = await generateDirectSession(phone)
+            const t8 = Date.now()
+            console.log(`[VerifyLink] generateDirectSession: ${t8 - t7}ms`)
 
             if (!session) {
                 console.error('[VerifyLink] Direct session failed, falling back to magic link')
@@ -87,13 +105,12 @@ export async function GET(request: NextRequest) {
             }
 
             // Set session cookies directly and redirect to /home
-            // Build response with session cookies
             const response = NextResponse.redirect(`${baseUrl}/home`)
 
-            // Create a Supabase server client to properly set auth cookies
             const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
             const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
+            const t9 = Date.now()
             const cookieClient = createServerClient(supabaseUrl, supabaseAnonKey, {
                 cookies: {
                     getAll() {
@@ -107,12 +124,14 @@ export async function GET(request: NextRequest) {
                 },
             })
 
-            // Set the session — this writes the auth cookies onto the response
             await cookieClient.auth.setSession({
                 access_token: session.access_token,
                 refresh_token: session.refresh_token,
             })
+            const t10 = Date.now()
+            console.log(`[VerifyLink] setSession+cookies: ${t10 - t9}ms`)
 
+            console.log(`[VerifyLink] TOTAL signin: ${t10 - t0}ms | region: ${process.env.VERCEL_REGION || 'local'}`)
             return response
         } catch (err) {
             console.error('[VerifyLink] Error creating session:', err)

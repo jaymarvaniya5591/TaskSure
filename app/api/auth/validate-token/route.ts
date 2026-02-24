@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuthToken } from '@/lib/auth-links'
 
+// Co-locate this function with Supabase (ap-southeast-1 / Singapore)
+export const preferredRegion = 'sin1'
+
 /**
  * GET /api/auth/validate-token?token=xxx
  *

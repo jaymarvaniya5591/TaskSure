@@ -4,6 +4,9 @@ import { sendWhatsAppMessage } from '@/lib/whatsapp'
 import { generateAuthToken, buildAuthUrl } from '@/lib/auth-links'
 import { normalizePhone } from '@/lib/phone'
 
+// Co-locate this function with Supabase (ap-southeast-1 / Singapore)
+export const preferredRegion = 'sin1'
+
 // ---------------------------------------------------------------------------
 // In-memory rate limiter: 30 messages per 60 seconds per sender phone number
 // ---------------------------------------------------------------------------

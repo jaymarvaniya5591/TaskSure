@@ -2,6 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizePhone } from '@/lib/phone';
 
+// Co-locate this function with Supabase (ap-southeast-1 / Singapore)
+export const preferredRegion = 'sin1';
+
 // POST /api/check-phone — Checks if a phone number exists in the users table
 // This uses the service role key to bypass RLS since the caller is unauthenticated.
 // Returns { exists: boolean }

@@ -3,6 +3,9 @@ import { verifyAuthToken, consumeAuthToken, findAuthUserIdByPhone, generateDirec
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizePhone } from '@/lib/phone'
 
+// Co-locate this function with Supabase (ap-southeast-1 / Singapore)
+export const preferredRegion = 'sin1'
+
 /**
  * POST /api/auth/complete-signup
  *
