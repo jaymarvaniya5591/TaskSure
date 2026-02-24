@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { generateAuthToken, buildAuthUrl, findAuthUserIdByPhone } from '@/lib/auth-links'
-import { sendWhatsAppMessage } from '@/lib/whatsapp'
+import { findAuthUserIdByPhone } from '@/lib/auth-links'
+import { sendJoinRequestApprovedTemplate } from '@/lib/whatsapp'
 import { normalizePhone } from '@/lib/phone'
 
 // Co-locate this function with Supabase (ap-southeast-1 / Singapore)
@@ -157,18 +157,9 @@ export async function POST(request: NextRequest) {
             .update({ status: 'accepted', updated_at: new Date().toISOString() })
             .eq('id', requestId)
 
-        // Generate a signin link for the new user to access their dashboard
-        const tokenResult = await generateAuthToken(joinReq.requester_phone, 'signin')
-        if (tokenResult.success && tokenResult.token) {
-            const dashboardUrl = buildAuthUrl(tokenResult.token)
-
-            const sendTo = joinReq.requester_phone.replace(/\+/g, '')
-
-            await sendWhatsAppMessage(
-                sendTo,
-                `Great news — you're in! 🎉\n\nYour request was approved. Welcome to the team.\nHead over to your dashboard and make yourself at home:\n${dashboardUrl}`
-            )
-        }
+        // Send Scenario 4 template: Quick Reply button triggers signin flow
+        const sendTo = joinReq.requester_phone.replace(/\+/g, '')
+        await sendJoinRequestApprovedTemplate(sendTo)
 
         return NextResponse.json({ status: 'accepted' })
     } catch (err) {

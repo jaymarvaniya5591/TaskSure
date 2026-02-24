@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendWhatsAppMessage } from '@/lib/whatsapp'
-import { generateAuthToken, buildAuthUrl } from '@/lib/auth-links'
+import {
+    sendWhatsAppMessage,
+    sendSignupLinkTemplate,
+    sendSigninLinkTemplate,
+    sendJoinRequestPendingTemplate,
+} from '@/lib/whatsapp'
+import { generateAuthToken } from '@/lib/auth-links'
 import { normalizePhone } from '@/lib/phone'
 
 // Co-locate this function with Supabase (ap-southeast-1 / Singapore)
@@ -120,6 +125,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     timestamp: string
                     type: string
                     text?: { body: string }
+                    button?: { text: string; payload: string }
                 }>
                 statuses?: unknown[]
             }
@@ -144,6 +150,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                 const messageType = message.type
                 const messageId = message.id
                 const textBody = message.text?.body ?? ''
+                const buttonPayload = message.button?.payload ?? ''
 
                 // --- Rate limiting ---
                 if (isRateLimited(senderPhone10)) {
@@ -152,7 +159,77 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     continue
                 }
 
-                console.log('[Webhook] Message received:', { senderPhone10, messageType, messageId, textBody: textBody || null })
+                console.log('[Webhook] Message received:', { senderPhone10, messageType, messageId, textBody: textBody || null, buttonPayload: buttonPayload || null })
+
+                // --- STEP 0: Handle Quick Reply button payloads ---
+                if (messageType === 'button' && buttonPayload) {
+
+                    // Scenario 3 payload: partner taps "Approve Request"
+                    if (buttonPayload.startsWith('approve_join_request::')) {
+                        const requestId = buttonPayload.replace('approve_join_request::', '')
+                        console.log(`[Webhook] Quick Reply: approve join request ${requestId} from ${senderPhone10}`)
+
+                        try {
+                            const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
+                            const res = await fetch(`${baseUrl}/api/auth/accept-join`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    requestId,
+                                    action: 'accept',
+                                    acceptorPhone: senderPhone10,
+                                }),
+                            })
+
+                            if (res.ok) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'Request approved successfully.')
+                            } else {
+                                const errBody = await res.text()
+                                console.error('[Webhook] Accept-join call failed:', errBody)
+                                await sendWhatsAppMessage(rawSenderPhone, 'Could not process the approval. The request may have already been handled.')
+                            }
+                        } catch (err) {
+                            console.error('[Webhook] Error calling accept-join:', err)
+                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                        }
+
+                        continue
+                    }
+
+                    // Scenario 4 payload: requester taps "Access Dashboard"
+                    if (buttonPayload === 'trigger_signin') {
+                        console.log(`[Webhook] Quick Reply: trigger signin for ${senderPhone10}`)
+
+                        try {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: user } = await (supabase as any)
+                                .from('users')
+                                .select('id, name, phone_number')
+                                .eq('phone_number', senderPhone10)
+                                .single()
+
+                            if (user) {
+                                const tokenResult = await generateAuthToken(senderPhone10, 'signin')
+                                if (tokenResult.success && tokenResult.token) {
+                                    fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
+                                    await sendSigninLinkTemplate(rawSenderPhone, user.name, tokenResult.token)
+                                } else {
+                                    await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                                }
+                            } else {
+                                await sendWhatsAppMessage(rawSenderPhone, 'Your account was not found. Please contact support.')
+                            }
+                        } catch (err) {
+                            console.error('[Webhook] Error handling trigger_signin:', err)
+                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                        }
+
+                        continue
+                    }
+
+                    console.log(`[Webhook] Unknown button payload: ${buttonPayload}`)
+                    continue
+                }
 
                 // --- STEP A: Check if sender is a registered user (10-digit lookup) ---
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -169,18 +246,10 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     try {
                         const tokenResult = await generateAuthToken(senderPhone10, 'signup')
                         if (tokenResult.success && tokenResult.token) {
-                            const signupUrl = buildAuthUrl(tokenResult.token)
-
-                            const sendTo = rawSenderPhone
-
                             // Pre-warm the server BEFORE sending the link.
-                            // By the time user reads the message and taps the link, server is hot.
                             fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
 
-                            await sendWhatsAppMessage(
-                                sendTo,
-                                `Psst... you're not in the system yet. 👀\n\nLet's fix that. Click below to join Boldo AI and get started:\n${signupUrl}\n\n⏳ This link self-destructs in 15 minutes. No pressure.`
-                            )
+                            await sendSignupLinkTemplate(rawSenderPhone, tokenResult.token)
                         } else {
                             await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again later.')
                         }
@@ -217,18 +286,10 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     try {
                         const tokenResult = await generateAuthToken(senderPhone10, 'signin')
                         if (tokenResult.success && tokenResult.token) {
-                            const signinUrl = buildAuthUrl(tokenResult.token)
-
-                            const sendTo = rawSenderPhone
-
                             // Pre-warm the server BEFORE sending the link.
-                            // User reads WhatsApp → taps link → server already warm.
                             fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
 
-                            await sendWhatsAppMessage(
-                                sendTo,
-                                `Hey ${registeredUser.name}, look who's back! 👋\n\nYour dashboard missed you. Here's your personal entry door:\n${signinUrl}\n\n🕐 Link expires in 15 minutes — don't keep it waiting.`
-                            )
+                            await sendSigninLinkTemplate(rawSenderPhone, registeredUser.name, tokenResult.token)
                         } else {
                             console.error('[Webhook] Token generation failed:', tokenResult.error)
                             await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
@@ -267,13 +328,11 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                     if (pendingRequests && pendingRequests.length > 0) {
                         for (const req of pendingRequests) {
-                            const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
-                            const approveUrl = `${baseUrl}/join-request?id=${req.id}&action=accept`
-
-                            const sendTo = rawSenderPhone
-                            await sendWhatsAppMessage(
-                                sendTo,
-                                `🔐 Heads up — someone wants in as an owner.\n\n${req.requester_name} (${req.requester_phone}) has requested to join your organisation with owner-level access.\n\nIf you know them and want to grant access, approve here:\n👉 ${approveUrl}\n\nIf this wasn't expected, you can safely ignore this message.`
+                            await sendJoinRequestPendingTemplate(
+                                rawSenderPhone,
+                                req.requester_name,
+                                req.requester_phone,
+                                req.id
                             )
                         }
                     }
