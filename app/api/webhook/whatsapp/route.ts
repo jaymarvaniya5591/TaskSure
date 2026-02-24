@@ -246,9 +246,6 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     try {
                         const tokenResult = await generateAuthToken(senderPhone10, 'signup')
                         if (tokenResult.success && tokenResult.token) {
-                            // Pre-warm the server BEFORE sending the link.
-                            fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
-
                             await sendSignupLinkTemplate(rawSenderPhone, tokenResult.token)
                         } else {
                             await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again later.')
@@ -286,9 +283,6 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     try {
                         const tokenResult = await generateAuthToken(senderPhone10, 'signin')
                         if (tokenResult.success && tokenResult.token) {
-                            // Pre-warm the server BEFORE sending the link.
-                            fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
-
                             await sendSigninLinkTemplate(rawSenderPhone, registeredUser.name, tokenResult.token)
                         } else {
                             console.error('[Webhook] Token generation failed:', tokenResult.error)
