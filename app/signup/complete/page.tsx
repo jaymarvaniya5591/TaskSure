@@ -31,6 +31,25 @@ function SignupCompleteContent() {
     const [error, setError] = useState<string | null>(null);
     const [pendingMessage, setPendingMessage] = useState<string | null>(null);
 
+    // Hydrate form from localStorage on mount
+    useEffect(() => {
+        const _firstName = localStorage.getItem("signup-firstName");
+        const _lastName = localStorage.getItem("signup-lastName");
+        const _orgAction = localStorage.getItem("signup-orgAction");
+        const _companyName = localStorage.getItem("signup-companyName");
+        const _role = localStorage.getItem("signup-role");
+        const _partnerPhone = localStorage.getItem("signup-partnerPhone");
+        const _managerPhone = localStorage.getItem("signup-managerPhone");
+
+        if (_firstName) setFirstName(_firstName);
+        if (_lastName) setLastName(_lastName);
+        if (_orgAction === "create" || _orgAction === "join") setOrgAction(_orgAction);
+        if (_companyName) setCompanyName(_companyName);
+        if (_role === "key_partner" || _role === "other_partner") setRole(_role);
+        if (_partnerPhone) setPartnerPhone(_partnerPhone);
+        if (_managerPhone) setManagerPhone(_managerPhone);
+    }, []);
+
     // Verify token on mount
     useEffect(() => {
         if (!token) {
@@ -136,10 +155,25 @@ function SignupCompleteContent() {
 
             if (data.status === "pending_approval") {
                 setPendingMessage(data.message);
+
+                // Form properly submitted and pending: flush stored local user input
+                const keysToRemove = [
+                    "signup-firstName", "signup-lastName", "signup-orgAction",
+                    "signup-companyName", "signup-role", "signup-partnerPhone", "signup-managerPhone"
+                ];
+                keysToRemove.forEach(k => localStorage.removeItem(k));
+
                 return;
             }
 
             if (data.access_token && data.refresh_token) {
+                // Form completely finished: flush stored local user input
+                const keysToRemove = [
+                    "signup-firstName", "signup-lastName", "signup-orgAction",
+                    "signup-companyName", "signup-role", "signup-partnerPhone", "signup-managerPhone"
+                ];
+                keysToRemove.forEach(k => localStorage.removeItem(k));
+
                 // Set session
                 const { error: sessionErr } = await supabase.auth.setSession({
                     access_token: data.access_token,
@@ -246,7 +280,7 @@ function SignupCompleteContent() {
                         name="signup-first-name"
                         autoComplete="off"
                         value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
+                        onChange={(e) => { setFirstName(e.target.value); localStorage.setItem("signup-firstName", e.target.value); }}
                         disabled={loading}
                         required
                     />
@@ -256,7 +290,7 @@ function SignupCompleteContent() {
                         name="signup-last-name"
                         autoComplete="off"
                         value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
+                        onChange={(e) => { setLastName(e.target.value); localStorage.setItem("signup-lastName", e.target.value); }}
                         disabled={loading}
                         required
                     />
@@ -272,9 +306,13 @@ function SignupCompleteContent() {
                         value={orgAction}
                         onChange={(val) => {
                             setOrgAction(val as "create" | "join");
+                            localStorage.setItem("signup-orgAction", val);
                             setCompanyName("");
+                            localStorage.removeItem("signup-companyName");
                             setPartnerPhone("");
+                            localStorage.removeItem("signup-partnerPhone");
                             setManagerPhone("");
+                            localStorage.removeItem("signup-managerPhone");
                             setError(null);
                         }}
                         options={[
@@ -293,7 +331,7 @@ function SignupCompleteContent() {
                             name="signup-company-name"
                             autoComplete="off"
                             value={companyName}
-                            onChange={(e) => setCompanyName(e.target.value)}
+                            onChange={(e) => { setCompanyName(e.target.value); localStorage.setItem("signup-companyName", e.target.value); }}
                             disabled={loading}
                             required
                         />
@@ -313,8 +351,11 @@ function SignupCompleteContent() {
                                 value={role}
                                 onChange={(val) => {
                                     setRole(val as "key_partner" | "other_partner");
+                                    localStorage.setItem("signup-role", val);
                                     setPartnerPhone("");
+                                    localStorage.removeItem("signup-partnerPhone");
                                     setManagerPhone("");
+                                    localStorage.removeItem("signup-managerPhone");
                                     setError(null);
                                 }}
                                 options={[
@@ -339,6 +380,7 @@ function SignupCompleteContent() {
                                         onChange={(e) => {
                                             const val = e.target.value.replace(/\D/g, "").slice(0, 10);
                                             setPartnerPhone(val);
+                                            localStorage.setItem("signup-partnerPhone", val);
                                         }}
                                         disabled={loading}
                                         required
@@ -366,6 +408,7 @@ function SignupCompleteContent() {
                                         onChange={(e) => {
                                             const val = e.target.value.replace(/\D/g, "").slice(0, 10);
                                             setManagerPhone(val);
+                                            localStorage.setItem("signup-managerPhone", val);
                                         }}
                                         disabled={loading}
                                         required
