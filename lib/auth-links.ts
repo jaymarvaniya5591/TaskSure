@@ -43,9 +43,10 @@ interface VerifyTokenResult {
  */
 export async function generateAuthToken(
     phone: string,
-    type: TokenType
+    type: TokenType,
+    existingClient?: ReturnType<typeof createAdminClient>
 ): Promise<GenerateTokenResult> {
-    const supabase = createAdminClient()
+    const supabase = existingClient ?? createAdminClient()
     const token = generateSecureToken()
     const normalizedPhone = normalizePhone(phone)
     const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_MINUTES * 60 * 1000).toISOString()
