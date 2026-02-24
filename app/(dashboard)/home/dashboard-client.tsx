@@ -7,12 +7,12 @@ import { type Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import TaskCard from "@/components/dashboard/TaskCard";
 import { getTaskColorCategory } from "@/lib/colors";
-import { AlertTriangle, Clock, AlertCircle, CalendarDays } from "lucide-react";
+import { User, Clock, AlertCircle, CalendarDays } from "lucide-react";
 
 interface DashboardClientProps {
     currentUserId: string;
     allTasks: Task[];
-    actionRequired: Task[];
+    assignedToMe: Task[];
     waitingOnOthers: Task[];
     overdueTasks: Task[];
 }
@@ -20,7 +20,7 @@ interface DashboardClientProps {
 export default function DashboardClient({
     currentUserId,
     allTasks,
-    actionRequired,
+    assignedToMe,
     waitingOnOthers,
     overdueTasks,
 }: DashboardClientProps) {
@@ -63,8 +63,8 @@ export default function DashboardClient({
             sortedTasks = todaysTasks;
         } else {
             const tempMap = new Map<string, Task>();
-            if (taskFilters.has('action')) {
-                actionRequired.filter(t => !isTodo(t)).forEach(t => tempMap.set(t.id, t));
+            if (taskFilters.has('assigned')) {
+                assignedToMe.filter(t => !isTodo(t)).forEach(t => tempMap.set(t.id, t));
             }
             if (taskFilters.has('waiting')) {
                 waitingOnOthers.filter(t => !isTodo(t)).forEach(t => tempMap.set(t.id, t));
@@ -87,7 +87,7 @@ export default function DashboardClient({
         }
 
         return { displayTasks: sortedTasks, displayTodos: sortedTodos };
-    }, [taskFilters, todoFilters, todaysTasks, todaysTodos, actionRequired, waitingOnOthers, overdueTasks]);
+    }, [taskFilters, todoFilters, todaysTasks, todaysTodos, assignedToMe, waitingOnOthers, overdueTasks]);
 
 
 
@@ -190,16 +190,16 @@ export default function DashboardClient({
                         {/* Task Filters */}
                         <div className="flex gap-1.5 sm:gap-2 items-center w-full">
                             <button
-                                onClick={() => toggleFilter('action', true)}
+                                onClick={() => toggleFilter('assigned', true)}
                                 className={cn(
                                     "flex-1 px-1 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-[9px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all duration-200 border backdrop-blur-sm text-center leading-tight",
-                                    taskFilters.has('action')
-                                        ? "bg-red-500/90 text-white border-red-400 shadow-md"
+                                    taskFilters.has('assigned')
+                                        ? "bg-amber-500/90 text-white border-amber-400 shadow-md"
                                         : "bg-white/70 text-gray-700 border-white/50 hover:bg-white/90 shadow-sm"
                                 )}
                             >
-                                <AlertTriangle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                <span className="truncate w-full sm:w-auto">Action Req.</span>
+                                <User className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                <span className="truncate w-full sm:w-auto">Assigned</span>
                             </button>
                             <button
                                 onClick={() => toggleFilter('waiting', true)}

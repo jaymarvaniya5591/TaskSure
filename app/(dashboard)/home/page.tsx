@@ -10,32 +10,30 @@ import {
     extractUserId,
     getPendingInfo,
 } from "@/lib/task-service";
+import { endOfDay } from "date-fns";
 import { DashboardHomeSkeleton } from "@/components/ui/DashboardSkeleton";
 
 export default function HomePage() {
     const { userId, tasks: allTasks, allOrgTasks, isLoading } = useUserContext();
 
-    const { actionRequired, waitingOnOthers, overdueTasks } = useMemo(() => {
+    const { assignedToMe, waitingOnOthers, overdueTasks } = useMemo(() => {
         if (isLoading || !allTasks.length) {
-            return { actionRequired: [], waitingOnOthers: [], overdueTasks: [] };
+            return { assignedToMe: [], waitingOnOthers: [], overdueTasks: [] };
         }
 
         const now = new Date();
+        const todayEnd = endOfDay(now);
 
-        const actionReq = allTasks.filter((t) => {
+        // Assigned to me: tasks for today where I am NOT the owner (creator)
+        // Uses d <= todayEnd so overdue assigned tasks (deadline < today) are included
+        const assigned = allTasks.filter((t) => {
             if (!isActive(t) || isTodo(t)) return false;
-            const assigneeId = extractUserId(t.assigned_to);
-            if (assigneeId === userId && t.status === "pending" && !t.committed_deadline) {
-                const mySubsPending = allOrgTasks.some(
-                    (sub) =>
-                        sub.parent_task_id === t.id &&
-                        extractUserId(sub.created_by) === userId &&
-                        sub.status === "pending" &&
-                        !sub.committed_deadline
-                );
-                return !mySubsPending;
-            }
-            return false;
+            const creatorId = extractUserId(t.created_by);
+            if (creatorId === userId) return false; // I own it, skip
+            const dl = t.committed_deadline || t.deadline;
+            if (!dl) return false;
+            const d = new Date(dl);
+            return d <= todayEnd;
         });
 
         const waitingOthers = allTasks.filter((t) => {
@@ -53,7 +51,7 @@ export default function HomePage() {
             );
         });
 
-        return { actionRequired: actionReq, waitingOnOthers: waitingOthers, overdueTasks: overdue };
+        return { assignedToMe: assigned, waitingOnOthers: waitingOthers, overdueTasks: overdue };
     }, [allTasks, allOrgTasks, userId, isLoading]);
 
     // Show skeleton while data is loading
@@ -67,7 +65,7 @@ export default function HomePage() {
         <DashboardClient
             currentUserId={userId}
             allTasks={allTasks}
-            actionRequired={actionRequired}
+            assignedToMe={assignedToMe}
             waitingOnOthers={waitingOnOthers}
             overdueTasks={overdueTasks}
         />
