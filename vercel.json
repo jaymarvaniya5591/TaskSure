@@ -3,11 +3,6 @@
     "regions": [
         "sin1"
     ],
-    "functions": {
-        "app/api/**/*": {
-            "maxDuration": 10
-        }
-    },
     "crons": [
         {
             "path": "/api/keep-warm",
