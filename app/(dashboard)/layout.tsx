@@ -88,6 +88,8 @@ export default async function DashboardLayout({
             userId={currentUser.id}
             userName={currentUser.name || "User"}
             orgId={currentUser.organisation_id}
+            userPhoneNumber={currentUser.phone_number || ""}
+            reportingManagerId={currentUser.reporting_manager_id}
             initialData={initialData}
         >
             {children}

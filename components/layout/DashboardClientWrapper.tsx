@@ -28,12 +28,16 @@ export function DashboardClientWrapper({
     userId,
     userName,
     orgId,
+    userPhoneNumber,
+    reportingManagerId,
     initialData,
 }: {
     children: React.ReactNode;
     userId: string;
     userName: string;
     orgId: string;
+    userPhoneNumber: string;
+    reportingManagerId: string | null;
     initialData?: DashboardInitialData;
 }) {
     // Use React Query with server-prefetched initialData.
@@ -50,13 +54,15 @@ export function DashboardClientWrapper({
         userId,
         userName,
         orgId,
+        userPhoneNumber,
+        reportingManagerId,
         orgUsers: data ? getUsersAtOrBelowRank(data.orgUsers, userId) : [],
         allOrgUsers: data ? data.orgUsers : [],
         tasks: data ? data.tasks : [],
         allOrgTasks: data ? data.allOrgTasks : [],
         isLoading,
         refreshData,
-    }), [userId, userName, orgId, data, isLoading, refreshData]);
+    }), [userId, userName, orgId, userPhoneNumber, reportingManagerId, data, isLoading, refreshData]);
 
     return (
         <SidebarProvider>

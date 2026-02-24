@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useUserContext } from "@/lib/user-context";
 import { User, Building, Phone, ShieldCheck, CheckCircle2, X } from "lucide-react";
-import { ProfileSkeleton } from "@/components/ui/DashboardSkeleton";
 
 interface UserProfile {
     id: string;
@@ -18,15 +17,23 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
-    const { userId } = useUserContext();
+    const {
+        userId,
+        userName,
+        orgId,
+        userPhoneNumber,
+        reportingManagerId,
+        allOrgUsers,
+    } = useUserContext();
     const supabase = createClient();
+    const queryClient = useQueryClient();
 
     // Edit states
     const [isEditingName, setIsEditingName] = useState(false);
-    const [editName, setEditName] = useState("");
+    const [editName, setEditName] = useState(userName || "");
 
     const [isEditingPhone, setIsEditingPhone] = useState(false);
-    const [editPhone, setEditPhone] = useState("");
+    const [editPhone, setEditPhone] = useState(userPhoneNumber || "");
     const [otpSent, setOtpSent] = useState(false);
     const [otp, setOtp] = useState("");
 
@@ -40,49 +47,40 @@ export default function ProfilePage() {
     const [managerForCompanyPhone, setManagerForCompanyPhone] = useState("");
     const [companyVerifySent, setCompanyVerifySent] = useState(false);
 
-    // ── Load profile with React Query (parallel queries, cached per session) ──
-    const { data: profile, isLoading } = useQuery({
-        queryKey: ["user-profile-page", userId],
+    // ── Derive manager from allOrgUsers (already cached, 0ms) ──
+    const manager = useMemo(() => {
+        if (!reportingManagerId) return null;
+        const mgr = allOrgUsers.find(u => u.id === reportingManagerId);
+        if (!mgr) return null;
+        return { name: mgr.name, phone_number: mgr.phone_number || "" };
+    }, [reportingManagerId, allOrgUsers]);
+
+    // ── Fetch org name only (tiny query, cached session-wide) ──
+    const { data: orgName } = useQuery({
+        queryKey: ["org-name", orgId],
         queryFn: async () => {
-            if (!userId) throw new Error("No user ID");
-
-            // Fetch basic user profile first
-            const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('id, name, phone_number, reporting_manager_id, organisation_id')
-                .eq('id', userId)
+            if (!orgId) return null;
+            const { data } = await supabase
+                .from("organisations")
+                .select("name")
+                .eq("id", orgId)
                 .single();
-
-            if (userError) throw userError;
-
-            // Fetch org and manager in parallel
-            const [orgResult, managerResult] = await Promise.all([
-                userData.organisation_id
-                    ? supabase.from('organisations').select('name').eq('id', userData.organisation_id).single()
-                    : Promise.resolve({ data: null }),
-                userData.reporting_manager_id
-                    ? supabase.from('users').select('name, phone_number').eq('id', userData.reporting_manager_id).single()
-                    : Promise.resolve({ data: null }),
-            ]);
-
-            const formattedProfile: UserProfile = {
-                ...userData,
-                phone_number: userData.phone_number || "",
-                organisation: orgResult.data ? { name: orgResult.data.name } : null,
-                manager: managerResult.data ? {
-                    ...managerResult.data,
-                    phone_number: managerResult.data.phone_number || ""
-                } : null,
-            };
-
-            // Initialize edit states
-            setEditName(formattedProfile.name || "");
-            setEditPhone(formattedProfile.phone_number || "");
-
-            return formattedProfile;
+            return data?.name || null;
         },
-        enabled: !!userId,
+        staleTime: Infinity,
+        enabled: !!orgId,
     });
+
+    // ── Construct profile from context data (0ms — no network call) ──
+    const profile: UserProfile = useMemo(() => ({
+        id: userId,
+        name: userName,
+        phone_number: userPhoneNumber,
+        reporting_manager_id: reportingManagerId,
+        organisation_id: orgId,
+        organisation: orgName ? { name: orgName } : null,
+        manager,
+    }), [userId, userName, userPhoneNumber, reportingManagerId, orgId, orgName, manager]);
 
     // Name Update
     const handleSaveName = async () => {
@@ -93,6 +91,8 @@ export default function ProfilePage() {
         } else {
             alert("Name updated successfully!");
             setIsEditingName(false);
+            // Invalidate dashboard data so context refreshes with updated name
+            queryClient.invalidateQueries({ queryKey: ["dashboard"] });
         }
     };
 
@@ -146,10 +146,6 @@ export default function ProfilePage() {
             }, 3000);
         }
     };
-
-    if (isLoading || !profile) {
-        return <ProfileSkeleton />;
-    }
 
     /* ────────────────────────────────────────────────────────────────────────
        Shared style tokens for uniformity & readability

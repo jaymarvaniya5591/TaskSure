@@ -14,6 +14,10 @@ export interface UserContextValue {
     userId: string;
     userName: string;
     orgId: string;
+    /** Current user's phone number */
+    userPhoneNumber: string;
+    /** Current user's reporting manager ID */
+    reportingManagerId: string | null;
     /** Org users filtered by hierarchy rank (for sidebar/header search). */
     orgUsers: OrgUser[];
     /** All org users without hierarchy filtering (for task/subtask creation search). */
