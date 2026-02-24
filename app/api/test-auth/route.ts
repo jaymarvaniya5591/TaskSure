@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { normalizePhone } from '@/lib/phone';
 
 // POST /api/test-auth — Generates a valid session for any user bypassing OTP
 // Body: { phone: "+919876543210" }
@@ -22,52 +23,82 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
         }
 
+        // Normalize to 10 digits for consistency
+        const phone10 = normalizePhone(phone);
+        // Build the canonical +91 format for Supabase auth lookups
+        const phoneE164 = `+91${phone10}`;
+
         const supabase = createClient(supabaseUrl, serviceRoleKey, {
             auth: { autoRefreshToken: false, persistSession: false }
         });
 
-        // 1. Check if user exists in AUTH table (not just public.users)
-        // Since we don't know the exact auth user id, we will generate a magic link.
-        // For new signups, the auth user might not exist yet. Let's create a dummy email to ensure they exist in auth.
-        const testEmail = `test_${phone.replace(/\+/g, '')}@boldo.test`;
+        // Build the test email deterministically from the 10-digit phone
+        const testEmail = `test_91${phone10}@boldo.test`;
 
-        // We must ensure the auth user exists and has this email.
-        // If they already exist with a phone but no email, this might fail to find them easily via admin API without listing users.
-        // Instead of pure magic link, let's use the admin API to manually generate a link.
+        // 1. Try to find existing auth user
+        let authUserId: string | null = null;
 
-        // First, try to find an existing auth user by phone (not strictly supported by admin API directly)
-        // Let's just create/update a user with this email and phone.
+        // Fast path: lookup via public.users table (avoids listing all auth users)
+        const { data: userLookup } = await supabase
+            .from('users')
+            .select('id')
+            .eq('phone_number', phone10)
+            .maybeSingle();
 
-        // Use admin.createUser (fails if email/phone exists)
-        let authUserId = null;
-        const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers();
-        if (!listError && existingUsers.users) {
-            const user = existingUsers.users.find(u => u.phone === phone || u.email === testEmail);
-            if (user) {
-                authUserId = user.id;
+        if (userLookup) {
+            // We found the public.users record — use its ID (same as auth user ID)
+            authUserId = userLookup.id;
+        }
+
+        if (!authUserId) {
+            // Fallback: search auth users by phone or email
+            // Use paginated search to handle large user bases
+            let page = 1;
+            const perPage = 100;
+            let found = false;
+            while (!found) {
+                const { data: listData, error: listError } = await supabase.auth.admin.listUsers({
+                    page,
+                    perPage,
+                });
+                if (listError || !listData?.users?.length) break;
+
+                const user = listData.users.find(
+                    u => normalizePhone(u.phone || '') === phone10 || u.email === testEmail
+                );
+                if (user) {
+                    authUserId = user.id;
+                    found = true;
+                }
+
+                if (listData.users.length < perPage) break;
+                page++;
             }
         }
 
         if (!authUserId) {
-            // Create user
+            // Create a new auth user with consistent phone format
             const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-                phone,
+                phone: phoneE164,
                 email: testEmail,
                 email_confirm: true,
                 phone_confirm: true,
                 password: 'TestPassword123!'
             });
-            if (createError && createError.message.includes("already registered")) {
-                // Ignore, we will rely on signInWithPassword if needed
-            } else if (newUser.user) {
-                authUserId = newUser.user.id;
+            if (createError) {
+                return NextResponse.json(
+                    { error: `Failed to create auth user: ${createError.message}` },
+                    { status: 500 }
+                );
             }
+            authUserId = newUser.user.id;
         } else {
-            // Ensure email exists for magic link
+            // Ensure the auth user has the test email set and confirmed
             await supabase.auth.admin.updateUserById(authUserId, {
                 email: testEmail,
                 email_confirm: true,
                 phone_confirm: true,
+                phone: phoneE164,
             });
         }
 
@@ -111,7 +142,7 @@ export async function POST(request: NextRequest) {
 
             if (pwdError || !pwdData.session) {
                 return NextResponse.json(
-                    { error: `Failed to create session: ${verifyError?.message || 'No session returned'}. Password fallback also failed.` },
+                    { error: `Failed to create session: ${verifyError?.message || 'No session returned'}. Password fallback also failed: ${pwdError?.message || 'unknown'}` },
                     { status: 500 }
                 );
             }

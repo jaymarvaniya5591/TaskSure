@@ -74,10 +74,11 @@ export async function POST(request: NextRequest) {
             orgId = newOrg.id;
         }
 
-        // 3. Create Auth user
+        // 3. Create Auth user — use E.164 format (+91) for phone
+        const phoneE164 = `+91${phone10}`;
         const testEmail = `test_91${phone10}@boldo.test`;
         const { data: newAuthUser, error: authError } = await supabase.auth.admin.createUser({
-            phone: phone10,
+            phone: phoneE164,
             email: testEmail,
             email_confirm: true,
             phone_confirm: true,
