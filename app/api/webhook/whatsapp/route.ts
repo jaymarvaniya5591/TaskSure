@@ -298,10 +298,72 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                 const normalizedText = textBody.replace(/\s+/g, '').toLowerCase()
                 const isSignin = normalizedText === 'signin' || normalizedText === 'login'
 
-                // --- STEP A: Check if sender is a registered user (cached) ---
+                // --- SIGNIN FAST PATH: parallelize user lookup + token generation ---
+                if (isSignin) {
+                    console.log(`[Webhook] Signin fast-path for: ${senderPhone10}`)
+
+                    try {
+                        // Run user lookup and token generation IN PARALLEL
+                        // Token is generated optimistically — if user doesn't exist, token is unused (expires naturally)
+                        const tParallel = Date.now()
+                        const [registeredUser, tokenResult] = await Promise.all([
+                            getCachedUser(senderPhone10, supabase),
+                            generateAuthToken(senderPhone10, 'signin', supabase),
+                        ])
+                        console.log(`[Webhook] Parallel lookup+token took ${Date.now() - tParallel}ms`)
+
+                        if (!registeredUser) {
+                            // Not registered — send signup link instead
+                            console.log(`[Webhook] Unregistered user tried signin: ${senderPhone10}`)
+                            const signupToken = await generateAuthToken(senderPhone10, 'signup', supabase)
+                            if (signupToken.success && signupToken.token) {
+                                await sendSignupLinkTemplate(rawSenderPhone, signupToken.token)
+                            } else {
+                                await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again later.')
+                            }
+
+                            // Fire-and-forget log
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            ; (supabase as any)
+                                .from('incoming_messages')
+                                .insert({ phone: senderPhone10, raw_text: textBody || `[${messageType}]`, payload: body, processed: true, intent_type: 'auth_signup' })
+                                .then(() => { /* ignore */ })
+                                .catch((logErr: unknown) => console.error('[Webhook] Error logging:', logErr))
+                            continue
+                        }
+
+                        if (tokenResult.success && tokenResult.token) {
+                            // Fire-and-forget keep-warm
+                            fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
+
+                            // Send the signin link (critical await)
+                            const tSend = Date.now()
+                            await sendSigninLinkTemplate(rawSenderPhone, registeredUser.name, tokenResult.token)
+                            console.log(`[Webhook] Template send took ${Date.now() - tSend}ms`)
+                        } else {
+                            console.error('[Webhook] Token generation failed:', tokenResult.error)
+                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                        }
+                    } catch (err) {
+                        console.error('[Webhook] Error in signin fast-path:', err)
+                    }
+
+                    // Log as auth_signin — FIRE-AND-FORGET
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    ; (supabase as any)
+                        .from('incoming_messages')
+                        .insert({ phone: senderPhone10, raw_text: textBody || `[${messageType}]`, payload: body, processed: true, intent_type: 'auth_signin' })
+                        .then(() => { /* ignore */ })
+                        .catch((logErr: unknown) => console.error('[Webhook] Error logging:', logErr))
+
+                    console.log(`[Webhook] Total signin time: ${Date.now() - t0}ms`)
+                    continue
+                }
+
+                // --- NON-SIGNIN: regular user lookup ---
                 const tLookup = Date.now()
                 const registeredUser = await getCachedUser(senderPhone10, supabase)
-                console.log(`[Webhook] User lookup took ${Date.now() - tLookup}ms (cached=${knownUsersCache.has(senderPhone10)})`)
+                console.log(`[Webhook] User lookup took ${Date.now() - tLookup}ms`)
 
                 // --- STEP B: UNREGISTERED USER → send signup link ---
                 if (!registeredUser) {
@@ -322,61 +384,11 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     ; (supabase as any)
                         .from('incoming_messages')
-                        .insert({
-                            phone: senderPhone10,
-                            raw_text: textBody || `[${messageType}]`,
-                            payload: body,
-                            processed: true,
-                            intent_type: 'auth_signup',
-                        })
+                        .insert({ phone: senderPhone10, raw_text: textBody || `[${messageType}]`, payload: body, processed: true, intent_type: 'auth_signup' })
                         .then(() => { /* ignore */ })
                         .catch((logErr: unknown) => console.error('[Webhook] Error logging:', logErr))
 
                     console.log(`[Webhook] Total time: ${Date.now() - t0}ms`)
-                    continue
-                }
-
-                // --- STEP C: REGISTERED USER + strict "signin" / "login" → FAST PATH ---
-                if (isSignin) {
-                    console.log(`[Webhook] Signin request from registered user: ${senderPhone10}`)
-
-                    try {
-                        // Generate token (reuse supabase client)
-                        const tToken = Date.now()
-                        const tokenResult = await generateAuthToken(senderPhone10, 'signin', supabase)
-                        console.log(`[Webhook] Token generation took ${Date.now() - tToken}ms`)
-
-                        if (tokenResult.success && tokenResult.token) {
-                            // Fire-and-forget keep-warm
-                            fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
-
-                            // Send the signin link (this is the critical await)
-                            const tSend = Date.now()
-                            await sendSigninLinkTemplate(rawSenderPhone, registeredUser.name, tokenResult.token)
-                            console.log(`[Webhook] Template send took ${Date.now() - tSend}ms`)
-                        } else {
-                            console.error('[Webhook] Token generation failed:', tokenResult.error)
-                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
-                        }
-                    } catch (err) {
-                        console.error('[Webhook] Error sending signin link:', err)
-                    }
-
-                    // Log as auth_signin — FIRE-AND-FORGET (don't hold up response)
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    ; (supabase as any)
-                        .from('incoming_messages')
-                        .insert({
-                            phone: senderPhone10,
-                            raw_text: textBody || `[${messageType}]`,
-                            payload: body,
-                            processed: true,
-                            intent_type: 'auth_signin',
-                        })
-                        .then(() => { /* ignore */ })
-                        .catch((logErr: unknown) => console.error('[Webhook] Error logging:', logErr))
-
-                    console.log(`[Webhook] Total signin time: ${Date.now() - t0}ms`)
                     continue
                 }
 
