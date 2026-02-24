@@ -1,9 +1,17 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ServerWarmup } from "@/components/ServerWarmup";
 
 export default function Home() {
   return (
     <main className="relative min-h-screen flex flex-col items-center justify-center p-4 bg-background">
+      {/*
+        Invisible component: fires a background keep-warm ping to /api/keep-warm
+        the moment this page loads. The ~30-60s window between landing page →
+        authentication → home is more than enough to warm the server container.
+      */}
+      <ServerWarmup />
+
       <div className="text-center max-w-2xl mx-auto space-y-8">
         <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight text-black">
           Boldo AI.

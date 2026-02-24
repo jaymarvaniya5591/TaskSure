@@ -1,27 +1,18 @@
-import type { NextRequest } from 'next/server'
 
 /**
  * GET /api/keep-warm
  *
- * Lightweight endpoint that Vercel cron hits every 5 minutes to prevent
- * cold starts on serverless functions in the sin1 (Singapore) region.
- * This keeps the function container warm so auth link requests are instant.
+ * Lightweight public endpoint that keeps the sin1 serverless function
+ * container warm. Called by:
+ *  1. Landing page (boldoai.in) on every visit — fires a background fetch
+ *  2. WhatsApp webhook — fires when an auth link is sent out
+ *  3. External cron (cron-job.org or UptimeRobot) — optional free ping
+ *
+ * No auth required — it does nothing sensitive, just returns a timestamp.
  */
-
-// Co-locate with Supabase
 export const preferredRegion = 'sin1'
 
-export function GET(request: NextRequest) {
-    const authHeader = request.headers.get('authorization')
-
-    // In production, Vercel cron sends this header automatically
-    if (
-        process.env.CRON_SECRET &&
-        authHeader !== `Bearer ${process.env.CRON_SECRET}`
-    ) {
-        return new Response('Unauthorized', { status: 401 })
-    }
-
+export function GET() {
     return Response.json({
         status: 'warm',
         region: process.env.VERCEL_REGION || 'local',

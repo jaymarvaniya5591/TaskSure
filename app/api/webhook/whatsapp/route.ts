@@ -173,6 +173,10 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                             const sendTo = rawSenderPhone
 
+                            // Pre-warm the server BEFORE sending the link.
+                            // By the time user reads the message and taps the link, server is hot.
+                            fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
+
                             await sendWhatsAppMessage(
                                 sendTo,
                                 `Psst... you're not in the system yet. 👀\n\nLet's fix that. Click below to join Boldo AI and get started:\n${signupUrl}\n\n⏳ This link self-destructs in 15 minutes. No pressure.`
@@ -216,6 +220,10 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             const signinUrl = buildAuthUrl(tokenResult.token)
 
                             const sendTo = rawSenderPhone
+
+                            // Pre-warm the server BEFORE sending the link.
+                            // User reads WhatsApp → taps link → server already warm.
+                            fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
 
                             await sendWhatsAppMessage(
                                 sendTo,
