@@ -30,7 +30,8 @@ export default function ProfilePage() {
 
     // Edit states
     const [isEditingName, setIsEditingName] = useState(false);
-    const [editName, setEditName] = useState(userName || "");
+    const [editFirstName, setEditFirstName] = useState("");
+    const [editLastName, setEditLastName] = useState("");
 
     const [isEditingPhone, setIsEditingPhone] = useState(false);
     const [editPhone, setEditPhone] = useState(userPhoneNumber || "");
@@ -71,6 +72,20 @@ export default function ProfilePage() {
         enabled: !!orgId,
     });
 
+    // ── Fetch user first_name and last_name ──
+    const { data: userNames } = useQuery({
+        queryKey: ["user-names", userId],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from("users")
+                .select("first_name, last_name")
+                .eq("id", userId)
+                .single();
+            return data || { first_name: "", last_name: "" };
+        },
+        staleTime: Infinity,
+    });
+
     // ── Construct profile from context data (0ms — no network call) ──
     const profile: UserProfile = useMemo(() => ({
         id: userId,
@@ -84,8 +99,17 @@ export default function ProfilePage() {
 
     // Name Update
     const handleSaveName = async () => {
-        if (!editName.trim()) return alert("Name cannot be empty");
-        const { error } = await supabase.from('users').update({ name: editName }).eq('id', userId);
+        if (!editFirstName.trim()) return alert("First name cannot be empty");
+        if (!editLastName.trim()) return alert("Last name cannot be empty");
+
+        const newFullName = `${editFirstName.trim()} ${editLastName.trim()}`;
+
+        const { error } = await supabase.from('users').update({
+            first_name: editFirstName.trim(),
+            last_name: editLastName.trim(),
+            name: newFullName
+        }).eq('id', userId);
+
         if (error) {
             alert("Failed to update name");
         } else {
@@ -93,6 +117,7 @@ export default function ProfilePage() {
             setIsEditingName(false);
             // Invalidate dashboard data so context refreshes with updated name
             queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+            queryClient.invalidateQueries({ queryKey: ["user-names", userId] });
         }
     };
 
@@ -179,13 +204,25 @@ export default function ProfilePage() {
                                     <div className="space-y-3">
                                         <input
                                             type="text"
-                                            value={editName}
-                                            onChange={(e) => setEditName(e.target.value)}
+                                            value={editFirstName}
+                                            onChange={(e) => setEditFirstName(e.target.value)}
                                             className={inputBase}
-                                            placeholder="First and Last Name"
+                                            placeholder="First Name"
                                             autoComplete="new-password"
                                             autoCorrect="off"
-                                            autoCapitalize="none"
+                                            autoCapitalize="words"
+                                            spellCheck={false}
+                                            inputMode="text"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={editLastName}
+                                            onChange={(e) => setEditLastName(e.target.value)}
+                                            className={inputBase}
+                                            placeholder="Last Name"
+                                            autoComplete="new-password"
+                                            autoCorrect="off"
+                                            autoCapitalize="words"
                                             spellCheck={false}
                                             inputMode="text"
                                         />
@@ -197,7 +234,11 @@ export default function ProfilePage() {
                                 ) : (
                                     <div className="flex items-center justify-between gap-3 min-h-[44px]">
                                         <p className={valueDisplay}>{profile.name}</p>
-                                        <button onClick={() => setIsEditingName(true)} className={`${btnPrimary} bg-blue-50 text-blue-600 hover:bg-blue-100`}>Edit</button>
+                                        <button onClick={() => {
+                                            setEditFirstName(userNames?.first_name || profile.name.split(' ')[0] || "");
+                                            setEditLastName(userNames?.last_name || profile.name.substring(profile.name.indexOf(' ') + 1) || "");
+                                            setIsEditingName(true);
+                                        }} className={`${btnPrimary} bg-blue-50 text-blue-600 hover:bg-blue-100`}>Edit</button>
                                     </div>
                                 )}
                             </div>
