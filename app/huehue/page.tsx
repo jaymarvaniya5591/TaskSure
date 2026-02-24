@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
 
 type Step = "phone" | "registering" | "logging-in";
 
@@ -22,57 +21,32 @@ export default function TesterLoginPage() {
 
     const [statusMsg, setStatusMsg] = useState("");
 
-    const doLogin = async (phone10: string) => {
+    // Check URL params for errors on mount
+    React.useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const err = params.get("error");
+        if (err) {
+            const errorMessages: Record<string, string> = {
+                config: "Server configuration error",
+                missing_phone: "Phone number is required",
+                create_failed: "Failed to create auth user",
+                login_failed: "Login failed. Please try again.",
+                unknown: "Something went wrong. Please try again.",
+            };
+            setError(errorMessages[err] || `Error: ${err}`);
+            // Clean URL
+            window.history.replaceState({}, "", "/huehue");
+        }
+    }, []);
+
+    const doLogin = (phone10: string) => {
         setStep("logging-in");
         setStatusMsg("Creating session...");
         setError(null);
 
-        try {
-            const res = await fetch("/api/test-auth", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ phone: `+91${phone10}` }),
-            });
-            const data = await res.json();
-
-            if (!data.success) {
-                setError(data.error || "Login failed");
-                setStep("phone");
-                return;
-            }
-
-            setStatusMsg("Setting session...");
-
-            // Set session on the browser's Supabase client (writes cookies via @supabase/ssr)
-            const supabase = createClient();
-            const { error: sessionError } = await supabase.auth.setSession({
-                access_token: data.access_token,
-                refresh_token: data.refresh_token,
-            });
-
-            if (sessionError) {
-                setError(`Session error: ${sessionError.message}`);
-                setStep("phone");
-                return;
-            }
-
-            // Verify the session was actually established and cookies are set
-            const { data: userData, error: userError } = await supabase.auth.getUser();
-            if (userError || !userData.user) {
-                setError("Session was set but user verification failed. Please try again.");
-                setStep("phone");
-                return;
-            }
-
-            setStatusMsg("Redirecting to dashboard...");
-            // Small delay to ensure cookies are fully flushed to the browser
-            await new Promise(resolve => setTimeout(resolve, 500));
-            window.location.href = "/home";
-        } catch (err) {
-            console.error(err);
-            setError("Something went wrong. Try again.");
-            setStep("phone");
-        }
+        // Navigate directly to the API route — it returns a redirect with cookies set
+        // This is a full-page navigation, NOT a fetch(), so Set-Cookie headers are applied
+        window.location.href = `/api/test-auth?phone=${phone10}`;
     };
 
     const handlePhoneSubmit = async (e: React.FormEvent) => {
@@ -98,16 +72,16 @@ export default function TesterLoginPage() {
             const data = await res.json();
 
             if (data.exists) {
-                // User exists — log them in directly
-                await doLogin(digits);
+                // User exists — navigate to test-auth which sets cookies and redirects
+                doLogin(digits);
             } else {
                 // User doesn't exist — show registration form
                 setShowRegister(true);
+                setLoading(false);
             }
         } catch (err) {
             console.error(err);
             setError("Something went wrong. Try again.");
-        } finally {
             setLoading(false);
         }
     };
@@ -146,12 +120,12 @@ export default function TesterLoginPage() {
             }
 
             setStatusMsg("User created! Logging in...");
-            await doLogin(digits);
+            // Navigate to test-auth for the newly registered user
+            doLogin(digits);
         } catch (err) {
             console.error(err);
             setError("Registration failed. Try again.");
             setStep("phone");
-        } finally {
             setLoading(false);
         }
     };
