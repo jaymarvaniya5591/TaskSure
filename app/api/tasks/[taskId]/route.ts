@@ -195,7 +195,7 @@ export async function PATCH(
                 return NextResponse.json({ error: "Only the owner can change the assignee" }, { status: 403 });
             }
 
-            const { new_assigned_to } = body;
+            const { new_assigned_to, old_assigned_name, new_assigned_name } = body;
             if (!new_assigned_to) {
                 return NextResponse.json({ error: "new_assigned_to is required" }, { status: 400 });
             }
@@ -232,7 +232,12 @@ export async function PATCH(
                 action: "task.reassigned",
                 entity_type: "task",
                 entity_id: taskId,
-                metadata: { old_assigned_to: task.assigned_to, new_assigned_to }
+                metadata: {
+                    old_assigned_to: task.assigned_to,
+                    new_assigned_to,
+                    old_name: old_assigned_name,
+                    new_name: new_assigned_name
+                }
             });
 
             return NextResponse.json({ success: true, assigned_to: new_assigned_to });

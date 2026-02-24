@@ -197,11 +197,23 @@ export default function TaskTimeline({ taskId }: TaskTimelineProps) {
                                 >
                                     {style.label}
                                 </span>
-                                {log.users?.name && (
+                                {log.action === "task.reassigned" && (log.metadata as { old_name?: string; new_name?: string })?.new_name ? (
+                                    <div className="mt-1 flex flex-col gap-0.5">
+                                        {(log.metadata as { old_name?: string; new_name?: string }).old_name && (
+                                            <span className="text-[11px] text-red-500 line-through font-medium leading-tight break-words">
+                                                {(log.metadata as { old_name?: string; new_name?: string }).old_name}
+                                            </span>
+                                        )}
+                                        <span className="text-[11px] text-emerald-500 font-medium leading-tight break-words">
+                                            {(log.metadata as { old_name?: string; new_name?: string }).old_name ? "→ " : ""}
+                                            {(log.metadata as { old_name?: string; new_name?: string }).new_name}
+                                        </span>
+                                    </div>
+                                ) : log.users?.name ? (
                                     <p className="text-[11px] text-gray-400 font-medium truncate mt-0.5">
                                         by {log.users.name}
                                     </p>
-                                )}
+                                ) : null}
                             </div>
                             <div className="text-right shrink-0 ml-3">
                                 <span className="text-[11px] font-medium text-gray-400 block">

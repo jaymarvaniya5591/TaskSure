@@ -243,26 +243,20 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
         });
     }
 
-    async function handleEditPersons(newAssigneeId: string) {
+    async function handleEditPersons(newAssigneeId: string, oldAssigneeName?: string | null, newAssigneeName?: string | null) {
         setLoading(true);
         actionMutation.mutate({
             url: `/api/tasks/${task.id}`,
             method: "PATCH",
-            body: { action: "edit_persons", new_assigned_to: newAssigneeId },
+            body: {
+                action: "edit_persons",
+                new_assigned_to: newAssigneeId,
+                old_assigned_name: oldAssigneeName,
+                new_assigned_name: newAssigneeName
+            },
         });
     }
 
-    async function handleRemovePerson() {
-        // Remove assignee = reassign to self (owner), converting to a to-do
-        const ownerId = extractUserId(task.created_by);
-        if (!ownerId) return;
-        setLoading(true);
-        actionMutation.mutate({
-            url: `/api/tasks/${task.id}`,
-            method: "PATCH",
-            body: { action: "edit_persons", new_assigned_to: ownerId },
-        });
-    }
 
     async function handleDelete() {
         setLoading(true);
@@ -400,7 +394,6 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
                 <PortalModal>
                     <EditPersonsModal
                         onSubmit={handleEditPersons}
-                        onRemove={handleRemovePerson}
                         onClose={() => setModal(null)}
                         loading={loading}
                         orgUsers={orgUsers}
@@ -814,15 +807,13 @@ function CreateSubtaskModal({
 
 function EditPersonsModal({
     onSubmit,
-    onRemove,
     onClose,
     loading,
     orgUsers,
     currentUserId,
     task,
 }: {
-    onSubmit: (newAssigneeId: string) => void;
-    onRemove: () => void;
+    onSubmit: (newAssigneeId: string, oldAssigneeName?: string | null, newAssigneeName?: string | null) => void;
     onClose: () => void;
     loading: boolean;
     orgUsers: OrgUser[];
@@ -831,6 +822,7 @@ function EditPersonsModal({
 }) {
     const [selected, setSelected] = useState<OrgUser | null>(null);
     const [showSearch, setShowSearch] = useState(false);
+    const [removedCurrent, setRemovedCurrent] = useState(false);
 
     // Resolve current assignee details
     const currentAssigneeId = extractUserId(task.assigned_to);
@@ -866,7 +858,7 @@ function EditPersonsModal({
 
             <div className={MODAL.body}>
                 {/* Current Assignee Section */}
-                {currentAssigneeId && !isSelfAssigned && (
+                {currentAssigneeId && !isSelfAssigned && !removedCurrent && (
                     <div className="mb-5">
                         <label className={MODAL.label}>Current Assignee</label>
                         <div className="flex items-center justify-between px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50/80">
@@ -887,7 +879,7 @@ function EditPersonsModal({
                             </div>
                             {isTaskOwner && (
                                 <button
-                                    onClick={onRemove}
+                                    onClick={() => setRemovedCurrent(true)}
                                     disabled={loading}
                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 shrink-0 ml-2"
                                 >
@@ -968,12 +960,18 @@ function EditPersonsModal({
                 <div className="flex gap-3">
                     <button onClick={onClose} className={MODAL.btnCancel}>Cancel</button>
                     <button
-                        onClick={() => onSubmit(selected!.id)}
-                        disabled={loading || !selected}
+                        onClick={() => {
+                            if (selected) {
+                                onSubmit(selected.id, assigneeName ?? undefined, selected.name);
+                            } else if (removedCurrent) {
+                                onSubmit(currentOwnerId || "", assigneeName ?? undefined, "Self");
+                            }
+                        }}
+                        disabled={loading || (!selected && !removedCurrent)}
                         className={makeBtnPrimary("bg-violet-600")}
                     >
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                        Update
+                        Save
                     </button>
                 </div>
             </div>
