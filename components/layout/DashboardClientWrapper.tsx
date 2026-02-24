@@ -8,19 +8,38 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { getUsersAtOrBelowRank } from "@/lib/hierarchy";
 import { useQueryClient } from "@tanstack/react-query";
+import { type Task } from "@/lib/types";
+
+interface DashboardInitialData {
+    tasks: Task[];
+    orgUsers: Array<{
+        id: string;
+        name: string;
+        phone_number: string;
+        role: string;
+        reporting_manager_id: string | null;
+        avatar_url: string | null;
+    }>;
+    allOrgTasks: Task[];
+}
 
 export function DashboardClientWrapper({
     children,
     userId,
     userName,
     orgId,
+    initialData,
 }: {
     children: React.ReactNode;
     userId: string;
     userName: string;
     orgId: string;
+    initialData?: DashboardInitialData;
 }) {
-    const { data, isLoading, isError } = useDashboardData(userId, orgId);
+    // Use React Query with server-prefetched initialData.
+    // On first render, data is available immediately (no loading state).
+    // React Query will NOT refetch because staleTime is Infinity.
+    const { data, isLoading, isError } = useDashboardData(userId, orgId, initialData);
     const queryClient = useQueryClient();
 
     const refreshData = useCallback(async () => {

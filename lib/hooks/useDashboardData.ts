@@ -7,7 +7,31 @@ import {
     getPendingInfo,
 } from "@/lib/task-service";
 
-export function useDashboardData(userId: string, orgId: string) {
+interface DashboardData {
+    tasks: Task[];
+    orgUsers: Array<{
+        id: string;
+        name: string;
+        phone_number: string;
+        role: string;
+        reporting_manager_id: string | null;
+        avatar_url: string | null;
+    }>;
+    allOrgTasks: Task[];
+}
+
+/**
+ * React Query hook for dashboard data.
+ *
+ * PERFORMANCE: Accepts optional `initialData` from the server-side layout.
+ * When provided, content renders immediately on hydration — no loading skeleton,
+ * no client-side fetch waterfall. React Query won't refetch because staleTime is Infinity.
+ */
+export function useDashboardData(
+    userId: string,
+    orgId: string,
+    serverInitialData?: DashboardData,
+) {
     const supabase = createClient();
 
     return useQuery({
@@ -74,5 +98,21 @@ export function useDashboardData(userId: string, orgId: string) {
         },
         staleTime: Infinity,
         enabled: Boolean(userId && orgId),
+        // Server-prefetched data — renders immediately, no loading state
+        ...(serverInitialData ? {
+            initialData: {
+                tasks: serverInitialData.tasks.map((task) => {
+                    const pendingInfo = getPendingInfo(task, userId, serverInitialData.allOrgTasks);
+                    return {
+                        ...task,
+                        participant_count: getParticipantCount(task, serverInitialData.allOrgTasks),
+                        last_active_participant: getLastActiveParticipant(task, serverInitialData.allOrgTasks),
+                        pending_from: pendingInfo.isPending ? pendingInfo.pendingFrom : null,
+                    };
+                }),
+                orgUsers: serverInitialData.orgUsers,
+                allOrgTasks: serverInitialData.allOrgTasks,
+            },
+        } : {}),
     });
 }

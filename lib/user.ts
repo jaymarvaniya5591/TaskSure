@@ -54,3 +54,20 @@ export async function resolveCurrentUser(
 
     return null;
 }
+
+/**
+ * Fast user resolution when the auth user ID is already known
+ * (e.g. from middleware). Skips the getUser() network call entirely.
+ */
+export async function resolveUserById(
+    supabase: SupabaseClient,
+    userId: string
+): Promise<ResolvedUser | null> {
+    const { data } = await supabase
+        .from('users')
+        .select('id, name, phone_number, organisation_id, reporting_manager_id, role, avatar_url')
+        .eq('id', userId)
+        .single();
+
+    return data as ResolvedUser | null;
+}

@@ -94,6 +94,12 @@ export async function middleware(request: NextRequest) {
         return redirectResponse
     }
 
+    // Pass authenticated user ID to downstream server components via header.
+    // This eliminates the duplicate getUser() call in the dashboard layout.
+    if (user && isProtectedRoute) {
+        supabaseResponse.headers.set('x-user-id', user.id)
+    }
+
     return supabaseResponse
 }
 
