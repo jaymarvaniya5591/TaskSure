@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
 
 type Step = "phone" | "registering" | "logging-in";
 
@@ -27,12 +28,10 @@ export default function TesterLoginPage() {
         setError(null);
 
         try {
-            // Call test-auth which creates a session and sets cookies in the response
             const res = await fetch("/api/test-auth", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ phone: `+91${phone10}` }),
-                credentials: "same-origin", // ensure cookies from response are stored
             });
             const data = await res.json();
 
@@ -42,8 +41,32 @@ export default function TesterLoginPage() {
                 return;
             }
 
+            setStatusMsg("Setting session...");
+
+            // Set session on the browser's Supabase client (writes cookies via @supabase/ssr)
+            const supabase = createClient();
+            const { error: sessionError } = await supabase.auth.setSession({
+                access_token: data.access_token,
+                refresh_token: data.refresh_token,
+            });
+
+            if (sessionError) {
+                setError(`Session error: ${sessionError.message}`);
+                setStep("phone");
+                return;
+            }
+
+            // Verify the session was actually established and cookies are set
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            if (userError || !userData.user) {
+                setError("Session was set but user verification failed. Please try again.");
+                setStep("phone");
+                return;
+            }
+
             setStatusMsg("Redirecting to dashboard...");
-            // Hard navigate — cookies are already set by the API response
+            // Small delay to ensure cookies are fully flushed to the browser
+            await new Promise(resolve => setTimeout(resolve, 500));
             window.location.href = "/home";
         } catch (err) {
             console.error(err);

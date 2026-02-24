@@ -1,11 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
-import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizePhone } from '@/lib/phone';
-import { cookies } from 'next/headers';
 
 // POST /api/test-auth — Generates a valid session for any user bypassing OTP
-// Sets session cookies directly so the browser can navigate to /home immediately.
+// Returns access_token + refresh_token for the client to set via supabase.auth.setSession()
 // Body: { phone: "+919876543210" } or { phone: "9876543210" }
 export async function POST(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -54,7 +52,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (!authUserId) {
-            // Fallback: search auth users by phone or email with pagination
+            // Fallback: paginated auth user search
             let page = 1;
             const perPage = 100;
             let found = false;
@@ -125,37 +123,19 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Create a server-side Supabase client that writes cookies into the response
-        const cookieStore = await cookies();
-        const response = NextResponse.json({ success: true });
-
-        const serverClient = createServerClient(supabaseUrl, anonKey, {
-            cookies: {
-                getAll() {
-                    return cookieStore.getAll();
-                },
-                setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options }) => {
-                        // Set on the outgoing NextResponse
-                        response.cookies.set(name, value, {
-                            ...options,
-                            // Ensure cookies work on the full domain
-                            path: '/',
-                        });
-                    });
-                },
-            },
+        // Use anon key client to verify OTP and get session tokens
+        const sessionClient = createClient(supabaseUrl, anonKey, {
+            auth: { autoRefreshToken: false, persistSession: false }
         });
 
-        // Verify OTP to create a real session — cookies are written to `response`
-        const { data: verifyData, error: verifyError } = await serverClient.auth.verifyOtp({
+        const { data: verifyData, error: verifyError } = await sessionClient.auth.verifyOtp({
             type: 'magiclink',
             token_hash: tokenHash,
         });
 
         if (verifyError || !verifyData.session) {
             // Fallback: try password login
-            const { data: pwdData, error: pwdError } = await serverClient.auth.signInWithPassword({
+            const { data: pwdData, error: pwdError } = await sessionClient.auth.signInWithPassword({
                 email: testEmail,
                 password: 'TestPassword123!'
             });
@@ -166,10 +146,19 @@ export async function POST(request: NextRequest) {
                     { status: 500 }
                 );
             }
+
+            return NextResponse.json({
+                success: true,
+                access_token: pwdData.session.access_token,
+                refresh_token: pwdData.session.refresh_token,
+            });
         }
 
-        // The response already has Set-Cookie headers from the serverClient
-        return response;
+        return NextResponse.json({
+            success: true,
+            access_token: verifyData.session.access_token,
+            refresh_token: verifyData.session.refresh_token,
+        });
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ error: msg }, { status: 500 });
