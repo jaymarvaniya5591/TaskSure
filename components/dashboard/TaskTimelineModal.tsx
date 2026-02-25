@@ -195,6 +195,8 @@ export default function TaskTimeline({ taskId }: { taskId: string }) {
         queryKey: ["task-sequential-timeline", taskId],
         queryFn: () => fetchTaskHierarchy(supabase, taskId),
         staleTime: Infinity,
+        refetchOnMount: true,
+        refetchOnWindowFocus: true,
     });
 
     if (isLoading) {

@@ -48,6 +48,7 @@ export function DashboardClientWrapper({
 
     const refreshData = useCallback(async () => {
         await queryClient.invalidateQueries({ queryKey: ["dashboard", userId, orgId] });
+        await queryClient.invalidateQueries({ queryKey: ["task-sequential-timeline"] });
     }, [queryClient, userId, orgId]);
 
     const userContextValue = useMemo(() => ({
