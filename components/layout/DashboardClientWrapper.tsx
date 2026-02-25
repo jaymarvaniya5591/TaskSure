@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useEffect } from "react";
+import { useCallback, useMemo, useEffect, useRef } from "react";
 import { useDashboardData } from "@/lib/hooks/useDashboardData";
 import { UserProvider } from "@/lib/user-context";
 import { SidebarProvider } from "@/components/layout/SidebarProvider";
@@ -56,13 +56,15 @@ export function DashboardClientWrapper({
         queryClient.invalidateQueries({ queryKey: ["task-sequential-timeline"] });
     }, [queryClient, userId, orgId]);
 
-    // Seed per-task timeline caches from pre-fetched data
+    // Seed per-task timeline caches ONCE from server-prefetched data
+    const hasSeededRef = useRef(false);
     useEffect(() => {
-        if (data?.timelines) {
-            const timelineMap = new Map<string, SeqNode>(data.timelines);
+        if (!hasSeededRef.current && initialData?.timelines) {
+            const timelineMap = new Map<string, SeqNode>(initialData.timelines);
             seedTimelineCache(queryClient, timelineMap);
+            hasSeededRef.current = true;
         }
-    }, [data?.timelines, queryClient]);
+    }, [initialData?.timelines, queryClient]);
 
     const userContextValue = useMemo(() => ({
         userId,

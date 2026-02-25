@@ -6,7 +6,7 @@ import {
     getLastActiveParticipant,
     getPendingInfo,
 } from "@/lib/task-service";
-import { fetchAllTimelines, type SeqNode } from "@/lib/timeline-utils";
+import { type SeqNode } from "@/lib/timeline-utils";
 
 interface DashboardData {
     tasks: Task[];
@@ -93,18 +93,10 @@ export function useDashboardData(
                 };
             });
 
-            // Pre-fetch timelines for all root-level tasks (tasks without parent)
-            const rootTaskIds = enrichedTasks
-                .filter(t => !t.parent_task_id)
-                .map(t => t.id);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const timelineMap = await fetchAllTimelines(supabase as any, rootTaskIds);
-
             return {
                 tasks: enrichedTasks,
                 orgUsers: orgUsers || [],
                 allOrgTasks,
-                timelines: Array.from(timelineMap.entries()),
             };
         },
         staleTime: Infinity,
@@ -123,7 +115,6 @@ export function useDashboardData(
                 }),
                 orgUsers: serverInitialData.orgUsers,
                 allOrgTasks: serverInitialData.allOrgTasks,
-                timelines: serverInitialData.timelines || [],
             },
         } : {}),
     });
