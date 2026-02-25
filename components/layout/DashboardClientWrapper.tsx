@@ -49,8 +49,11 @@ export function DashboardClientWrapper({
     const queryClient = useQueryClient();
 
     const refreshData = useCallback(async () => {
+        // Await only the main dashboard data refresh
         await queryClient.invalidateQueries({ queryKey: ["dashboard", userId, orgId] });
-        await queryClient.invalidateQueries({ queryKey: ["task-sequential-timeline"] });
+        // Fire-and-forget: timeline caches refresh lazily in the background
+        // so they don't block the refresh button from completing
+        queryClient.invalidateQueries({ queryKey: ["task-sequential-timeline"] });
     }, [queryClient, userId, orgId]);
 
     // Seed per-task timeline caches from pre-fetched data

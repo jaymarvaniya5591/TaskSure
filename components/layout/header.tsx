@@ -28,10 +28,18 @@ export function Header() {
     const handleRefresh = async () => {
         setIsManualRefresh(true);
         try {
-            await refreshData();
+            // Safety timeout: stop spinner after 10s max to prevent infinite spinning
+            // if a Supabase call hangs on slow mobile networks
+            const timeout = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error("timeout")), 10000)
+            );
+            await Promise.race([refreshData(), timeout]);
             showToast("Data refreshed!", "success");
-        } catch {
-            showToast("Refresh failed", "error");
+        } catch (err) {
+            const msg = err instanceof Error && err.message === "timeout"
+                ? "Refresh timed out — please try again"
+                : "Refresh failed";
+            showToast(msg, "error");
         } finally {
             // Keep spinning for at least 600ms so the user can see it
             setTimeout(() => setIsManualRefresh(false), 600);

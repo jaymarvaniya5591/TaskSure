@@ -84,19 +84,29 @@ async function fetchTaskHierarchy(supabase: ReturnType<typeof createClient>, roo
 
     if (rootError || !rootTask) return null;
 
-    // 2. Fetch all descendant tasks iteratively
+    // 2. Fetch all descendant tasks iteratively (with cycle protection)
     const allTasks = [rootTask];
     let currentParentIds = [rootTaskId];
+    const visited = new Set<string>([rootTaskId]);
+    const MAX_DEPTH = 50;
+    let depth = 0;
 
-    while (currentParentIds.length > 0) {
+    while (currentParentIds.length > 0 && depth < MAX_DEPTH) {
+        depth++;
         const { data: children } = await supabase
             .from("tasks")
             .select("*")
             .in("parent_task_id", currentParentIds);
 
         if (!children || children.length === 0) break;
-        allTasks.push(...(children as TaskRecord[]));
-        currentParentIds = (children as TaskRecord[]).map(c => c.id);
+
+        // Filter out already-visited tasks to prevent infinite loops from circular refs
+        const newChildren = (children as TaskRecord[]).filter(c => !visited.has(c.id));
+        if (newChildren.length === 0) break;
+
+        for (const c of newChildren) visited.add(c.id);
+        allTasks.push(...newChildren);
+        currentParentIds = newChildren.map(c => c.id);
     }
 
     // 3. Collect unique user IDs and fetch their names
