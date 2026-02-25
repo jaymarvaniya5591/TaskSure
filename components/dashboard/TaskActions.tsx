@@ -169,7 +169,15 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
             });
-            if (!res.ok) throw new Error("Failed to perform action");
+            if (!res.ok) {
+                // Extract actual error message from the response body
+                let errorMsg = "Failed to perform action";
+                try {
+                    const errBody = await res.json();
+                    if (errBody?.error) errorMsg = errBody.error;
+                } catch { /* response wasn't JSON, use default */ }
+                throw new Error(errorMsg);
+            }
             return res.json();
         },
         onSuccess: () => {
@@ -178,12 +186,14 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
             if (currentUserId && orgId) {
                 queryClient.invalidateQueries({ queryKey: ["dashboard", currentUserId, orgId] });
             }
-            router.refresh(); // Fallback for components that haven't been ported yet
+            // Also invalidate timeline caches so subtask activity shows up
+            queryClient.invalidateQueries({ queryKey: ["task-timeline"] });
+            router.refresh();
         },
         onError: (err) => {
             setLoading(false);
             console.error("Action error:", err);
-            alert("Failed to perform action"); // Could use toast here
+            alert(err instanceof Error ? err.message : "Failed to perform action");
         }
     });
 

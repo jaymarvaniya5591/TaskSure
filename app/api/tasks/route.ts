@@ -48,15 +48,38 @@ export async function POST(request: NextRequest) {
         }
 
         // --- Audit Log ---
+        const isSubtask = !!parent_task_id;
+        const auditAction = isSubtask
+            ? "subtask.created"
+            : isSelfAssigned
+                ? "todo.created"
+                : "task.created";
+
         await supabase.from("audit_log").insert({
             user_id: currentUser.id,
             organisation_id: organisationId,
-            action: isSelfAssigned ? "todo.created" : "task.created",
-            entity_type: "task", // under the hood, all are stored in 'tasks' table
+            action: auditAction,
+            entity_type: "task",
             entity_id: data.id,
             metadata: { title, assigned_to, parent_task_id }
         });
 
+        // If this is a subtask, also log to the parent task so it appears
+        // in the parent's timeline as a branch-start event.
+        if (isSubtask) {
+            await supabase.from("audit_log").insert({
+                user_id: currentUser.id,
+                organisation_id: organisationId,
+                action: "subtask.created",
+                entity_type: "task",
+                entity_id: parent_task_id,
+                metadata: {
+                    subtask_id: data.id,
+                    subtask_title: title,
+                    assigned_to,
+                }
+            });
+        }
 
         return NextResponse.json({ success: true, task: data });
     } catch (e: unknown) {

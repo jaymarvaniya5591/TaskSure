@@ -137,14 +137,39 @@ export async function PATCH(
 
             if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+            // Fetch the full task to check if it's a subtask and get the title
+            const { data: fullTask } = await supabase
+                .from("tasks")
+                .select("title, parent_task_id")
+                .eq("id", taskId)
+                .single();
+
             const isTodo = task.created_by === task.assigned_to;
+            const isSubtask = !!fullTask?.parent_task_id;
+
             await supabase.from("audit_log").insert({
                 user_id: userId,
                 organisation_id: task.organisation_id,
-                action: isTodo ? "todo.completed" : "task.completed",
+                action: isSubtask ? "subtask.completed" : isTodo ? "todo.completed" : "task.completed",
                 entity_type: "task",
                 entity_id: taskId
             });
+
+            // If this is a subtask, also log to the parent task so the branch
+            // merges visually in the parent's timeline.
+            if (isSubtask && fullTask?.parent_task_id) {
+                await supabase.from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: task.organisation_id,
+                    action: "subtask.completed",
+                    entity_type: "task",
+                    entity_id: fullTask.parent_task_id,
+                    metadata: {
+                        subtask_id: taskId,
+                        subtask_title: fullTask.title,
+                    }
+                });
+            }
 
             return NextResponse.json({ success: true, status: "completed" });
         }
