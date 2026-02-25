@@ -6,7 +6,7 @@ import { isTodo } from "@/lib/task-service";
 import { AllTasksSkeleton } from "@/components/ui/DashboardSkeleton";
 
 export default function AllTasksPage() {
-    const { userId, tasks: allUniqueTasks, isLoading } = useUserContext();
+    const { userId, tasks: allUniqueTasks, allOrgTasks, isLoading } = useUserContext();
 
     if (isLoading) {
         return <AllTasksSkeleton />;
@@ -20,6 +20,7 @@ export default function AllTasksPage() {
             todos={personalTasks}
             tasks={collaborativeTasks}
             currentUserId={userId}
+            allOrgTasks={allOrgTasks}
         />
     );
 }
