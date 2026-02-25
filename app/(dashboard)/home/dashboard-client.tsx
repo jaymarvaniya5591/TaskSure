@@ -109,8 +109,7 @@ export default function DashboardClient({
             const activePredicates = Array.from(taskFilters)
                 .map(f => filterPredicates[f])
                 .filter(Boolean);
-            sortedTasks = allTasks.filter(t => {
-                if (isTodo(t)) return false;
+            sortedTasks = todaysTasks.filter(t => {
                 return activePredicates.every(pred => pred(t));
             });
         }
@@ -120,8 +119,7 @@ export default function DashboardClient({
             sortedTodos = todaysTodos;
         } else {
             // For todos, only overdue filter exists currently
-            sortedTodos = allTasks.filter(t => {
-                if (!isTodo(t)) return false;
+            sortedTodos = todaysTodos.filter(t => {
                 if (todoFilters.has('overdue')) {
                     return isOverdueTask(t);
                 }
