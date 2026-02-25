@@ -1,6 +1,12 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
-import { ServerWarmup } from "@/components/ServerWarmup";
+
+// Lazy-loaded: ServerWarmup is a fire-and-forget ping, doesn't need to be in the initial bundle
+const ServerWarmup = dynamic(
+  () => import("@/components/ServerWarmup").then(m => ({ default: m.ServerWarmup })),
+  { ssr: false }
+);
 
 export default function Home() {
   return (

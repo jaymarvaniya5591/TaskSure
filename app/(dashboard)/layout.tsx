@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { resolveUserById, resolveCurrentUser } from "@/lib/user";
 import { DashboardClientWrapper } from "@/components/layout/DashboardClientWrapper";
+import QueryProvider from "@/components/providers/QueryProvider";
+import { ToastProvider } from "@/components/ui/Toast";
 import { type Task } from "@/lib/types";
 
 /**
@@ -11,6 +13,9 @@ import { type Task } from "@/lib/types";
  * PERFORMANCE: Reads user ID from middleware header (x-user-id) to skip
  * the duplicate getUser() call. Prefetches dashboard data server-side
  * so client renders content immediately on hydration.
+ * 
+ * QueryProvider + ToastProvider are scoped here (not root layout) so
+ * landing, login, and signup pages don't pay the ~31KB React Query cost.
  */
 export default async function DashboardLayout({
     children,
@@ -84,15 +89,19 @@ export default async function DashboardLayout({
     };
 
     return (
-        <DashboardClientWrapper
-            userId={currentUser.id}
-            userName={currentUser.name || "User"}
-            orgId={currentUser.organisation_id}
-            userPhoneNumber={currentUser.phone_number || ""}
-            reportingManagerId={currentUser.reporting_manager_id}
-            initialData={initialData}
-        >
-            {children}
-        </DashboardClientWrapper>
+        <QueryProvider>
+            <ToastProvider>
+                <DashboardClientWrapper
+                    userId={currentUser.id}
+                    userName={currentUser.name || "User"}
+                    orgId={currentUser.organisation_id}
+                    userPhoneNumber={currentUser.phone_number || ""}
+                    reportingManagerId={currentUser.reporting_manager_id}
+                    initialData={initialData}
+                >
+                    {children}
+                </DashboardClientWrapper>
+            </ToastProvider>
+        </QueryProvider>
     );
 }

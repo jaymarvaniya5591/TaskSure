@@ -9,13 +9,23 @@
  */
 
 import { memo, useState } from "react";
+import dynamic from "next/dynamic";
 import { format } from "date-fns";
 import { Clock, User, Users, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type TaskColorCategory, getCategoryStyles } from "@/lib/colors";
 import { type Task } from "@/lib/types";
-import TaskActions from "./TaskActions";
-import TaskTimeline from "./TaskTimelineModal";
+
+// Dynamic imports: TaskActions (45KB) + TaskTimelineModal (8.6KB)
+// Only loaded when user interacts with a task card
+const TaskActions = dynamic(
+    () => import("./TaskActions").then(m => ({ default: m.TaskActions })),
+    { ssr: false, loading: () => <div className="w-8 h-8" /> }
+);
+const TaskTimeline = dynamic(
+    () => import("./TaskTimelineModal"),
+    { ssr: false }
+);
 
 interface TaskCardProps {
     task: Task;

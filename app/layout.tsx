@@ -1,7 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import QueryProvider from "@/components/providers/QueryProvider";
-import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
@@ -27,12 +25,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL!} />
+        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL!} />
+      </head>
       <body className={`${inter.variable} font-sans antialiased`}>
-        <QueryProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
-        </QueryProvider>
+        {children}
       </body>
     </html>
   );
