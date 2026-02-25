@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { format, isToday, startOfDay, endOfDay } from "date-fns";
 import WeeklyCalendarStrip from "@/components/dashboard/WeeklyCalendarStrip";
 import { type Task } from "@/lib/types";
@@ -8,21 +8,21 @@ import { cn } from "@/lib/utils";
 import TaskCard from "@/components/dashboard/TaskCard";
 import { getTaskColorCategory } from "@/lib/colors";
 import { User, Clock, AlertCircle, CalendarDays } from "lucide-react";
+import {
+    extractUserId,
+    getPendingInfo,
+} from "@/lib/task-service";
 
 interface DashboardClientProps {
     currentUserId: string;
     allTasks: Task[];
-    assignedToMe: Task[];
-    waitingOnOthers: Task[];
-    overdueTasks: Task[];
+    allOrgTasks: Task[];
 }
 
 export default function DashboardClient({
     currentUserId,
     allTasks,
-    assignedToMe,
-    waitingOnOthers,
-    overdueTasks,
+    allOrgTasks,
 }: DashboardClientProps) {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [mainTab, setMainTab] = useState<"tasks" | "todos">("tasks");
@@ -58,38 +58,66 @@ export default function DashboardClient({
     const todaysTasks = selectedDayTasks.filter(t => !isTodo(t));
     const todaysTodos = selectedDayTasks.filter(t => isTodo(t));
 
-    // Memoize the filtering logic
+    // ── Per-task filter predicates ──
+    // Each returns true if the task matches that filter criterion.
+    // A task can match multiple filters simultaneously.
+
+    const isAssignedToMe = useCallback((t: Task) => {
+        const creatorId = extractUserId(t.created_by);
+        return creatorId !== currentUserId; // I'm not the owner → it's assigned to me
+    }, [currentUserId]);
+
+    const isWaitingOnOthers = useCallback((t: Task) => {
+        const pending = getPendingInfo(t, currentUserId, allOrgTasks);
+        return pending.isPending && !pending.isPendingFromMe;
+    }, [currentUserId, allOrgTasks]);
+
+    const isOverdueTask = useCallback((t: Task) => {
+        const dl = t.committed_deadline || t.deadline;
+        if (!dl) return false;
+        const now = new Date();
+        return t.status === "overdue" || (new Date(dl) < now && t.status !== "completed");
+    }, []);
+
+    // Map filter keys to their predicate functions
+    const filterPredicates: Record<string, (t: Task) => boolean> = useMemo(() => ({
+        assigned: isAssignedToMe,
+        waiting: isWaitingOnOthers,
+        overdue: isOverdueTask,
+    }), [isAssignedToMe, isWaitingOnOthers, isOverdueTask]);
+
+    // Memoize the filtering logic — uses INTERSECTION for multi-select
     const { displayTasks, displayTodos } = useMemo(() => {
         let sortedTasks: Task[] = [];
         if (taskFilters.size === 0) {
             sortedTasks = todaysTasks;
         } else {
-            const tempMap = new Map<string, Task>();
-            if (taskFilters.has('assigned')) {
-                assignedToMe.filter(t => !isTodo(t)).forEach(t => tempMap.set(t.id, t));
-            }
-            if (taskFilters.has('waiting')) {
-                waitingOnOthers.filter(t => !isTodo(t)).forEach(t => tempMap.set(t.id, t));
-            }
-            if (taskFilters.has('overdue')) {
-                overdueTasks.filter(t => !isTodo(t)).forEach(t => tempMap.set(t.id, t));
-            }
-            sortedTasks = Array.from(tempMap.values());
+            // Intersection: task must pass EVERY active filter predicate
+            const activePredicates = Array.from(taskFilters)
+                .map(f => filterPredicates[f])
+                .filter(Boolean);
+            sortedTasks = allTasks.filter(t => {
+                if (isTodo(t)) return false;
+                return activePredicates.every(pred => pred(t));
+            });
         }
 
         let sortedTodos: Task[] = [];
         if (todoFilters.size === 0) {
             sortedTodos = todaysTodos;
         } else {
-            const tempMap = new Map<string, Task>();
-            if (todoFilters.has('overdue')) {
-                overdueTasks.filter(t => isTodo(t)).forEach(t => tempMap.set(t.id, t));
-            }
-            sortedTodos = Array.from(tempMap.values());
+            // For todos, only overdue filter exists currently
+            sortedTodos = allTasks.filter(t => {
+                if (!isTodo(t)) return false;
+                if (todoFilters.has('overdue')) {
+                    return isOverdueTask(t);
+                }
+                return false;
+            });
         }
 
         return { displayTasks: sortedTasks, displayTodos: sortedTodos };
-    }, [taskFilters, todoFilters, todaysTasks, todaysTodos, assignedToMe, waitingOnOthers, overdueTasks]);
+    }, [taskFilters, todoFilters, todaysTasks, todaysTodos, allTasks, filterPredicates, isOverdueTask]);
 
 
 
