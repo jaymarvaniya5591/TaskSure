@@ -18,15 +18,15 @@
   --color-todo-700: #6d28d9;
   --color-todo-900: #4c1d95;
 
-  /* Tasks I own (created by me, assigned to others) — Amber/Orange */
-  --color-owned-50: #fffbeb;
-  --color-owned-100: #fef3c7;
-  --color-owned-200: #fde68a;
-  --color-owned-400: #fbbf24;
-  --color-owned-500: #f59e0b;
-  --color-owned-600: #d97706;
-  --color-owned-700: #b45309;
-  --color-owned-900: #78350f;
+  /* Tasks I own (created by me, assigned to others) — Green/Emerald */
+  --color-owned-50: #ecfdf5;
+  --color-owned-100: #d1fae5;
+  --color-owned-200: #a7f3d0;
+  --color-owned-400: #34d399;
+  --color-owned-500: #10b981;
+  --color-owned-600: #059669;
+  --color-owned-700: #047857;
+  --color-owned-900: #064e3b;
 
   /* Tasks assigned to me (others created) — Indigo */
   --color-assigned-50: #eef2ff;

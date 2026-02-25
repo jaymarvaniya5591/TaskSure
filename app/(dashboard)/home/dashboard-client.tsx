@@ -224,7 +224,7 @@ export default function DashboardClient({
                                 className={cn(
                                     "flex-1 px-1 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-[9px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all duration-200 border backdrop-blur-sm text-center leading-tight",
                                     taskFilters.has('assigned')
-                                        ? "bg-assigned-500/90 text-white border-assigned-400 shadow-md"
+                                        ? "bg-assigned-100 text-assigned-700 border-assigned-200 shadow-md"
                                         : "bg-white/70 text-gray-700 border-white/50 hover:bg-white/90 shadow-sm"
                                 )}
                             >
@@ -236,7 +236,7 @@ export default function DashboardClient({
                                 className={cn(
                                     "flex-1 px-1 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-[9px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all duration-200 border backdrop-blur-sm text-center leading-tight",
                                     taskFilters.has('waiting')
-                                        ? "bg-amber-500/90 text-white border-amber-400 shadow-md"
+                                        ? "bg-amber-100 text-amber-700 border-amber-200 shadow-md"
                                         : "bg-white/70 text-gray-700 border-white/50 hover:bg-white/90 shadow-sm"
                                 )}
                             >
@@ -248,7 +248,7 @@ export default function DashboardClient({
                                 className={cn(
                                     "flex-1 px-1 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-[9px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all duration-200 border backdrop-blur-sm text-center leading-tight",
                                     taskFilters.has('overdue')
-                                        ? "bg-overdue-500/90 text-white border-overdue-400 shadow-md"
+                                        ? "bg-overdue-100 text-overdue-700 border-overdue-200 shadow-md"
                                         : "bg-white/70 text-gray-700 border-white/50 hover:bg-white/90 shadow-sm"
                                 )}
                             >
@@ -293,7 +293,7 @@ export default function DashboardClient({
                                 className={cn(
                                     "flex-1 sm:flex-none px-2 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1 sm:gap-1.5 transition-all duration-200 border backdrop-blur-sm",
                                     todoFilters.has('overdue')
-                                        ? "bg-overdue-500/90 text-white border-overdue-400 shadow-md"
+                                        ? "bg-overdue-100 text-overdue-700 border-overdue-200 shadow-md"
                                         : "bg-white/70 text-gray-700 border-white/50 hover:bg-white/90 shadow-sm"
                                 )}
                             >
