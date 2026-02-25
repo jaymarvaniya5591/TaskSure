@@ -38,7 +38,9 @@ export default function DashboardClient({
     const dayEnd = endOfDay(selectedDate);
     const selectedDayTasks = allTasks.filter(t => {
         const dl = t.committed_deadline || t.deadline;
-        if (!dl) return false;
+        if (!dl) {
+            return isTodaySelected;
+        }
         const d = new Date(dl);
         if (isTodaySelected) {
             return d <= dayEnd;
