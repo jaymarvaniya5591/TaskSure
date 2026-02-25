@@ -187,7 +187,7 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
                 queryClient.invalidateQueries({ queryKey: ["dashboard", currentUserId, orgId] });
             }
             // Also invalidate timeline caches so subtask activity shows up
-            queryClient.invalidateQueries({ queryKey: ["task-timeline"] });
+            queryClient.invalidateQueries({ queryKey: ["task-sequential-timeline"] });
             router.refresh();
         },
         onError: (err) => {

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Loader2, PlusCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { X, Loader2, PlusCircle } from "lucide-react";
 import SearchEmployee from "@/components/dashboard/SearchEmployee";
 import { useUserContext } from "@/lib/user-context";
 import { type OrgUser } from "@/lib/hierarchy";
@@ -41,6 +42,7 @@ const MODAL = {
 
 export default function CreateTaskModal({ isOpen, onClose, currentUserId }: CreateTaskModalProps) {
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     const [mounted, setMounted] = useState(false);
     const { allOrgUsers, isLoading: isLoadingUsers } = useUserContext();
@@ -121,6 +123,7 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                 throw new Error(data.error || "Failed to create task");
             }
 
+            queryClient.invalidateQueries({ queryKey: ["dashboard"] });
             router.refresh();
             onClose();
         } catch (err: unknown) {
