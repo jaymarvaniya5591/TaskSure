@@ -214,8 +214,10 @@ export default function TaskTimeline({ taskId }: { taskId: string }) {
     }
 
     return (
-        <div className="py-2 px-1 select-none overflow-hidden pb-8">
-            <SeqNodeRenderer node={treeNode} depth={0} isLastChild={true} />
+        <div className="py-2 px-1 select-none overflow-x-auto overflow-y-hidden pb-8 w-full scrollbar-thin scrollbar-thumb-gray-200">
+            <div className="min-w-max pr-8">
+                <SeqNodeRenderer node={treeNode} depth={0} isLastChild={true} />
+            </div>
         </div>
     );
 }
@@ -273,11 +275,11 @@ function SeqNodeRenderer({
             </div>
 
             {/* Right Column (Card + Children) */}
-            <div className="flex-1 pl-3 pb-3 min-w-0">
+            <div className="flex-none pl-3 pb-3">
                 {/* Content Card */}
                 <div
                     className={cn(
-                        "rounded-xl border p-3 min-w-0 transition-all shadow-sm relative",
+                        "rounded-xl border p-3 w-[260px] sm:w-[320px] transition-all shadow-sm relative",
                         hasChildren ? "cursor-pointer hover:border-gray-300 active:scale-[0.99]" : "",
                         node.status === "pending" ? "bg-amber-50/30 border-amber-200/60" : "bg-white border-gray-100/80"
                     )}
