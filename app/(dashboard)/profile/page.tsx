@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useUserContext } from "@/lib/user-context";
+import { ProfileSkeleton } from "@/components/ui/DashboardSkeleton";
 import { User, Building, Phone, ShieldCheck, CheckCircle2, X, AlertTriangle, Loader2 } from "lucide-react";
 
 interface UserProfile {
@@ -24,6 +25,7 @@ export default function ProfilePage() {
         userPhoneNumber,
         reportingManagerId,
         allOrgUsers,
+        isLoading,
     } = useUserContext();
     const supabase = createClient();
     const queryClient = useQueryClient();
@@ -226,6 +228,10 @@ export default function ProfilePage() {
     const btnPrimary = "h-12 px-6 rounded-xl text-sm font-bold flex items-center justify-center transition-colors whitespace-nowrap";
     const btnCancel = "h-10 w-10 shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors";
     const valueDisplay = "text-base sm:text-lg font-bold text-gray-900 break-words break-all min-w-0";
+
+    if (isLoading) {
+        return <ProfileSkeleton />;
+    }
 
     return (
         <div className="max-w-3xl mx-auto pb-12 animate-fade-in-up">

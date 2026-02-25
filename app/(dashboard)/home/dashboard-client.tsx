@@ -190,7 +190,7 @@ export default function DashboardClient({
                         className={cn(
                             "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-all duration-200",
                             mainTab === "tasks"
-                                ? "bg-white text-gray-900 shadow-md"
+                                ? "bg-gray-900 text-white shadow-md"
                                 : "text-gray-700/80 hover:text-gray-900"
                         )}
                     >
@@ -198,7 +198,7 @@ export default function DashboardClient({
                         {todaysTasks.length > 0 && (
                             <span className={cn(
                                 "px-1.5 py-0.5 text-[10px] font-black rounded-full min-w-[20px] text-center",
-                                mainTab === "tasks" ? "bg-gray-900 text-white" : "bg-gray-900/20 text-gray-900/70"
+                                mainTab === "tasks" ? "bg-white text-gray-900" : "bg-gray-900/20 text-gray-900/70"
                             )}>
                                 {todaysTasks.length}
                             </span>
@@ -209,7 +209,7 @@ export default function DashboardClient({
                         className={cn(
                             "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-all duration-200",
                             mainTab === "todos"
-                                ? "bg-white text-gray-900 shadow-md"
+                                ? "bg-gray-900 text-white shadow-md"
                                 : "text-gray-700/80 hover:text-gray-900"
                         )}
                     >
@@ -217,7 +217,7 @@ export default function DashboardClient({
                         {todaysTodos.length > 0 && (
                             <span className={cn(
                                 "px-1.5 py-0.5 text-[10px] font-black rounded-full min-w-[20px] text-center",
-                                mainTab === "todos" ? "bg-gray-900 text-white" : "bg-gray-900/20 text-gray-900/70"
+                                mainTab === "todos" ? "bg-white text-gray-900" : "bg-gray-900/20 text-gray-900/70"
                             )}>
                                 {todaysTodos.length}
                             </span>

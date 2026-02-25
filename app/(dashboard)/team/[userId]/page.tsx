@@ -13,11 +13,12 @@ import { useUserContext } from "@/lib/user-context";
 import { type Task } from "@/lib/types";
 import EmployeeProfile from "@/components/team/EmployeeProfile";
 import EmployeeContent from "@/components/team/EmployeeContent";
+import { EmployeeSkeleton } from "@/components/ui/DashboardSkeleton";
 
 export default function EmployeePage() {
     const params = useParams();
     const employeeId = params.userId as string;
-    const { userId: currentUserId, allOrgUsers, allOrgTasks } = useUserContext();
+    const { userId: currentUserId, allOrgUsers, allOrgTasks, isLoading } = useUserContext();
 
     const data = useMemo(() => {
         if (!employeeId || !allOrgUsers.length) return null;
@@ -71,6 +72,10 @@ export default function EmployeePage() {
             otherTasks,
         };
     }, [employeeId, currentUserId, allOrgUsers, allOrgTasks]);
+
+    if (isLoading) {
+        return <EmployeeSkeleton />;
+    }
 
     // If employee not found (shouldn't happen for valid org members)
     if (!data) {

@@ -135,14 +135,14 @@ export default function AllTasksClient({ todos, tasks, currentUserId, allOrgTask
                     className={cn(
                         "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200",
                         activeTab === "tasks"
-                            ? "bg-white text-gray-900 shadow-sm"
+                            ? "bg-gray-900 text-white shadow-sm"
                             : "text-gray-500 hover:text-gray-700"
                     )}
                 >
                     Tasks
                     <span className={cn(
                         "aspect-square p-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full leading-none",
-                        activeTab === "tasks" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
+                        activeTab === "tasks" ? "bg-white text-gray-900" : "bg-gray-200 text-gray-600"
                     )}>
                         {tasks.length}
                     </span>
@@ -152,14 +152,14 @@ export default function AllTasksClient({ todos, tasks, currentUserId, allOrgTask
                     className={cn(
                         "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200",
                         activeTab === "todos"
-                            ? "bg-white text-gray-900 shadow-sm"
+                            ? "bg-gray-900 text-white shadow-sm"
                             : "text-gray-500 hover:text-gray-700"
                     )}
                 >
                     To-dos
                     <span className={cn(
                         "aspect-square p-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full leading-none",
-                        activeTab === "todos" ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
+                        activeTab === "todos" ? "bg-white text-gray-900" : "bg-gray-200 text-gray-600"
                     )}>
                         {todos.length}
                     </span>
