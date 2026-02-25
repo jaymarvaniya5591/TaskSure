@@ -3,9 +3,10 @@
  *
  * Categories:
  *   todo     — Self-assigned tasks (created_by === assigned_to) — Violet
- *   owned    — Tasks I created for others — Teal
- *   assigned — Tasks others created for me — Amber
+ *   owned    — Tasks I created for others — Orange/Amber
+ *   assigned — Tasks others created for me — Indigo
  *   overdue  — Deadline has passed — Rose (overrides other categories)
+ *   waiting  — Waiting for someone else — Amber (pending action)
  */
 
 export type TaskColorCategory = 'todo' | 'owned' | 'assigned' | 'overdue';
@@ -23,8 +24,8 @@ function extractId(field: string | { id: string }): string {
 }
 
 /**
- * Determines the color category for a task relative to the current user.
- * Overdue takes priority over all other categories.
+ * Determines the PRIMARY color category for a task relative to the current user.
+ * Used for the card's border accent color. Overdue takes priority.
  */
 export function getTaskColorCategory(
     task: TaskLike,
@@ -57,6 +58,46 @@ export function getTaskColorCategory(
 }
 
 /**
+ * Returns ALL applicable tag categories for a task.
+ * A task can have multiple tags (e.g., both "assigned" and "overdue").
+ * Used for rendering multiple badges on TaskCard.
+ */
+export function getTaskTags(
+    task: TaskLike,
+    currentUserId: string
+): TaskColorCategory[] {
+    const tags: TaskColorCategory[] = [];
+    const createdBy = extractId(task.created_by);
+    const assignedTo = extractId(task.assigned_to);
+
+    // Self-assigned → to-do
+    if (createdBy === assignedTo && createdBy === currentUserId) {
+        tags.push('todo');
+    } else {
+        // I created it for someone else → owned
+        if (createdBy === currentUserId) {
+            tags.push('owned');
+        }
+
+        // Someone else created it, I'm the assignee → assigned
+        if (createdBy !== currentUserId) {
+            tags.push('assigned');
+        }
+    }
+
+    // Overdue — deadline has passed
+    const effectiveDeadline = task.committed_deadline || task.deadline;
+    if (
+        task.status === 'overdue' ||
+        (effectiveDeadline && new Date(effectiveDeadline) < new Date() && task.status !== 'completed')
+    ) {
+        tags.push('overdue');
+    }
+
+    return tags;
+}
+
+/**
  * Returns Tailwind class names for a task color category.
  */
 export function getCategoryStyles(category: TaskColorCategory) {
@@ -71,21 +112,21 @@ export function getCategoryStyles(category: TaskColorCategory) {
             label: 'To-do',
         },
         owned: {
-            bg: 'bg-assigned-50',
-            border: 'border-assigned-200',
-            accent: 'bg-assigned-500',
-            text: 'text-assigned-700',
-            badge: 'bg-assigned-100 text-assigned-700 border-assigned-200',
-            dot: 'bg-assigned-500',
-            label: 'Owned',
-        },
-        assigned: {
             bg: 'bg-owned-50',
             border: 'border-owned-200',
             accent: 'bg-owned-500',
             text: 'text-owned-700',
             badge: 'bg-owned-100 text-owned-700 border-owned-200',
             dot: 'bg-owned-500',
+            label: 'Owned',
+        },
+        assigned: {
+            bg: 'bg-assigned-50',
+            border: 'border-assigned-200',
+            accent: 'bg-assigned-500',
+            text: 'text-assigned-700',
+            badge: 'bg-assigned-100 text-assigned-700 border-assigned-200',
+            dot: 'bg-assigned-500',
             label: 'Assigned to me',
         },
         overdue: {

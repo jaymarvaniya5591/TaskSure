@@ -34,6 +34,7 @@ interface TaskCardProps {
     showOwner?: boolean;
     compact?: boolean;
     isOwnProfile?: boolean;
+    tags?: TaskColorCategory[];
 }
 
 export const TaskCard = memo(function TaskCard({
@@ -43,6 +44,7 @@ export const TaskCard = memo(function TaskCard({
     showOwner = true,
     compact = false,
     isOwnProfile = true,
+    tags,
 }: TaskCardProps) {
     const [showTimeline, setShowTimeline] = useState(false);
 
@@ -117,16 +119,33 @@ export const TaskCard = memo(function TaskCard({
                             </>
                         )}
 
-                        {/* Category badge — ownership labels only on own profile; overdue always shows */}
-                        {(isOwnProfile || category === "overdue") && (
-                            <span
-                                className={cn(
-                                    "px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide whitespace-nowrap",
-                                    styles.badge
-                                )}
-                            >
-                                {styles.label}
-                            </span>
+                        {/* Category badges — show all applicable tags when available */}
+                        {tags && tags.length > 0 ? (
+                            tags.filter(tag => isOwnProfile || tag === 'overdue').map(tag => {
+                                const tagStyles = getCategoryStyles(tag);
+                                return (
+                                    <span
+                                        key={tag}
+                                        className={cn(
+                                            "px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide whitespace-nowrap",
+                                            tagStyles.badge
+                                        )}
+                                    >
+                                        {tagStyles.label}
+                                    </span>
+                                );
+                            })
+                        ) : (
+                            (isOwnProfile || category === "overdue") && (
+                                <span
+                                    className={cn(
+                                        "px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide whitespace-nowrap",
+                                        styles.badge
+                                    )}
+                                >
+                                    {styles.label}
+                                </span>
+                            )
                         )}
                     </div>
                     {/* Pending from indicator — on its own row for full visibility */}
