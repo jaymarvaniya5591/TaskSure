@@ -15,7 +15,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check, Clock, X, CornerDownRight, ChevronRight, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -52,11 +52,26 @@ interface LogRecord {
 
 // ─── Logic ──────────────────────────────────────────────────────────────────
 
-function getDotColor(status: string): string {
-    if (status === "created" || status === "accepted" || status === "completed") return "#10B981"; // Green
-    if (status === "pending") return "#F59E0B"; // Yellow
-    if (status === "rejected" || status === "cancelled" || status === "deleted") return "#EF4444"; // Red
-    return "#9CA3AF"; // Grey default
+function StatusIcon({ status }: { status: string }) {
+    if (status === 'pending') {
+        return (
+            <div className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 text-amber-500 ring-4 ring-white border border-amber-200 z-10 shadow-sm shrink-0">
+                <Clock className="w-3.5 h-3.5" strokeWidth={2.5} />
+            </div>
+        )
+    }
+    if (status === 'rejected' || status === 'cancelled') {
+        return (
+            <div className="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-500 ring-4 ring-white border border-red-200 z-10 shadow-sm shrink-0">
+                <X className="w-3.5 h-3.5" strokeWidth={2.5} />
+            </div>
+        )
+    }
+    return (
+        <div className="w-6 h-6 flex items-center justify-center rounded-full bg-emerald-50 text-emerald-500 ring-4 ring-white border border-emerald-200 z-10 shadow-sm shrink-0">
+            <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+        </div>
+    )
 }
 
 async function fetchTaskHierarchy(supabase: ReturnType<typeof createClient>, rootTaskId: string): Promise<SeqNode | null> {
@@ -199,8 +214,8 @@ export default function TaskTimeline({ taskId }: { taskId: string }) {
     }
 
     return (
-        <div className="py-4 px-2 select-none">
-            <SeqNodeRenderer node={treeNode} depth={0} />
+        <div className="py-2 px-1 select-none overflow-hidden pb-8">
+            <SeqNodeRenderer node={treeNode} depth={0} isLastChild={true} />
         </div>
     );
 }
@@ -210,95 +225,106 @@ export default function TaskTimeline({ taskId }: { taskId: string }) {
 function SeqNodeRenderer({
     node,
     depth,
-    edgeLabel
+    edgeLabel,
+    isLastChild
 }: {
     node: SeqNode;
     depth: number;
     edgeLabel?: string | null;
+    isLastChild?: boolean;
 }) {
-    // Top-level task (0) + initial children (1) are expanded by default
+    // Top-level task + initial children are expanded by default
     const [isExpanded, setIsExpanded] = useState(depth <= 1);
 
     const hasChildren = node.childBranches && node.childBranches.length > 0;
     const isMainBranchDotted = node.isOpen;
 
     return (
-        <div className="relative">
-            {/* The horizontal line from the parent trunk entering this branch */}
+        <div className="flex relative items-stretch w-full mt-2">
+            {/* Horizontal Line from Parent */}
             {depth > 0 && (
-                <>
-                    <div className="absolute left-[-24px] top-[14px] w-[24px] h-[2px] bg-gray-300" />
-                    {edgeLabel && (
-                        <div className="absolute left-[-16px] top-[-6px] text-[10px] text-gray-600 font-semibold bg-white px-1 leading-none rounded z-10">
-                            {edgeLabel}
-                        </div>
-                    )}
-                </>
+                <div
+                    className="absolute h-[2px] bg-gray-200 z-0"
+                    style={{ left: -24, width: 24, top: 11 }}
+                />
             )}
 
-            {/* The node row */}
-            <div
-                className={cn(
-                    "flex flex-row items-center gap-3 relative py-2 mb-1 group rounded-md outline-none",
-                    hasChildren ? "cursor-pointer hover:bg-gray-50/80 active:bg-gray-100" : ""
-                )}
-                onClick={() => hasChildren && setIsExpanded(!isExpanded)}
-                role={hasChildren ? "button" : "presentation"}
-            >
-                {/* Node dot with optional +/- hint for children */}
+            {/* Trailing Line Mask for Last Child's connection to parent */}
+            {depth > 0 && isLastChild && (
                 <div
-                    className="shrink-0 rounded-full relative z-20 flex items-center justify-center transition-all duration-200"
-                    style={{
-                        width: 14,
-                        height: 14,
-                        backgroundColor: getDotColor(node.status),
-                        boxShadow: node.status === "pending" ? `0 0 0 3px ${getDotColor(node.status)}33` : undefined,
-                        transform: (hasChildren && !isExpanded) ? "scale(1.15)" : "scale(1)",
-                    }}
+                    className="absolute w-[8px] bg-white z-[1]"
+                    style={{ left: -28, top: 13, bottom: -24 }}
+                />
+            )}
+
+            {/* Left Column (Icon + Vertical Line) */}
+            <div className="flex flex-col items-center shrink-0 w-[24px]">
+                <StatusIcon status={node.status} />
+
+                {/* Vertical Line bridging to its own children */}
+                {hasChildren && isExpanded && (
+                    <div
+                        className={cn(
+                            "w-[2px] flex-1 mt-1 z-0",
+                            isMainBranchDotted ? "border-l-[2px] border-dashed border-gray-300 bg-transparent opacity-70" : "bg-gray-200"
+                        )}
+                    />
+                )}
+            </div>
+
+            {/* Right Column (Card + Children) */}
+            <div className="flex-1 pl-3 pb-3 min-w-0">
+                {/* Content Card */}
+                <div
+                    className={cn(
+                        "rounded-xl border p-3 min-w-0 transition-all shadow-sm relative",
+                        hasChildren ? "cursor-pointer hover:border-gray-300 active:scale-[0.99]" : "",
+                        node.status === "pending" ? "bg-amber-50/30 border-amber-200/60" : "bg-white border-gray-100/80"
+                    )}
+                    onClick={() => hasChildren && setIsExpanded(!isExpanded)}
+                    role={hasChildren ? "button" : "presentation"}
                 >
-                    {hasChildren && (
-                        <span className="text-white text-[8px] font-black leading-none user-select-none">
-                            {isExpanded ? "−" : "+"}
+                    <div className="flex justify-between items-start gap-2">
+                        <span className="text-[14px] font-bold text-gray-900 truncate">
+                            {node.userName}
                         </span>
+                        <span className="text-[11px] font-medium text-gray-500 tabular-nums shrink-0 mt-0.5 whitespace-nowrap bg-gray-50/80 px-1.5 py-0.5 rounded-md">
+                            {node.time ? format(new Date(node.time), "MMM d, h:mm a") : "—"}
+                        </span>
+                    </div>
+
+                    {edgeLabel && (
+                        <div className="flex items-center gap-1.5 text-gray-500 mt-1.5">
+                            <CornerDownRight className="w-3.5 h-3.5 shrink-0 text-gray-400" />
+                            <span className="text-[12px] font-medium truncate">{edgeLabel}</span>
+                        </div>
+                    )}
+
+                    {hasChildren && (
+                        <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-[10px] font-bold tracking-wider uppercase">
+                            <div className="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 transition-colors">
+                                {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                                <span>{isExpanded ? "Hide Subtasks" : `Show ${node.childBranches.length} Task${node.childBranches.length > 1 ? 's' : ''}`}</span>
+                            </div>
+                        </div>
                     )}
                 </div>
 
-                <div className="flex-1 flex justify-between items-center min-w-0 pr-2">
-                    <span
-                        className="text-[13px] font-bold truncate transition-colors"
-                        style={{ color: node.status === "pending" ? "#92400E" : "#374151" }}
-                    >
-                        {node.userName}
-                    </span>
-                    <span className="text-[11px] font-medium text-gray-400 tabular-nums shrink-0 ml-2 pt-0.5">
-                        {node.time ? format(new Date(node.time), "MMM d, h:mm a") : "—"}
-                    </span>
-                </div>
-            </div>
-
-            {/* Child branches */}
-            {hasChildren && isExpanded && (
-                <div className="relative pl-[28px]">
-                    {/* The main vertical trunk descending from this node */}
-                    <div
-                        className={cn("absolute left-[6.5px] top-[-6px] bottom-5 w-0",
-                            isMainBranchDotted ? "border-l-[2px] border-dashed border-gray-400 opacity-60" : "border-l-[2px] border-solid border-gray-300"
-                        )}
-                    />
-
-                    {/* Render children container */}
-                    <div className="flex flex-col relative z-10 ml-1">
-                        {node.childBranches.map((branch, idx) => (
+                {/* Children Wrapper */}
+                {hasChildren && isExpanded && (
+                    <div className="flex flex-col">
+                        {node.childBranches.map((child, idx) => (
                             <SeqNodeRenderer
-                                key={branch.node.taskId + idx}
-                                node={branch.node}
+                                key={child.node.taskId + idx}
+                                node={child.node}
                                 depth={depth + 1}
-                                edgeLabel={branch.edgeLabel}
+                                edgeLabel={child.edgeLabel}
+                                isLastChild={idx === node.childBranches.length - 1}
                             />
                         ))}
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
