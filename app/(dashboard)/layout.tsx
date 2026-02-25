@@ -6,6 +6,7 @@ import { DashboardClientWrapper } from "@/components/layout/DashboardClientWrapp
 import QueryProvider from "@/components/providers/QueryProvider";
 import { ToastProvider } from "@/components/ui/Toast";
 import { type Task } from "@/lib/types";
+import { fetchAllTimelines } from "@/lib/timeline-utils";
 
 /**
  * Dashboard layout — wraps all authenticated pages.
@@ -82,10 +83,15 @@ export default async function DashboardLayout({
         taskMap.set(t.id, t)
     );
 
+    // Pre-fetch timelines for all root-level tasks
+    const rootTasks = Array.from(taskMap.values()).filter(t => !t.parent_task_id);
+    const timelineMap = await fetchAllTimelines(supabase, rootTasks.map(t => t.id));
+
     const initialData = {
         tasks: Array.from(taskMap.values()),
         orgUsers: orgUsers || [],
         allOrgTasks: (allOrgTasksRaw || []) as Task[],
+        timelines: Array.from(timelineMap.entries()),
     };
 
     return (

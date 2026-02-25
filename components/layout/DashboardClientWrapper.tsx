@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect } from "react";
 import { useDashboardData } from "@/lib/hooks/useDashboardData";
 import { UserProvider } from "@/lib/user-context";
 import { SidebarProvider } from "@/components/layout/SidebarProvider";
@@ -9,6 +9,7 @@ import { Header } from "@/components/layout/header";
 import { getUsersAtOrBelowRank } from "@/lib/hierarchy";
 import { useQueryClient } from "@tanstack/react-query";
 import { type Task } from "@/lib/types";
+import { seedTimelineCache, type SeqNode } from "@/lib/timeline-utils";
 
 interface DashboardInitialData {
     tasks: Task[];
@@ -21,6 +22,7 @@ interface DashboardInitialData {
         avatar_url: string | null;
     }>;
     allOrgTasks: Task[];
+    timelines?: [string, SeqNode][];
 }
 
 export function DashboardClientWrapper({
@@ -50,6 +52,14 @@ export function DashboardClientWrapper({
         await queryClient.invalidateQueries({ queryKey: ["dashboard", userId, orgId] });
         await queryClient.invalidateQueries({ queryKey: ["task-sequential-timeline"] });
     }, [queryClient, userId, orgId]);
+
+    // Seed per-task timeline caches from pre-fetched data
+    useEffect(() => {
+        if (data?.timelines) {
+            const timelineMap = new Map<string, SeqNode>(data.timelines);
+            seedTimelineCache(queryClient, timelineMap);
+        }
+    }, [data?.timelines, queryClient]);
 
     const userContextValue = useMemo(() => ({
         userId,

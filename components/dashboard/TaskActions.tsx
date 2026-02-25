@@ -37,6 +37,7 @@ import SearchEmployee from "@/components/dashboard/SearchEmployee";
 import { type OrgUser } from "@/lib/hierarchy";
 import { getTodayMidnightISO } from "@/lib/date-utils";
 import DateTimePickerBoxes from "@/components/ui/DateTimePickerBoxes";
+import { invalidateTaskTimelineChain } from "@/lib/timeline-utils";
 
 // ── Shared style tokens for uniform modal styling ────────────────────────────
 const MODAL = {
@@ -129,7 +130,7 @@ interface TaskActionsProps {
 export const TaskActions = memo(function TaskActions({ task, currentUserId }: TaskActionsProps) {
     const router = useRouter();
     const queryClient = useQueryClient();
-    const { orgUsers, allOrgUsers, orgId } = useUserContext();
+    const { orgUsers, allOrgUsers, orgId, allOrgTasks } = useUserContext();
     const [open, setOpen] = useState(false);
     const [modal, setModal] = useState<
         | "accept"
@@ -186,8 +187,8 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
             if (currentUserId && orgId) {
                 queryClient.invalidateQueries({ queryKey: ["dashboard", currentUserId, orgId] });
             }
-            // Also invalidate timeline caches so subtask activity shows up
-            queryClient.invalidateQueries({ queryKey: ["task-sequential-timeline"] });
+            // Smart invalidation: only invalidate the acted-on task and its ancestor chain
+            invalidateTaskTimelineChain(queryClient, task.id, allOrgTasks);
             router.refresh();
         },
         onError: (err) => {

@@ -19,7 +19,7 @@ import { useToast } from "@/components/ui/Toast";
 export function Header() {
     const { toggleMobileSidebar } = useSidebar();
     const { orgUsers, userId, refreshData, isLoading } = useUserContext();
-    const isFetching = useIsFetching();
+    const isFetching = useIsFetching({ queryKey: ["dashboard"] });
     const { showToast } = useToast();
     const [isManualRefresh, setIsManualRefresh] = useState(false);
 

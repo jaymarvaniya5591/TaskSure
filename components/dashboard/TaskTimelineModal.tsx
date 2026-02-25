@@ -194,7 +194,7 @@ export default function TaskTimeline({ taskId }: { taskId: string }) {
     const { data: treeNode, isLoading, error } = useQuery({
         queryKey: ["task-sequential-timeline", taskId],
         queryFn: () => fetchTaskHierarchy(supabase, taskId),
-        staleTime: 1000 * 60 * 5, // Timelines stay fresh for 5 mins unless actively invalidated
+        staleTime: Infinity, // Pre-seeded from system cache; only re-fetched on explicit invalidation
     });
 
     if (isLoading) {
