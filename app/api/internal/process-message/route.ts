@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendWhatsAppMessage } from '@/lib/whatsapp'
+import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
 import { callGemini } from '@/lib/gemini'
+import { transcribeAudio } from '@/lib/sarvam'
 import { normalizePhone } from '@/lib/phone'
 
 // ---------------------------------------------------------------------------
@@ -133,14 +134,14 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Parse request body
-    let body: { messageId?: string }
+    let body: { messageId?: string; audioMediaId?: string; audioMimeType?: string }
     try {
         body = await request.json()
     } catch {
         return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
     }
 
-    const { messageId } = body
+    const { messageId, audioMediaId, audioMimeType } = body
     if (!messageId || typeof messageId !== 'string') {
         return NextResponse.json({ error: 'Missing messageId' }, { status: 400 })
     }
@@ -190,10 +191,47 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ status: 'user_not_found' }, { status: 200 })
         }
 
-        // 6. Call Gemini 2.5 Flash
+        // 6. Audio transcription step (if this is a voice note)
+        let textForGemini = msg.raw_text
+
+        if (audioMediaId) {
+            console.log(`[ProcessMessage] Audio message detected — downloading media ${audioMediaId}`)
+            try {
+                // Download audio from WhatsApp
+                const { buffer, mimeType } = await downloadWhatsAppMedia(audioMediaId)
+
+                // Transcribe via Sarvam AI
+                const transcript = await transcribeAudio(buffer, audioMimeType || mimeType)
+
+                console.log(`[ProcessMessage] Transcription result: "${transcript.substring(0, 100)}${transcript.length > 100 ? '...' : ''}"`)
+
+                    // Update the incoming_messages record with the transcribed text
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    ; (supabase as any)
+                        .from('incoming_messages')
+                        .update({ raw_text: `[audio] ${transcript}` })
+                        .eq('id', messageId)
+                        .then(() => { /* ignore */ })
+                        .catch((err: unknown) => console.error('[ProcessMessage] Failed to update raw_text with transcript:', err))
+
+                textForGemini = transcript
+            } catch (transcribeErr) {
+                const errMsg = transcribeErr instanceof Error ? transcribeErr.message : 'Unknown transcription error'
+                await handleError(
+                    supabase,
+                    messageId,
+                    msg.phone,
+                    "Sorry, I couldn't understand the voice note. Please try again or type your message.",
+                    `Audio transcription failed: ${errMsg}`
+                )
+                return NextResponse.json({ status: 'transcription_error' }, { status: 200 })
+            }
+        }
+
+        // 7. Call Gemini 2.5 Flash
         let geminiRaw: string
         try {
-            geminiRaw = await callGemini(SYSTEM_INSTRUCTION, msg.raw_text)
+            geminiRaw = await callGemini(SYSTEM_INSTRUCTION, textForGemini)
         } catch (geminiErr) {
             const errMsg = geminiErr instanceof Error ? geminiErr.message : 'Unknown Gemini error'
             await handleError(
@@ -206,7 +244,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ status: 'gemini_error' }, { status: 200 })
         }
 
-        // 7. Parse Gemini response
+        // 8. Parse Gemini response
         const result = parseGeminiResponse(geminiRaw)
         if (!result) {
             await handleError(
@@ -219,7 +257,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ status: 'parse_error' }, { status: 200 })
         }
 
-        // 8. Handle intent: create_task
+        // 9. Handle intent: create_task
         if (result.intent === 'create_task' || result.intent === 'personal_todo') {
             let assignedToId = senderUser.id as string
 
@@ -292,7 +330,7 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // 9. Send confirmation via WhatsApp
+        // 10. Send confirmation via WhatsApp
         try {
             await sendWhatsAppMessage(msg.phone, result.confirmation_message)
         } catch (sendErr) {
@@ -300,10 +338,10 @@ export async function POST(request: NextRequest) {
             // Non-fatal — task was already created
         }
 
-        // 10. Mark as processed
+        // 11. Mark as processed
         await markProcessed(supabase, messageId, result.intent, null)
 
-        console.log('[ProcessMessage] Successfully processed:', messageId, 'intent:', result.intent)
+        console.log('[ProcessMessage] Successfully processed:', messageId, 'intent:', result.intent, audioMediaId ? '(from audio)' : '')
         return NextResponse.json({ status: 'processed', intent: result.intent }, { status: 200 })
     } catch (err) {
         // 11. Catch-all error handler

@@ -258,3 +258,74 @@ export async function sendJoinRequestApprovedTemplate(
         },
     ])
 }
+
+// ---------------------------------------------------------------------------
+// Media download (for voice notes, images, etc.)
+// ---------------------------------------------------------------------------
+
+interface MediaDownloadResult {
+    buffer: Buffer
+    mimeType: string
+}
+
+/**
+ * Download a media file from WhatsApp Cloud API.
+ * Two-step process:
+ *   1. GET /v21.0/{mediaId} → retrieves a temporary download URL
+ *   2. GET the download URL → retrieves the raw binary bytes
+ *
+ * @param mediaId - The media ID from the incoming webhook message (e.g. message.audio.id)
+ * @returns Object with the raw Buffer and the MIME type
+ * @throws On network errors, missing config, or failed downloads
+ */
+export async function downloadWhatsAppMedia(
+    mediaId: string
+): Promise<MediaDownloadResult> {
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN
+    if (!accessToken) {
+        throw new Error('Missing WHATSAPP_ACCESS_TOKEN environment variable')
+    }
+
+    // Step 1: Get the temporary download URL
+    const metaUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/${mediaId}`
+    const metaRes = await fetch(metaUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    if (!metaRes.ok) {
+        const errBody = await metaRes.text()
+        throw new Error(`WhatsApp media meta failed (${metaRes.status}): ${errBody}`)
+    }
+
+    const metaData = await metaRes.json() as {
+        url?: string
+        mime_type?: string
+        file_size?: number
+    }
+
+    if (!metaData.url) {
+        throw new Error('WhatsApp media meta response missing download URL')
+    }
+
+    console.log(`[WhatsApp] Downloading media ${mediaId} (${metaData.mime_type}, ${metaData.file_size} bytes)`)
+
+    // Step 2: Download the actual binary content
+    const downloadRes = await fetch(metaData.url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    if (!downloadRes.ok) {
+        const errBody = await downloadRes.text()
+        throw new Error(`WhatsApp media download failed (${downloadRes.status}): ${errBody}`)
+    }
+
+    const arrayBuffer = await downloadRes.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    console.log(`[WhatsApp] Media downloaded: ${buffer.length} bytes`)
+
+    return {
+        buffer,
+        mimeType: metaData.mime_type || 'audio/ogg',
+    }
+}

@@ -195,6 +195,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     type: string
                     text?: { body: string }
                     button?: { text: string; payload: string }
+                    audio?: { id: string; mime_type: string }
                 }>
                 statuses?: unknown[]
             }
@@ -433,13 +434,20 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         console.error('[Webhook] Failed to log message:', insertError.message)
                         await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
                     } else if (insertedMsg?.id) {
+                        // Build the processor payload — include audio info if this is a voice note
+                        const processorPayload: Record<string, string> = { messageId: insertedMsg.id }
+                        if (messageType === 'audio' && message.audio?.id) {
+                            processorPayload.audioMediaId = message.audio.id
+                            processorPayload.audioMimeType = message.audio.mime_type || 'audio/ogg'
+                        }
+
                         fetch('https://boldoai.in/api/internal/process-message', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                                 'x-internal-secret': process.env.INTERNAL_PROCESSOR_SECRET || '',
                             },
-                            body: JSON.stringify({ messageId: insertedMsg.id }),
+                            body: JSON.stringify(processorPayload),
                         }).catch((err) => {
                             console.error('[Webhook] Failed to trigger internal processor:', err)
                         })
