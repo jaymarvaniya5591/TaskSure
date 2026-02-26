@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         // 2. Fetch the user's details from public.users to verify the first name match
         const { data: dbUser, error: dbUserError } = await supabase
             .from("users")
-            .select("first_name")
+            .select("first_name, organisation_id")
             .eq("id", userId)
             .single();
 
@@ -68,11 +68,7 @@ export async function POST(req: NextRequest) {
         // 4. Proceed with account deletion using the Admin API
         const adminClient = createAdminClient();
 
-        // Note: Depending on foreign key constraints in your DB (e.g. ON DELETE CASCADE),
-        // deleting from auth.users might automatically delete from public.users and other tables.
-        // It's usually safer/cleaner to delete from public tables first if cascading isn't set up.
-        // We'll assume for safety to try deleting the DB record first, or just rely on cascade.
-        // Let's delete from public.users first just to be sure.
+        // Delete from public.users first to avoid orphaned auth accounts.
         const { error: deleteRecordError } = await adminClient
             .from("users")
             .delete()
@@ -80,15 +76,35 @@ export async function POST(req: NextRequest) {
 
         if (deleteRecordError) {
             console.error("Error deleting user record from DB:", deleteRecordError);
-            // Even if this fails, we might still want to try to delete auth, or we abort.
-            // We'll abort here to be safe and avoid orphaned auth accounts.
             return NextResponse.json(
                 { success: false, error: "Failed to delete user profile data." },
                 { status: 500 }
             );
         }
 
-        // 5. Delete the user from auth.users using the admin api
+        // 5. Clean up orphaned organisation if this was the last member
+        if (dbUser.organisation_id) {
+            const { count } = await adminClient
+                .from("users")
+                .select("id", { count: "exact", head: true })
+                .eq("organisation_id", dbUser.organisation_id);
+
+            if (count === 0) {
+                const { error: deleteOrgError } = await adminClient
+                    .from("organisations")
+                    .delete()
+                    .eq("id", dbUser.organisation_id);
+
+                if (deleteOrgError) {
+                    // Log but don't fail the request — user is already deleted
+                    console.error("Error cleaning up orphaned organisation:", deleteOrgError);
+                } else {
+                    console.log(`Cleaned up orphaned organisation ${dbUser.organisation_id}`);
+                }
+            }
+        }
+
+        // 6. Delete the user from auth.users using the admin api
         const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(userId);
 
         if (deleteAuthError) {

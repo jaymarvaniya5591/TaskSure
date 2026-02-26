@@ -166,6 +166,17 @@ function SignupCompleteContent() {
                 return;
             }
 
+            // Account created but session couldn't be generated server-side
+            if (data.status === 'created_no_session') {
+                const keysToRemove = [
+                    "signup-firstName", "signup-lastName", "signup-orgAction",
+                    "signup-companyName", "signup-role", "signup-partnerPhone", "signup-managerPhone"
+                ];
+                keysToRemove.forEach(k => localStorage.removeItem(k));
+                window.location.href = '/login?signup=success';
+                return;
+            }
+
             if (data.access_token && data.refresh_token) {
                 // Form completely finished: flush stored local user input
                 const keysToRemove = [
@@ -182,7 +193,8 @@ function SignupCompleteContent() {
 
                 if (sessionErr) {
                     console.error("[SignupComplete] Session error:", sessionErr);
-                    setError("Account created but failed to sign in. Please go to login.");
+                    // Account exists, just can't set session — redirect to login
+                    window.location.href = '/login?signup=success';
                     return;
                 }
 

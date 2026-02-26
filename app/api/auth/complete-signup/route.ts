@@ -239,11 +239,27 @@ export async function POST(request: NextRequest) {
                 phone_number: phone, organisation_id: orgData.id, role: 'owner'
             })
 
-            if (userErr && userErr.code !== '23505') throw new Error(`User insert failed: ${userErr.message}`)
+            if (userErr) {
+                // ROLLBACK: delete the org we just created so it doesn't become orphaned
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await (supabase as any).from('organisations').delete().eq('id', orgData.id)
+                if (userErr.code === '23505') {
+                    return NextResponse.json(
+                        { error: 'An account with this phone number already exists. Please sign in instead.' },
+                        { status: 409 }
+                    )
+                }
+                throw new Error(`User insert failed: ${userErr.message}`)
+            }
 
             await consumeAuthToken(token)
             const session = await generateDirectSession(phone)
-            if (!session) throw new Error('Failed to generate session')
+            if (!session) {
+                // Account created successfully but session generation failed.
+                // Don't throw — the account exists. Tell the client to redirect to login.
+                console.warn('[CompleteSignup] Session generation failed, returning created_no_session')
+                return NextResponse.json({ status: 'created_no_session' })
+            }
 
             return NextResponse.json({ status: 'created', access_token: session.access_token, refresh_token: session.refresh_token })
 
@@ -271,11 +287,22 @@ export async function POST(request: NextRequest) {
                 role: 'member', reporting_manager_id: validationData.manager!.id
             })
 
-            if (userErr && userErr.code !== '23505') throw new Error(`Member insert failed: ${userErr.message}`)
+            if (userErr) {
+                if (userErr.code === '23505') {
+                    return NextResponse.json(
+                        { error: 'An account with this phone number already exists. Please sign in instead.' },
+                        { status: 409 }
+                    )
+                }
+                throw new Error(`Member insert failed: ${userErr.message}`)
+            }
 
             await consumeAuthToken(token)
             const session = await generateDirectSession(phone)
-            if (!session) throw new Error('Failed to generate session')
+            if (!session) {
+                console.warn('[CompleteSignup] Session generation failed for join, returning created_no_session')
+                return NextResponse.json({ status: 'created_no_session' })
+            }
 
             return NextResponse.json({ status: 'created', access_token: session.access_token, refresh_token: session.refresh_token })
         }
