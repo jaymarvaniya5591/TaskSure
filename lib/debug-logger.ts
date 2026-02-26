@@ -84,3 +84,36 @@ export function debugLog(action: string, detail?: string) {
         scheduleFlush();
     }
 }
+
+/**
+ * Run a quick Supabase connectivity smoke-test from the browser.
+ * Logs the result so we can see if the client can actually reach Supabase.
+ */
+export async function debugTestSupabaseConnectivity() {
+    if (typeof window === "undefined") return;
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+        debugLog("SUPABASE_CONNECTIVITY_TEST", "SKIP — missing env vars");
+        return;
+    }
+
+    const start = Date.now();
+    try {
+        // Simple health check — fetch the auth user (requires valid session)
+        const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+            headers: {
+                "apikey": supabaseKey,
+                "Authorization": `Bearer ${document.cookie.match(/sb-[^-]+-auth-token\.0=([^;]+)/)?.[1] ?? "no-token"}`,
+            },
+            signal: AbortSignal.timeout(5000),
+        });
+        const elapsed = Date.now() - start;
+        debugLog("SUPABASE_CONNECTIVITY_TEST", `status=${res.status} elapsed=${elapsed}ms`);
+    } catch (err) {
+        const elapsed = Date.now() - start;
+        debugLog("SUPABASE_CONNECTIVITY_TEST", `FAILED elapsed=${elapsed}ms err=${err instanceof Error ? err.message : String(err)}`);
+    }
+}

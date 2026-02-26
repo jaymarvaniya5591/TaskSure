@@ -10,7 +10,7 @@ import { getUsersAtOrBelowRank } from "@/lib/hierarchy";
 import { useQueryClient } from "@tanstack/react-query";
 import { type Task } from "@/lib/types";
 import { seedTimelineCache, type SeqNode } from "@/lib/timeline-utils";
-import { debugLog } from "@/lib/debug-logger";
+import { debugLog, debugTestSupabaseConnectivity } from "@/lib/debug-logger";
 
 interface DashboardInitialData {
     tasks: Task[];
@@ -68,7 +68,10 @@ export function DashboardClientWrapper({
             seedTimelineCache(queryClient, timelineMap);
             hasSeededRef.current = true;
         }
-    }, [initialData?.timelines, queryClient]);
+        // TEMP DEBUG: Test Supabase connectivity from this device on mount
+        debugLog("DASHBOARD_MOUNT", `userId=${userId} orgId=${orgId}`);
+        debugTestSupabaseConnectivity();
+    }, [initialData?.timelines, queryClient, userId, orgId]);
 
     const userContextValue = useMemo(() => ({
         userId,
