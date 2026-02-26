@@ -330,3 +330,40 @@ export async function notifySubtaskCreated(
         `📎 New subtask "${subtaskTitle}" created under "${parentTaskTitle}" by *${creatorName}*.`,
     )
 }
+
+// ---------------------------------------------------------------------------
+// 9. Task Overdue — Notify owner and assignee
+// ---------------------------------------------------------------------------
+
+export async function notifyTaskOverdue(
+    supabase: SupabaseAdmin,
+    opts: {
+        ownerId: string
+        assigneeId: string
+        taskTitle: string
+        deadline: string
+    },
+): Promise<void> {
+    const { ownerId, assigneeId, taskTitle, deadline } = opts
+
+    const dateStr = new Date(deadline).toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        timeZone: 'Asia/Kolkata',
+    })
+
+    const msg = `⚠️ "${taskTitle}" is overdue! Deadline was *${dateStr}*.`
+
+    // Notify assignee
+    const assignee = await lookupUser(supabase, assigneeId)
+    if (assignee?.phone_number) {
+        await safeSend(assignee.phone_number, msg)
+    }
+
+    // Notify owner (if different)
+    if (ownerId !== assigneeId) {
+        const owner = await lookupUser(supabase, ownerId)
+        if (owner?.phone_number) {
+            await safeSend(owner.phone_number, msg)
+        }
+    }
+}

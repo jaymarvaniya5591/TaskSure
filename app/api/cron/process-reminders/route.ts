@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
+import { notifyTaskOverdue } from '@/lib/notifications/whatsapp-notifier'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -88,7 +89,21 @@ export async function GET(request: Request) {
         }
 
         console.log(`[ProcessReminders] Done — sent: ${sentCount}, failed: ${failedCount}`)
-        return NextResponse.json({ status: 'ok', processed: sentCount, failed: failedCount })
+
+        // 3. Process overdue tasks
+        let overdueCount = 0
+        try {
+            overdueCount = await processOverdueTasks(supabase)
+        } catch (err) {
+            console.error('[ProcessReminders] Failed to process overdue tasks:', err instanceof Error ? err.message : err)
+        }
+
+        return NextResponse.json({
+            status: 'ok',
+            remindersProcessed: sentCount,
+            remindersFailed: failedCount,
+            overdueTasksProcessed: overdueCount
+        })
 
     } catch (err) {
         const errMsg = err instanceof Error ? err.message : 'Unknown error'
@@ -199,4 +214,60 @@ async function markReminderFailed(supabase: SupabaseAdmin, reminderId: string, r
     if (error) {
         console.error(`[ProcessReminders] Failed to mark reminder ${reminderId} as failed:`, error.message)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Overdue Tasks — Phase 3.3
+// ---------------------------------------------------------------------------
+
+async function processOverdueTasks(supabase: SupabaseAdmin): Promise<number> {
+    // 1. Fetch pending/accepted tasks that are past their committed_deadline
+    const { data: overdueTasks, error: fetchError } = await supabase
+        .from('tasks')
+        .select('id, title, created_by, assigned_to, committed_deadline')
+        .in('status', ['pending', 'accepted'])
+        .lte('committed_deadline', new Date().toISOString())
+        .limit(50) // Batch processing
+
+    if (fetchError) {
+        throw new Error(`DB fetch failed: ${fetchError.message}`)
+    }
+
+    if (!overdueTasks || overdueTasks.length === 0) {
+        return 0
+    }
+
+    console.log(`[ProcessReminders] Found ${overdueTasks.length} overdue task(s) to process`)
+
+    let processedCount = 0
+
+    // 2. Process each overdue task
+    for (const task of overdueTasks) {
+        try {
+            // Update status to 'overdue'
+            const { error: updateError } = await supabase
+                .from('tasks')
+                .update({ status: 'overdue', updated_at: new Date().toISOString() })
+                .eq('id', task.id)
+
+            if (updateError) {
+                console.error(`[ProcessReminders] Failed to mark task ${task.id} as overdue:`, updateError.message)
+                continue
+            }
+
+            // Send notifications
+            await notifyTaskOverdue(supabase, {
+                ownerId: task.created_by,
+                assigneeId: task.assigned_to,
+                taskTitle: task.title,
+                deadline: task.committed_deadline,
+            })
+
+            processedCount++
+        } catch (err) {
+            console.error(`[ProcessReminders] Failed to process overdue task ${task.id}:`, err instanceof Error ? err.message : err)
+        }
+    }
+
+    return processedCount
 }
