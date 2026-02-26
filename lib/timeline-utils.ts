@@ -49,71 +49,37 @@ export async function fetchTaskHierarchy(
     supabase: SupabaseClient,
     rootTaskId: string,
 ): Promise<SeqNode | null> {
-    // 1. Fetch the root task first
-    const { data: rootTask, error: rootError } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("id", rootTaskId)
-        .single();
-
-    if (rootError || !rootTask) return null;
-
-    // 2. Fetch all descendant tasks iteratively (with cycle protection)
-    const allTasks: TaskRecord[] = [rootTask];
-    let currentParentIds = [rootTaskId];
-    const visited = new Set<string>([rootTaskId]);
-    const MAX_DEPTH = 50;
-    let depth = 0;
-
-    while (currentParentIds.length > 0 && depth < MAX_DEPTH) {
-        depth++;
-        const { data: children } = await supabase
-            .from("tasks")
-            .select("*")
-            .in("parent_task_id", currentParentIds);
-
-        if (!children || children.length === 0) break;
-
-        // Filter out already-visited tasks to prevent infinite loops from circular refs
-        const newChildren = children.filter((c: TaskRecord) => !visited.has(c.id));
-        if (newChildren.length === 0) break;
-
-        for (const c of newChildren) visited.add(c.id);
-        allTasks.push(...newChildren);
-        currentParentIds = newChildren.map((c: TaskRecord) => c.id);
+    const { data, error } = await supabase.rpc('get_timeline_data', { root_task_ids: [rootTaskId] });
+    if (error || !data) {
+        console.error("Error fetching timeline data:", error);
+        return null;
     }
+    return buildTimelineFromGraph(rootTaskId, data.tasks, data.users, data.logs);
+}
 
-    // 3. Collect unique user IDs and fetch their names
-    const userIds = Array.from(new Set(allTasks.flatMap(t => [t.created_by, t.assigned_to]).filter(Boolean)));
+// ─── Shared Timeline Builder ────────────────────────────────────────────────
+
+function buildTimelineFromGraph(
+    rootTaskId: string,
+    allTasks: TaskRecord[],
+    users: { id: string, name: string }[],
+    logs: LogRecord[]
+): SeqNode | null {
+    const rootTask = allTasks.find(t => t.id === rootTaskId);
+    if (!rootTask) return null;
+
     const userMap: Record<string, string> = {};
-    if (userIds.length > 0) {
-        const { data: users } = await supabase
-            .from("users")
-            .select("id, name")
-            .in("id", userIds);
-        if (users) {
-            for (const u of users) {
-                userMap[u.id] = u.name;
-            }
-        }
+    for (const u of users) {
+        userMap[u.id] = u.name;
     }
-
-    // 4. Fetch audit logs for precise status times
-    const { data: logs } = await supabase
-        .from("audit_log")
-        .select("action, created_at, entity_id")
-        .eq("entity_type", "task")
-        .in("entity_id", allTasks.map((t: TaskRecord) => t.id));
 
     const logsMap: Record<string, LogRecord[]> = {};
-    if (logs) {
-        for (const log of logs) {
-            if (!logsMap[log.entity_id]) logsMap[log.entity_id] = [];
-            logsMap[log.entity_id].push(log);
-        }
+    for (const log of logs) {
+        if (!logsMap[log.entity_id]) logsMap[log.entity_id] = [];
+        logsMap[log.entity_id].push(log);
     }
 
-    // 5. Recursive function to build the tree node for a given task
+    // Recursive function to build the tree node for a given task
     function buildNodeForTask(task: TaskRecord): SeqNode {
         const childTasks = allTasks.filter(t => t.parent_task_id === task.id);
 
@@ -185,17 +151,20 @@ export async function fetchAllTimelines(
 ): Promise<Map<string, SeqNode>> {
     const timelineMap = new Map<string, SeqNode>();
 
-    // Fetch all timelines in parallel
-    const results = await Promise.all(
-        rootTaskIds.map(async (taskId) => {
-            const node = await fetchTaskHierarchy(supabase, taskId);
-            return { taskId, node };
-        })
-    );
+    if (!rootTaskIds || rootTaskIds.length === 0) {
+        return timelineMap;
+    }
 
-    for (const { taskId, node } of results) {
+    const { data, error } = await supabase.rpc('get_timeline_data', { root_task_ids: rootTaskIds });
+    if (error || !data) {
+        console.error("Error fetching batch timelines:", error);
+        return timelineMap;
+    }
+
+    for (const rootTaskId of rootTaskIds) {
+        const node = buildTimelineFromGraph(rootTaskId, data.tasks, data.users, data.logs);
         if (node) {
-            timelineMap.set(taskId, node);
+            timelineMap.set(rootTaskId, node);
         }
     }
 

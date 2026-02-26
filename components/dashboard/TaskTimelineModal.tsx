@@ -19,6 +19,7 @@ import { Loader2, Check, Clock, X, CornerDownRight, ChevronRight, ChevronDown } 
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { debugLog } from "@/lib/debug-logger";
+import { fetchTaskHierarchy } from "@/lib/timeline-utils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -75,127 +76,7 @@ function StatusIcon({ status }: { status: string }) {
     )
 }
 
-async function fetchTaskHierarchy(supabase: ReturnType<typeof createClient>, rootTaskId: string): Promise<SeqNode | null> {
-    // 1. Fetch the root task first
-    const { data: rootTask, error: rootError } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("id", rootTaskId)
-        .single();
 
-    if (rootError || !rootTask) return null;
-
-    // 2. Fetch all descendant tasks iteratively (with cycle protection)
-    const allTasks = [rootTask];
-    let currentParentIds = [rootTaskId];
-    const visited = new Set<string>([rootTaskId]);
-    const MAX_DEPTH = 50;
-    let depth = 0;
-
-    while (currentParentIds.length > 0 && depth < MAX_DEPTH) {
-        depth++;
-        const { data: children } = await supabase
-            .from("tasks")
-            .select("*")
-            .in("parent_task_id", currentParentIds);
-
-        if (!children || children.length === 0) break;
-
-        // Filter out already-visited tasks to prevent infinite loops from circular refs
-        const newChildren = (children as TaskRecord[]).filter(c => !visited.has(c.id));
-        if (newChildren.length === 0) break;
-
-        for (const c of newChildren) visited.add(c.id);
-        allTasks.push(...newChildren);
-        currentParentIds = newChildren.map(c => c.id);
-    }
-
-    // 3. Collect unique user IDs and fetch their names
-    const userIds = Array.from(new Set(allTasks.flatMap(t => [t.created_by, t.assigned_to]).filter(Boolean)));
-    const userMap: Record<string, string> = {};
-    if (userIds.length > 0) {
-        const { data: users } = await supabase.from("users").select("id, name").in("id", userIds);
-        if (users) {
-            for (const u of users) {
-                userMap[u.id] = u.name;
-            }
-        }
-    }
-
-    // 4. Fetch audit logs for precise status times
-    const { data: logs } = await supabase
-        .from("audit_log")
-        .select("action, created_at, entity_id")
-        .eq("entity_type", "task")
-        .in("entity_id", allTasks.map(t => t.id));
-
-    const logsMap: Record<string, LogRecord[]> = {};
-    if (logs) {
-        for (const log of (logs as LogRecord[])) {
-            if (!logsMap[log.entity_id]) logsMap[log.entity_id] = [];
-            logsMap[log.entity_id].push(log);
-        }
-    }
-
-    // 5. Recursive function to build the tree node for a given task
-    function buildNodeForTask(task: TaskRecord): SeqNode {
-        const childTasks = allTasks.filter(t => t.parent_task_id === task.id);
-
-        const childBranches = childTasks.map(ct => ({
-            edgeLabel: ct.title,
-            node: buildNodeForTask(ct)
-        }));
-
-        // Sort children chronological by created_at
-        childBranches.sort((a, b) => {
-            const timeA = allTasks.find(t => t.id === a.node.taskId)?.created_at || "";
-            const timeB = allTasks.find(t => t.id === b.node.taskId)?.created_at || "";
-            return new Date(timeA).getTime() - new Date(timeB).getTime();
-        });
-
-        // Determine precise time based on status
-        let time = null;
-        if (task.status === "pending") {
-            time = null; // Spec: NA for pending
-        } else {
-            // Find the log that matches the status (e.g. task.accepted)
-            const relevantLog = logsMap[task.id]?.find(l => l.action.endsWith(task.status));
-            time = relevantLog ? relevantLog.created_at : task.updated_at;
-        }
-
-        const selfOpen = task.status === "pending" || task.status === "accepted";
-        const childrenOpen = childBranches.some(b => b.node.isOpen);
-        const isOpen = selfOpen || childrenOpen;
-
-        return {
-            taskId: task.id,
-            userName: userMap[task.assigned_to] || "Unknown",
-            status: task.status,
-            time,
-            isOpen,
-            childBranches
-        };
-    }
-
-    // Root node represents the CREATOR of the root task
-    const rootCreatorNode: SeqNode = {
-        taskId: `creator-${rootTaskId}`,
-        userName: userMap[(rootTask as TaskRecord).created_by] || "Unknown",
-        status: "created",
-        time: (rootTask as TaskRecord).created_at,
-        childBranches: [
-            {
-                edgeLabel: null, // Initial grey line between jay and beta
-                node: buildNodeForTask(rootTask as TaskRecord)
-            }
-        ],
-        isOpen: true,
-    };
-
-    rootCreatorNode.isOpen = rootCreatorNode.childBranches[0].node.isOpen;
-
-    return rootCreatorNode;
-}
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
