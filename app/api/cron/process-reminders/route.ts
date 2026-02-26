@@ -53,7 +53,7 @@ export async function GET(request: Request) {
 
         if (fetchError) {
             console.error('[ProcessReminders] Failed to fetch reminders:', fetchError.message)
-            return NextResponse.json({ error: 'DB fetch failed' }, { status: 500 })
+            return NextResponse.json({ error: 'DB fetch failed', details: fetchError.message }, { status: 500 })
         }
 
         if (!reminders || reminders.length === 0) {
