@@ -13,7 +13,7 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
                         gcTime: Infinity,              // Never garbage-collect cached data
                         refetchOnWindowFocus: false,   // Don't refetch when returning to tab
                         refetchOnMount: false,         // Don't refetch on component remount
-                        refetchOnReconnect: false,     // Don't refetch on network reconnect
+                        refetchOnReconnect: true,     // Auto-refresh when mobile regains network
                         retry: 1,                      // Only retry once on failure
                     },
                 },

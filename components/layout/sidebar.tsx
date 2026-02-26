@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarProvider";
 import { useUserContext } from "@/lib/user-context";
 import { createClient } from "@/lib/supabase/client";
+import { debugLog } from "@/lib/debug-logger";
 import {
     Home,
     ListChecks,
@@ -42,19 +43,30 @@ export function Sidebar() {
 
     // Sign out logic — clear all cached data so the next login starts fresh
     const handleSignOut = async () => {
+        debugLog("LOGOUT_START");
         try {
             const supabase = createClient();
-            const { error } = await supabase.auth.signOut();
+            // Race signOut against a 5s timeout — on mobile with dead connections
+            // signOut can hang indefinitely
+            const signOutPromise = supabase.auth.signOut();
+            const timeout = new Promise<{ error: Error }>((resolve) =>
+                setTimeout(() => resolve({ error: new Error("signOut timed out") }), 5000)
+            );
+            const { error } = await Promise.race([signOutPromise, timeout]);
             if (error) {
+                debugLog("LOGOUT_ERROR", error.message);
                 console.error('Error signing out:', error);
-                return;
+            } else {
+                debugLog("LOGOUT_SUCCESS");
             }
-            // Hard-navigate to login so ALL client-side state is destroyed:
-            // React Query cache, component tree, Next.js Router Cache, etc.
-            window.location.href = '/login';
         } catch (error) {
+            debugLog("LOGOUT_CATCH", String(error));
             console.error('Unexpected error signing out:', error);
         }
+        // ALWAYS navigate — even if signOut failed or timed out.
+        // Middleware will handle the stale session on the next request.
+        debugLog("LOGOUT_NAVIGATE", "redirecting to /login");
+        window.location.href = '/login';
     };
 
     return (

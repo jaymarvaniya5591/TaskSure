@@ -7,6 +7,7 @@ import {
     getPendingInfo,
 } from "@/lib/task-service";
 import { type SeqNode } from "@/lib/timeline-utils";
+import { debugLog } from "@/lib/debug-logger";
 
 interface DashboardData {
     tasks: Task[];
@@ -41,6 +42,8 @@ export function useDashboardData(
         queryKey: ["dashboard", userId, orgId],
         queryFn: async () => {
             if (!userId || !orgId) throw new Error("Missing user or org ID");
+            const fetchStart = Date.now();
+            debugLog("DASHBOARD_QUERYFN_START", `userId=${userId} orgId=${orgId}`);
 
             // Fetch tasks + org users for sidebar context
             const [{ data: tasksCreated }, { data: tasksAssigned }, { data: orgUsers }, { data: allOrgTasksRaw }] =
@@ -93,6 +96,7 @@ export function useDashboardData(
                 };
             });
 
+            debugLog("DASHBOARD_QUERYFN_DONE", `tasks=${enrichedTasks.length} orgUsers=${(orgUsers || []).length} allOrgTasks=${allOrgTasks.length} elapsed=${Date.now() - fetchStart}ms`);
             return {
                 tasks: enrichedTasks,
                 orgUsers: orgUsers || [],

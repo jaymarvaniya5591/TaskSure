@@ -13,19 +13,22 @@ function WhatsAppIcon({ className }: { className?: string }) {
 import { useSidebar } from "@/components/layout/SidebarProvider";
 import { useUserContext } from "@/lib/user-context";
 import SearchEmployee from "@/components/dashboard/SearchEmployee";
-import { useIsFetching } from "@tanstack/react-query";
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/Toast";
+import { debugLog } from "@/lib/debug-logger";
 
 export function Header() {
     const { toggleMobileSidebar } = useSidebar();
     const { orgUsers, userId, refreshData, isLoading } = useUserContext();
     const isFetching = useIsFetching({ queryKey: ["dashboard"] });
+    const queryClient = useQueryClient();
     const { showToast } = useToast();
     const [isManualRefresh, setIsManualRefresh] = useState(false);
 
     const isRefreshing = isFetching > 0 || isLoading || isManualRefresh;
 
     const handleRefresh = async () => {
+        debugLog("REFRESH_START", `isFetching=${isFetching} isLoading=${isLoading} isManualRefresh=${isManualRefresh}`);
         setIsManualRefresh(true);
         try {
             // Safety timeout: stop spinner after 10s max to prevent infinite spinning
@@ -33,16 +36,30 @@ export function Header() {
             const timeout = new Promise<never>((_, reject) =>
                 setTimeout(() => reject(new Error("timeout")), 10000)
             );
+            debugLog("REFRESH_AWAITING", "calling refreshData()");
             await Promise.race([refreshData(), timeout]);
+            debugLog("REFRESH_SUCCESS", "data refreshed");
             showToast("Data refreshed!", "success");
         } catch (err) {
             const msg = err instanceof Error && err.message === "timeout"
                 ? "Refresh timed out — please try again"
                 : "Refresh failed";
+            debugLog("REFRESH_ERROR", `msg=${msg} err=${err instanceof Error ? err.message : String(err)}`);
+
+            // If timed out, cancel lingering in-flight queries so isFetching resets to 0
+            // and the spinner doesn't keep spinning forever
+            if (err instanceof Error && err.message === "timeout") {
+                debugLog("REFRESH_CANCEL", "cancelling stale dashboard queries");
+                queryClient.cancelQueries({ queryKey: ["dashboard"] });
+            }
+
             showToast(msg, "error");
         } finally {
             // Keep spinning for at least 600ms so the user can see it
-            setTimeout(() => setIsManualRefresh(false), 600);
+            setTimeout(() => {
+                setIsManualRefresh(false);
+                debugLog("REFRESH_DONE", `isFetching=${isFetching}`);
+            }, 600);
         }
     };
 

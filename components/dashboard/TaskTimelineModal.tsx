@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { Loader2, Check, Clock, X, CornerDownRight, ChevronRight, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { debugLog } from "@/lib/debug-logger";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -203,7 +204,16 @@ export default function TaskTimeline({ taskId }: { taskId: string }) {
 
     const { data: treeNode, isLoading, error } = useQuery({
         queryKey: ["task-sequential-timeline", taskId],
-        queryFn: () => fetchTaskHierarchy(supabase, taskId),
+        queryFn: () => {
+            debugLog("TIMELINE_FETCH_START", `taskId=${taskId}`);
+            return fetchTaskHierarchy(supabase, taskId).then(result => {
+                debugLog("TIMELINE_FETCH_DONE", `taskId=${taskId} hasResult=${!!result}`);
+                return result;
+            }).catch(err => {
+                debugLog("TIMELINE_FETCH_ERROR", `taskId=${taskId} err=${err?.message ?? String(err)}`);
+                throw err;
+            });
+        },
         staleTime: Infinity, // Pre-seeded from system cache; only re-fetched on explicit invalidation
     });
 

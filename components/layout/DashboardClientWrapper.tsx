@@ -10,6 +10,7 @@ import { getUsersAtOrBelowRank } from "@/lib/hierarchy";
 import { useQueryClient } from "@tanstack/react-query";
 import { type Task } from "@/lib/types";
 import { seedTimelineCache, type SeqNode } from "@/lib/timeline-utils";
+import { debugLog } from "@/lib/debug-logger";
 
 interface DashboardInitialData {
     tasks: Task[];
@@ -49,11 +50,14 @@ export function DashboardClientWrapper({
     const queryClient = useQueryClient();
 
     const refreshData = useCallback(async () => {
+        debugLog("REFRESH_DATA_START", "invalidating dashboard query");
         // Await only the main dashboard data refresh
         await queryClient.invalidateQueries({ queryKey: ["dashboard", userId, orgId] });
+        debugLog("REFRESH_DATA_DASHBOARD_DONE", "dashboard query refreshed");
         // Fire-and-forget: timeline caches refresh lazily in the background
         // so they don't block the refresh button from completing
         queryClient.invalidateQueries({ queryKey: ["task-sequential-timeline"] });
+        debugLog("REFRESH_DATA_TIMELINES_FIRED", "timeline invalidation dispatched (fire-and-forget)");
     }, [queryClient, userId, orgId]);
 
     // Seed per-task timeline caches ONCE from server-prefetched data
