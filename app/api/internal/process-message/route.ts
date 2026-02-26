@@ -12,6 +12,8 @@ import { validateAction } from '@/lib/ai/action-rules'
 import { resolveTask, findMostRecentPendingTask } from '@/lib/ai/task-resolver'
 import { getNavigationHelpResponse } from '@/lib/ai/agent-reference'
 import { extractUserId } from '@/lib/task-service'
+import { findPhoneticMatches } from '@/lib/ai/phonetic-match'
+import type { OrgUser } from '@/lib/ai/phonetic-match'
 import {
     notifyTaskCreated,
     notifyTaskAccepted,
@@ -119,20 +121,49 @@ async function fetchUserTasks(
 }
 
 /**
- * Fuzzy-match a person name within the organisation.
+ * Fuzzy + phonetic match a person name within the organisation.
+ * Handles first-name-only, last-name-only, and full-name lookups.
+ * Uses both SQL ILIKE (for exact substring) and phonetic similarity
+ * (for Indian name pronunciation variations from voice transcription).
  */
 async function fuzzyMatchUser(
     supabase: SupabaseAdmin,
     orgId: string,
     name: string,
 ): Promise<{ id: string; name: string; phone_number?: string }[]> {
-    const { data } = await supabase
+    // Fetch all org users for phonetic comparison
+    const { data: allUsers } = await supabase
         .from('users')
         .select('id, name, first_name, last_name, phone_number')
         .eq('organisation_id', orgId)
-        .ilike('name', `%${name}%`)
 
-    return (data ?? []) as { id: string; name: string; phone_number?: string }[]
+    if (!allUsers || allUsers.length === 0) return []
+
+    const orgUsers = allUsers as OrgUser[]
+
+    // Use phonetic matching — threshold at 0.7 for broad matches
+    const phoneticResults = findPhoneticMatches(name, orgUsers, 0.7)
+
+    if (phoneticResults.length > 0) {
+        // If we have any exact matches (score 1.0), only return those
+        const exactMatches = phoneticResults.filter(r => r.score >= 1.0)
+        if (exactMatches.length > 0) {
+            return exactMatches.map(r => ({
+                id: r.user.id,
+                name: r.user.name,
+                phone_number: r.user.phone_number,
+            }))
+        }
+
+        // Otherwise return all phonetic matches above threshold
+        return phoneticResults.map(r => ({
+            id: r.user.id,
+            name: r.user.name,
+            phone_number: r.user.phone_number,
+        }))
+    }
+
+    return []
 }
 
 // ---------------------------------------------------------------------------
@@ -337,6 +368,10 @@ async function dispatchIntent(
         case 'unknown':
         default:
             return handleUnknown(supabase, messageId, phone)
+        case 'clarification_needed':
+            await sendWhatsAppReply(phone, action.clarification_message || "I need a bit more information. Could you clarify your request?")
+            await markProcessed(supabase, messageId, 'clarification_needed', null)
+            return
     }
 }
 
@@ -355,14 +390,72 @@ async function handleTaskCreate(
     sender: SenderUser,
     action: ExtractedAction & { intent: 'task_create' },
 ): Promise<void> {
-    let assignedToId = sender.id
+    // ── VALIDATION 1: WHAT — is there a clear task? ──────────────────
+    if (!action.title || action.title === 'Untitled task') {
+        await sendWhatsAppReply(phone, "Please tell me what task you need done. For example: \"Tell Ramesh to send the invoice by Friday\"")
+        await markProcessed(supabase, messageId, 'clarification_needed', 'Missing WHAT: no task title')
+        return
+    }
 
-    // Try to resolve assignee by name
+    // ── VALIDATION 2: WHO — who should do the task? ──────────────────
+
+    // Case A: who_type is 'bot' — user expects the bot to do something
+    // Re-route to a to-do/reminder since bot can't perform the task itself
+    if (action.who_type === 'bot') {
+        await sendWhatsAppReply(phone,
+            `I can't do "${action.title}" myself, but I can remind you about it! ` +
+            `Would you like me to set a reminder? Just say "Remind me to ${action.title}".`)
+        await markProcessed(supabase, messageId, 'clarification_needed', 'WHO is bot — re-route needed')
+        return
+    }
+
+    // Case B: who_type is 'self' — user wants to do it themselves → create a to-do
+    if (action.who_type === 'self') {
+        // Convert to self-assigned task (to-do)
+        const { error: todoError } = await supabase
+            .from('tasks')
+            .insert({
+                title: action.title,
+                description: action.description,
+                organisation_id: sender.organisation_id,
+                created_by: sender.id,
+                assigned_to: sender.id,
+                deadline: action.deadline,
+                committed_deadline: action.deadline,
+                status: action.deadline ? 'accepted' : 'pending',
+                source: 'whatsapp',
+            })
+
+        if (todoError) {
+            await sendErrorAndMark(supabase, messageId, phone,
+                'Something went wrong while creating the to-do.',
+                `Todo insert failed: ${todoError.message}`,
+            )
+            return
+        }
+
+        const deadlineStr = action.deadline
+            ? new Date(action.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+            : null
+        const confirmMsg = deadlineStr
+            ? `✅ To-do created: "${action.title}". Deadline: ${deadlineStr}.`
+            : `✅ To-do created: "${action.title}".`
+
+        await sendWhatsAppReply(phone, confirmMsg)
+        await markProcessed(supabase, messageId, 'todo_create', null)
+        return
+    }
+
+    // Case C: who_type is 'person' or 'unknown' — try to resolve the assignee
+    let assignedToId: string | null = null
+    let resolvedAssigneeName: string | null = null
+
     if (action.assignee_name) {
         const matches = await fuzzyMatchUser(supabase, sender.organisation_id, action.assignee_name)
 
         if (matches.length === 1) {
             assignedToId = matches[0].id
+            resolvedAssigneeName = matches[0].name
         } else if (matches.length > 1) {
             // Multiple matches — ask user to clarify
             const nameList = matches
@@ -370,16 +463,33 @@ async function handleTaskCreate(
                 .join('\n')
 
             const clarifyMsg =
-                `I found multiple people named "${action.assignee_name}" in your organization:\n\n` +
+                `I found multiple people matching "${action.assignee_name}" in your organization:\n\n` +
                 `${nameList}\n\n` +
-                `Please reply with the full name of the person you want to assign this task to.`
+                `Please reply with the full name of the person you want to assign "${action.title}" to.`
 
             await sendWhatsAppReply(phone, clarifyMsg)
             await markProcessed(supabase, messageId, 'needs_clarification', null)
             return
+        } else {
+            // NO MATCH FOUND — this is the critical fix!
+            // Do NOT silently self-assign. Tell the user.
+            await sendWhatsAppReply(phone,
+                `I couldn't find anyone named "${action.assignee_name}" in your organization. ` +
+                `Please check the name and try again, or say the full name of the person.`)
+            await markProcessed(supabase, messageId, 'task_create', `Assignee not found: ${action.assignee_name}`)
+            return
         }
-        // If no match found, assignee falls back to sender (becomes a to-do)
+    } else {
+        // No assignee name extracted at all
+        // If who_type is explicitly 'unknown', ask for clarification
+        await sendWhatsAppReply(phone,
+            `I understood the task "${action.title}", but I'm not sure who should do it. ` +
+            `Please mention the person's name. For example: "Tell [person name] to ${action.title}".`)
+        await markProcessed(supabase, messageId, 'clarification_needed', 'Missing WHO: no assignee name')
+        return
     }
+
+    // ── At this point: WHAT ✓, WHO ✓ (single match) ─────────────────
 
     const { data: newTask, error: taskError } = await supabase
         .from('tasks')
@@ -405,18 +515,17 @@ async function handleTaskCreate(
     }
 
     // Build post-execution confirmation
-    const assigneeName = assignedToId === sender.id ? 'yourself' : action.assignee_name || 'the assignee'
     const deadlineStr = action.deadline
         ? new Date(action.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
         : null
     const confirmMsg = deadlineStr
-        ? `✅ Task created: "${action.title}" assigned to ${assigneeName}. Deadline: ${deadlineStr}.`
-        : `✅ Task created: "${action.title}" assigned to ${assigneeName}.`
+        ? `✅ Task created: "${action.title}" assigned to ${resolvedAssigneeName}. Deadline: ${deadlineStr}.`
+        : `✅ Task created: "${action.title}" assigned to ${resolvedAssigneeName}.`
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_create', null)
 
-    // Fire-and-forget: notify the assignee (and skip if self-assigned)
+    // Fire-and-forget: notify the assignee
     notifyTaskCreated(supabase, {
         ownerName: sender.name,
         ownerId: sender.id,
@@ -1140,7 +1249,8 @@ async function handleHelpNavigation(
 }
 
 // ---------------------------------------------------------------------------
-// reminder_create — Save a self-reminder to the reminders table
+// reminder_create — Store as a self-assigned to-do (shows on dashboard)
+// Also inserts a reminder row if a formal date is given.
 // ---------------------------------------------------------------------------
 
 async function handleReminderCreate(
@@ -1150,58 +1260,88 @@ async function handleReminderCreate(
     sender: SenderUser,
     action: ExtractedAction & { intent: 'reminder_create' },
 ): Promise<void> {
+    // ── VALIDATION: WHAT ─────────────────────────────────────────────
     if (!action.subject) {
         await sendWhatsAppReply(phone, "I couldn't understand what you'd like to be reminded about. Could you try again?")
         await markProcessed(supabase, messageId, 'reminder_create', 'Empty subject')
         return
     }
 
-    // Default to 6:00 AM IST tomorrow if no time specified
-    let scheduledAt: string
+    // ── VALIDATION: WHEN — reminders need a formal date ──────────────
+    if (action.when_type === 'informal') {
+        await sendWhatsAppReply(phone,
+            `I understood you want to be reminded to "${action.subject}", but I need a specific date or time to set the reminder. ` +
+            `Please include a date, for example: "Remind me to ${action.subject} on Monday" or "Remind me to ${action.subject} at 3 PM tomorrow".`)
+        await markProcessed(supabase, messageId, 'clarification_needed', 'Informal date for reminder')
+        return
+    }
+
+    // Default to 6:00 AM IST tomorrow if when_type is 'none'
+    let deadlineStr: string
     if (action.remind_at) {
-        scheduledAt = action.remind_at
+        deadlineStr = action.remind_at
     } else {
         const tomorrow = new Date()
         tomorrow.setDate(tomorrow.getDate() + 1)
-        // 6:00 AM IST = 00:30 UTC
         const yyyy = tomorrow.getUTCFullYear()
         const mm = String(tomorrow.getUTCMonth() + 1).padStart(2, '0')
         const dd = String(tomorrow.getUTCDate()).padStart(2, '0')
-        scheduledAt = `${yyyy}-${mm}-${dd}T06:00:00+05:30`
+        deadlineStr = `${yyyy}-${mm}-${dd}T06:00:00+05:30`
     }
 
-    const { error } = await supabase
+    // ── Store as a self-assigned task (to-do) so it shows on dashboard ──
+    const { data: newTodo, error: todoError } = await supabase
+        .from('tasks')
+        .insert({
+            title: action.subject,
+            description: `[Reminder] ${action.subject}`,
+            organisation_id: sender.organisation_id,
+            created_by: sender.id,
+            assigned_to: sender.id,
+            deadline: deadlineStr,
+            committed_deadline: deadlineStr,
+            status: 'accepted',
+            source: 'whatsapp',
+        })
+        .select('id')
+        .single()
+
+    if (todoError || !newTodo) {
+        await sendErrorAndMark(supabase, messageId, phone,
+            'Something went wrong while setting the reminder.',
+            `Reminder-as-todo insert failed: ${todoError?.message || 'Unknown error'}`,
+        )
+        return
+    }
+
+    // ── ALSO insert into reminders table for the cron job to send a WhatsApp ping ──
+    supabase
         .from('reminders')
         .insert({
             user_id: sender.id,
             organisation_id: sender.organisation_id,
             entity_type: 'self_reminder',
+            entity_id: newTodo.id,
             subject: action.subject,
             channel: 'whatsapp',
-            scheduled_at: scheduledAt,
+            scheduled_at: deadlineStr,
             status: 'pending',
         })
+        .then(() => { /* fire-and-forget */ })
+        .catch((err: unknown) => console.error('[ProcessMessage] Failed to insert reminder row:', err))
 
-    if (error) {
-        await sendErrorAndMark(supabase, messageId, phone,
-            'Something went wrong while setting the reminder.',
-            `Reminder insert failed: ${error.message}`,
-        )
-        return
-    }
-
-    // Build a friendly confirmation with the scheduled date/time
-    const scheduledDate = new Date(scheduledAt)
-    const dateStr = scheduledDate.toLocaleDateString('en-IN', {
+    // Build a friendly confirmation
+    const scheduledDate = new Date(deadlineStr)
+    const dateDisplay = scheduledDate.toLocaleDateString('en-IN', {
         day: 'numeric', month: 'short', year: 'numeric',
         timeZone: 'Asia/Kolkata',
     })
-    const timeStr = scheduledDate.toLocaleTimeString('en-IN', {
+    const timeDisplay = scheduledDate.toLocaleTimeString('en-IN', {
         hour: '2-digit', minute: '2-digit', hour12: true,
         timeZone: 'Asia/Kolkata',
     })
 
-    const confirmMsg = `⏰ Got it! I'll remind you on ${dateStr} at ${timeStr} to ${action.subject}.`
+    const confirmMsg = `⏰ Got it! I'll remind you on ${dateDisplay} at ${timeDisplay} to ${action.subject}. This is also saved as a to-do on your dashboard.`
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'reminder_create', null)

@@ -46,6 +46,8 @@ export interface TaskCreateAction {
     description: string | null
     assignee_name: string | null
     deadline: string | null            // ISO 8601
+    who_type: 'person' | 'bot' | 'self' | 'unknown'
+    when_type: 'formal' | 'informal' | 'none'
 }
 
 export interface TodoCreateAction {
@@ -53,6 +55,7 @@ export interface TodoCreateAction {
     title: string
     description: string | null
     deadline: string | null
+    when_type: 'formal' | 'informal' | 'none'
 }
 
 export interface TaskAcceptAction {
@@ -100,6 +103,7 @@ export interface ReminderCreateAction {
     intent: 'reminder_create'
     subject: string                    // what to remind about
     remind_at: string | null           // ISO 8601 — defaults to 6 AM IST if missing
+    when_type: 'formal' | 'informal' | 'none'
 }
 
 export interface ScheduledMessageAction {
@@ -127,6 +131,12 @@ export interface UnknownAction {
     intent: 'unknown'
 }
 
+export interface ClarificationNeededAction {
+    intent: 'clarification_needed'
+    missing_fields: string[]           // which criteria are missing: 'what', 'who', 'when'
+    clarification_message: string      // the message to send to the user
+}
+
 /**
  * Discriminated union of all possible extracted actions.
  * Use `action.intent` to narrow the type.
@@ -147,6 +157,7 @@ export type ExtractedAction =
     | HelpNavigationAction
     | StatusQueryAction
     | UnknownAction
+    | ClarificationNeededAction
 
 // ---------------------------------------------------------------------------
 // Permission validation

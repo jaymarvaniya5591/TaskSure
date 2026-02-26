@@ -84,6 +84,12 @@ function parseExtractedAction(intent: IntentType, raw: string): ExtractedAction 
                     description: p.description ?? null,
                     assignee_name: p.assignee_name ?? null,
                     deadline: p.deadline ?? null,
+                    who_type: ['person', 'bot', 'self', 'unknown'].includes(p.who_type)
+                        ? p.who_type
+                        : (p.assignee_name ? 'person' : 'unknown'),
+                    when_type: ['formal', 'informal', 'none'].includes(p.when_type)
+                        ? p.when_type
+                        : (p.deadline ? 'formal' : 'none'),
                 }
 
             case 'todo_create':
@@ -92,6 +98,9 @@ function parseExtractedAction(intent: IntentType, raw: string): ExtractedAction 
                     title: expectString(p.title, 'Untitled to-do'),
                     description: p.description ?? null,
                     deadline: p.deadline ?? null,
+                    when_type: ['formal', 'informal', 'none'].includes(p.when_type)
+                        ? p.when_type
+                        : (p.deadline ? 'formal' : 'none'),
                 }
 
             case 'task_accept':
@@ -147,6 +156,9 @@ function parseExtractedAction(intent: IntentType, raw: string): ExtractedAction 
                     intent: 'reminder_create',
                     subject: expectString(p.subject, ''),
                     remind_at: p.remind_at ?? null,
+                    when_type: ['formal', 'informal', 'none'].includes(p.when_type)
+                        ? p.when_type
+                        : (p.remind_at ? 'formal' : 'none'),
                 }
 
             case 'scheduled_message':
