@@ -336,7 +336,7 @@ async function dispatchIntent(
             return handleScheduledMessage(supabase, messageId, phone, sender, action)
         case 'unknown':
         default:
-            return handleUnknown(supabase, messageId, phone, action)
+            return handleUnknown(supabase, messageId, phone)
     }
 }
 
@@ -404,7 +404,16 @@ async function handleTaskCreate(
         return
     }
 
-    await sendWhatsAppReply(phone, action.confirmation_message)
+    // Build post-execution confirmation
+    const assigneeName = assignedToId === sender.id ? 'yourself' : action.assignee_name || 'the assignee'
+    const deadlineStr = action.deadline
+        ? new Date(action.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+        : null
+    const confirmMsg = deadlineStr
+        ? `✅ Task created: "${action.title}" assigned to ${assigneeName}. Deadline: ${deadlineStr}.`
+        : `✅ Task created: "${action.title}" assigned to ${assigneeName}.`
+
+    await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_create', null)
 
     // Fire-and-forget: notify the assignee (and skip if self-assigned)
@@ -451,7 +460,15 @@ async function handleTodoCreate(
         return
     }
 
-    await sendWhatsAppReply(phone, action.confirmation_message)
+    // Build post-execution confirmation
+    const deadlineStr = action.deadline
+        ? new Date(action.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+        : null
+    const confirmMsg = deadlineStr
+        ? `✅ To-do created: "${action.title}". Deadline: ${deadlineStr}.`
+        : `✅ To-do created: "${action.title}".`
+
+    await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'todo_create', null)
 }
 
@@ -1156,8 +1173,7 @@ async function handleReminderCreate(
         timeZone: 'Asia/Kolkata',
     })
 
-    const confirmMsg = action.confirmation_message
-        || `⏰ Got it! I'll remind you on ${dateStr} at ${timeStr} to ${action.subject}.`
+    const confirmMsg = `⏰ Got it! I'll remind you on ${dateStr} at ${timeStr} to ${action.subject}.`
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'reminder_create', null)
@@ -1257,8 +1273,7 @@ async function handleScheduledMessage(
         timeZone: 'Asia/Kolkata',
     })
 
-    const confirmMsg = action.confirmation_message
-        || `📨 Got it! I'll send your message to ${recipient.name} on ${dateStr} at ${timeStr}.`
+    const confirmMsg = `📨 Got it! I'll send your message to ${recipient.name} on ${dateStr} at ${timeStr}.`
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'scheduled_message', null)
@@ -1272,9 +1287,8 @@ async function handleUnknown(
     supabase: SupabaseAdmin,
     messageId: string,
     phone: string,
-    action: ExtractedAction,
 ): Promise<void> {
-    await sendWhatsAppReply(phone, action.confirmation_message)
+    await sendWhatsAppReply(phone, "I'm not sure I understood that. I can help you manage tasks — try saying something like \"Tell Ramesh to send the invoice\" or \"Show my pending tasks\". 😊")
     await markProcessed(supabase, messageId, 'unknown', null)
 }
 

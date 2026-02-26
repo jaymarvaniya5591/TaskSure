@@ -13,13 +13,13 @@ import type { IntentType } from './types'
 // ---------------------------------------------------------------------------
 
 function todayContext(): string {
-    // Always use IST (UTC+5:30) since users are Indian SMBs
-    const now = new Date()
-    const istOffset = 5.5 * 60 * 60_000
-    const ist = new Date(now.getTime() + istOffset + now.getTimezoneOffset() * 60_000)
-    const iso = ist.toISOString().split('T')[0]
-    const dayName = ist.toLocaleDateString('en-IN', { weekday: 'long' })
-    return `Today is ${dayName}, ${iso} (IST).`
+  // Always use IST (UTC+5:30) since users are Indian SMBs
+  const now = new Date()
+  const istOffset = 5.5 * 60 * 60_000
+  const ist = new Date(now.getTime() + istOffset + now.getTimezoneOffset() * 60_000)
+  const iso = ist.toISOString().split('T')[0]
+  const dayName = ist.toLocaleDateString('en-IN', { weekday: 'long' })
+  return `Today is ${dayName}, ${iso} (IST).`
 }
 
 // ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ function todayContext(): string {
 // ---------------------------------------------------------------------------
 
 export function getIntentClassifierPrompt(): string {
-    return `You are Boldo AI — a WhatsApp task-management assistant for Indian small businesses.
+  return `You are Boldo AI — a WhatsApp task-management assistant for Indian small businesses.
 Your job is to classify the user's message into EXACTLY ONE intent category.
 
 ${todayContext()}
@@ -107,19 +107,19 @@ The user wants to CREATE A TASK and assign it to someone.
 OUTPUT FORMAT (valid JSON):
 {
   "intent": "task_create",
-  "title": "concise task title (max 80 chars)",
+  "title": "a task title summarizing who, what, and when (max 120 chars)",
   "description": "optional additional details, or null",
   "assignee_name": "the name of the person to assign the task to, or null if unclear",
-  "deadline": "ISO 8601 date-time if a deadline was mentioned (e.g. 2026-02-28T18:00:00+05:30), or null",
-  "confirmation_message": "friendly WhatsApp confirmation message to send back to the user, in the same language they used"
+  "deadline": "ISO 8601 date-time if a deadline was mentioned (e.g. 2026-02-28T18:00:00+05:30), or null"
 }
 
 RULES:
 - Extract the assignee name as it appears (e.g. "Ramesh", "Priya").
+- Do not include the assignee name in the title, but DO include other names/people/context mentioned as part of the task description.
 - For vague deadlines like "by Friday", "next week", "kal" — convert to an actual ISO date based on today's date.
 - "aaj" = today, "kal" = tomorrow, "parso" = day after tomorrow.
-- Keep the title clean and professional. Do not include the assignee name in the title.
-- The confirmation message should be warm and natural (e.g. "Got it! I'll create a task for Ramesh to send the invoice by Feb 28. ✅")`
+- If the user mentions a time/deadline, include it in the title (e.g., 'Send the file to person X by 3 PM tomorrow').
+- Never lose information from the user's message. Condense for clarity but preserve all key details — who, what, when, where.`
 
 const TODO_CREATE_PROMPT = `You are Boldo AI. Extract structured to-do data from the user's message.
 ${todayContext()}
@@ -129,16 +129,17 @@ The user wants to create a PERSONAL TO-DO for themselves (not assigned to anyone
 OUTPUT FORMAT (valid JSON):
 {
   "intent": "todo_create",
-  "title": "concise to-do title (max 80 chars)",
+  "title": "a summary of the to-do including when and what (max 120 chars)",
   "description": "optional additional details, or null",
-  "deadline": "ISO 8601 date-time if mentioned, or null",
-  "confirmation_message": "friendly confirmation in the language they used"
+  "deadline": "ISO 8601 date-time if mentioned, or null"
 }
 
 RULES:
 - This is a self-assigned item — no assignee needed.
 - Convert relative dates to ISO 8601 based on today.
-- If the user says "at 3pm" without a date, assume today.`
+- If the user says "at 3pm" without a date, assume today.
+- Include the time/deadline naturally in the title if mentioned.
+- Preserve all details from the user's input.`
 
 const TASK_ACCEPT_PROMPT = `You are Boldo AI. The user is ACCEPTING a task assigned to them.
 ${todayContext()}
@@ -148,8 +149,7 @@ Extract the deadline they're committing to.
 OUTPUT FORMAT (valid JSON):
 {
   "intent": "task_accept",
-  "committed_deadline": "ISO 8601 date-time they committed to, or null if they didn't mention a date",
-  "confirmation_message": "friendly acknowledgement (e.g. 'Great! I\\'ll note your deadline as Feb 28. ✅')"
+  "committed_deadline": "ISO 8601 date-time they committed to, or null if they didn't mention a date"
 }
 
 RULES:
@@ -163,8 +163,7 @@ Extract the reason if provided.
 OUTPUT FORMAT (valid JSON):
 {
   "intent": "task_reject",
-  "reason": "the reason they gave for rejecting, or null",
-  "confirmation_message": "empathetic acknowledgement (e.g. 'Understood. I\\'ll let the task owner know.')"
+  "reason": "the reason they gave for rejecting, or null"
 }`
 
 const TASK_COMPLETE_PROMPT = `You are Boldo AI. The user wants to MARK A TASK AS COMPLETED.
@@ -174,8 +173,7 @@ Extract a description/hint to identify which task they're referring to.
 OUTPUT FORMAT (valid JSON):
 {
   "intent": "task_complete",
-  "task_hint": "keywords or description to identify the task (e.g. 'invoice task', 'the report for Mehta')",
-  "confirmation_message": "celebratory confirmation (e.g. '🎉 I\\'ll mark that task as completed!')"
+  "task_hint": "keywords or description to identify the task (e.g. 'invoice task', 'the report for Mehta')"
 }`
 
 const TASK_DELETE_PROMPT = `You are Boldo AI. The user wants to DELETE/CANCEL a task.
@@ -185,8 +183,7 @@ Extract a description/hint to identify which task.
 OUTPUT FORMAT (valid JSON):
 {
   "intent": "task_delete",
-  "task_hint": "keywords to identify the task",
-  "confirmation_message": "confirmation message (e.g. 'Got it, I\\'ll cancel that task.')"
+  "task_hint": "keywords to identify the task"
 }`
 
 const TASK_EDIT_DEADLINE_PROMPT = `You are Boldo AI. The user wants to CHANGE A TASK'S DEADLINE.
@@ -196,8 +193,7 @@ OUTPUT FORMAT (valid JSON):
 {
   "intent": "task_edit_deadline",
   "task_hint": "keywords to identify the task",
-  "new_deadline": "new deadline in ISO 8601, or null if unclear",
-  "confirmation_message": "confirmation with the new date mentioned"
+  "new_deadline": "new deadline in ISO 8601, or null if unclear"
 }
 
 RULES:
@@ -210,8 +206,7 @@ OUTPUT FORMAT (valid JSON):
 {
   "intent": "task_edit_assignee",
   "task_hint": "keywords to identify the task",
-  "new_assignee_name": "name of the new person to assign to",
-  "confirmation_message": "confirmation mentioning the new assignee"
+  "new_assignee_name": "name of the new person to assign to"
 }`
 
 const TASK_CREATE_SUBTASK_PROMPT = `You are Boldo AI. The user wants to CREATE A SUBTASK under an existing task.
@@ -221,11 +216,10 @@ OUTPUT FORMAT (valid JSON):
 {
   "intent": "task_create_subtask",
   "parent_task_hint": "keywords to identify the parent task",
-  "title": "subtask title",
+  "title": "subtask title preserving context (max 120 chars)",
   "description": "subtask details or null",
   "assignee_name": "person to assign the subtask to, or null",
-  "deadline": "ISO 8601 deadline or null",
-  "confirmation_message": "confirmation message"
+  "deadline": "ISO 8601 deadline or null"
 }`
 
 const REMINDER_CREATE_PROMPT = `You are Boldo AI. The user wants to SET A REMINDER for themselves.
@@ -235,8 +229,7 @@ OUTPUT FORMAT (valid JSON):
 {
   "intent": "reminder_create",
   "subject": "what to remind them about",
-  "remind_at": "ISO 8601 date-time to send the reminder, or null (defaults to 6:00 AM IST on the mentioned date)",
-  "confirmation_message": "confirmation with the date/time (e.g. 'Got it! I\\'ll remind you on Feb 26 at 6:00 AM to collect payment from Mehta. ⏰')"
+  "remind_at": "ISO 8601 date-time to send the reminder, or null (defaults to 6:00 AM IST on the mentioned date)"
 }
 
 RULES:
@@ -251,8 +244,7 @@ OUTPUT FORMAT (valid JSON):
   "intent": "scheduled_message",
   "recipient_name": "name of the person to send the message to",
   "message_content": "the message to send them",
-  "send_at": "ISO 8601 date-time to send, or null",
-  "confirmation_message": "confirmation with recipient and date"
+  "send_at": "ISO 8601 date-time to send, or null"
 }
 
 RULES:
@@ -263,8 +255,7 @@ const STATUS_QUERY_PROMPT = `You are Boldo AI. The user is ASKING about their ta
 OUTPUT FORMAT (valid JSON):
 {
   "intent": "status_query",
-  "query_type": "my_tasks" | "pending" | "overdue" | "general",
-  "confirmation_message": "acknowledgement that you'll check (e.g. 'Let me check your tasks...')"
+  "query_type": "my_tasks" | "pending" | "overdue" | "general"
 }
 
 RULES:
@@ -280,20 +271,20 @@ RULES:
  * (auth_signin, help_navigation, unknown).
  */
 export function getActionExtractionPrompt(intent: IntentType): string | null {
-    const map: Partial<Record<IntentType, string>> = {
-        task_create: TASK_CREATE_PROMPT,
-        todo_create: TODO_CREATE_PROMPT,
-        task_accept: TASK_ACCEPT_PROMPT,
-        task_reject: TASK_REJECT_PROMPT,
-        task_complete: TASK_COMPLETE_PROMPT,
-        task_delete: TASK_DELETE_PROMPT,
-        task_edit_deadline: TASK_EDIT_DEADLINE_PROMPT,
-        task_edit_assignee: TASK_EDIT_ASSIGNEE_PROMPT,
-        task_create_subtask: TASK_CREATE_SUBTASK_PROMPT,
-        reminder_create: REMINDER_CREATE_PROMPT,
-        scheduled_message: SCHEDULED_MESSAGE_PROMPT,
-        status_query: STATUS_QUERY_PROMPT,
-    }
+  const map: Partial<Record<IntentType, string>> = {
+    task_create: TASK_CREATE_PROMPT,
+    todo_create: TODO_CREATE_PROMPT,
+    task_accept: TASK_ACCEPT_PROMPT,
+    task_reject: TASK_REJECT_PROMPT,
+    task_complete: TASK_COMPLETE_PROMPT,
+    task_delete: TASK_DELETE_PROMPT,
+    task_edit_deadline: TASK_EDIT_DEADLINE_PROMPT,
+    task_edit_assignee: TASK_EDIT_ASSIGNEE_PROMPT,
+    task_create_subtask: TASK_CREATE_SUBTASK_PROMPT,
+    reminder_create: REMINDER_CREATE_PROMPT,
+    scheduled_message: SCHEDULED_MESSAGE_PROMPT,
+    status_query: STATUS_QUERY_PROMPT,
+  }
 
-    return map[intent] ?? null
+  return map[intent] ?? null
 }
