@@ -48,9 +48,12 @@ export async function transcribeAudio(
                         ? 'webm'
                         : 'ogg' // default — WhatsApp voice notes are always OGG
 
+    // Clean the MIME type to remove parameters (e.g., "audio/ogg; codecs=opus" -> "audio/ogg")
+    const cleanMimeType = mimeType.split(';')[0].trim()
+
     // Build multipart form data
     const formData = new FormData()
-    const blob = new Blob([new Uint8Array(audioBuffer)], { type: mimeType })
+    const blob = new Blob([new Uint8Array(audioBuffer)], { type: cleanMimeType })
     formData.append('file', blob, `audio.${ext}`)
     formData.append('model', SARVAM_MODEL)
     formData.append('mode', 'translate')          // Always output English

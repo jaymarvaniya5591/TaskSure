@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuthToken, consumeAuthToken, findAuthUserIdByPhone, generateDirectSession } from '@/lib/auth-links'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizePhone } from '@/lib/phone'
+import { sendJoinRequestPendingTemplate } from '@/lib/whatsapp'
 
 // Co-locate this function with Supabase (ap-southeast-1 / Singapore)
 export const preferredRegion = 'sin1'
@@ -267,11 +268,15 @@ export async function POST(request: NextRequest) {
             const partnerPhone = normalizePhone(body.partnerPhone!)
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error: reqErr } = await (supabase as any).from('join_requests').insert({
+            const { data: reqData, error: reqErr } = await (supabase as any).from('join_requests').insert({
                 requester_phone: phone, requester_name: fullName, partner_phone: partnerPhone, role: 'owner'
-            })
+            }).select('id').single()
 
             if (reqErr) throw new Error(`Join request failure: ${reqErr.message}`)
+
+            // Fire-and-forget: Notify partner via WhatsApp
+            sendJoinRequestPendingTemplate(`91${partnerPhone}`, fullName, phone, reqData.id)
+                .catch(err => console.error('[CompleteSignup] Failed to send join request notification:', err))
 
             // Don't consume token yet — they may need to retry if partner rejects
             return NextResponse.json({

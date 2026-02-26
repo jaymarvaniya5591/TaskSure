@@ -4,7 +4,6 @@ import {
     sendWhatsAppMessage,
     sendSignupLinkTemplate,
     sendSigninLinkTemplate,
-    sendJoinRequestPendingTemplate,
 } from '@/lib/whatsapp'
 import { generateAuthToken } from '@/lib/auth-links'
 import { normalizePhone } from '@/lib/phone'
@@ -420,28 +419,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     continue
                 }
 
-                // --- STEP D: Check for pending join requests ---
-                try {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const { data: pendingRequests } = await (supabase as any)
-                        .from('join_requests')
-                        .select('id, requester_name, requester_phone')
-                        .eq('partner_phone', senderPhone10)
-                        .eq('status', 'pending')
 
-                    if (pendingRequests && pendingRequests.length > 0) {
-                        for (const req of pendingRequests) {
-                            await sendJoinRequestPendingTemplate(
-                                rawSenderPhone,
-                                req.requester_name,
-                                req.requester_phone,
-                                req.id
-                            )
-                        }
-                    }
-                } catch (err) {
-                    console.error('[Webhook] Error checking join requests:', err)
-                }
 
                 // --- STEP E: REGISTERED USER + normal message → AI processor ---
                 try {
