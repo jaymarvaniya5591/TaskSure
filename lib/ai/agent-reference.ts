@@ -81,7 +81,7 @@ const RESPONSE_TEMPLATES = `
 Use these as a guide for your WhatsApp responses. Adapt the language to match the user's language.
 
 ### Task Created (for owner)
-"✅ Task created! I've asked [Assignee Name] to '[Task Title]'[deadline ? ' by [Deadline]' : '']. Waiting for them to accept."
+"✅ Task created! I've asked [Assignee Name] to '[Task Title]'. Waiting for them to accept."
 
 ### Task Created (for assignee — notification)
 "📋 New task from [Owner Name]: '[Task Title]'[deadline ? ' — deadline: [Deadline]' : '']. Reply with your deadline to accept, or say 'reject' with a reason."

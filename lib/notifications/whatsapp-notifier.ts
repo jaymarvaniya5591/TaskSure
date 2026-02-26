@@ -130,10 +130,16 @@ async function safeSend(phone: string, message: string): Promise<void> {
 }
 
 function formatDate(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
+    const d = new Date(dateStr)
+    const datePart = d.toLocaleDateString('en-IN', {
         day: 'numeric', month: 'short', year: 'numeric',
         timeZone: 'Asia/Kolkata',
     })
+    const timePart = d.toLocaleTimeString('en-IN', {
+        hour: '2-digit', minute: '2-digit', hour12: true,
+        timeZone: 'Asia/Kolkata',
+    })
+    return `${datePart} at ${timePart}`
 }
 
 // ---------------------------------------------------------------------------

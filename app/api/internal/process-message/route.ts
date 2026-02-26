@@ -515,12 +515,7 @@ async function handleTaskCreate(
     }
 
     // Build post-execution confirmation
-    const deadlineStr = action.deadline
-        ? new Date(action.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
-        : null
-    const confirmMsg = deadlineStr
-        ? `✅ Task created: "${action.title}" assigned to ${resolvedAssigneeName}. Deadline: ${deadlineStr}.`
-        : `✅ Task created: "${action.title}" assigned to ${resolvedAssigneeName}.`
+    const confirmMsg = `✅ Task created: "${action.title}" assigned to ${resolvedAssigneeName}.`
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_create', null)
@@ -570,12 +565,13 @@ async function handleTodoCreate(
     }
 
     // Build post-execution confirmation
-    const deadlineStr = action.deadline
-        ? new Date(action.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
-        : null
-    const confirmMsg = deadlineStr
-        ? `✅ To-do created: "${action.title}". Deadline: ${deadlineStr}.`
-        : `✅ To-do created: "${action.title}".`
+    let confirmMsg = `✅ To-do created: "${action.title}".`
+    if (action.deadline) {
+        const d = new Date(action.deadline)
+        const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+        const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
+        confirmMsg = `✅ To-do created: "${action.title}". Deadline: ${dateStr} at ${timeStr}.`
+    }
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'todo_create', null)
@@ -632,12 +628,14 @@ async function handleTaskAccept(
 
     // Build a more specific confirmation
     const taskTitle = pendingTask.title
-    const deadlineStr = action.committed_deadline
-        ? new Date(action.committed_deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-        : null
-    const confirmMsg = deadlineStr
-        ? `✅ Great! You've accepted "${taskTitle}" with a deadline of ${deadlineStr}. Good luck! 💪`
-        : `✅ You've accepted "${taskTitle}". Remember to set a deadline when you can!`
+    let confirmMsg = `✅ You've accepted "${taskTitle}". Remember to set a deadline when you can!`
+
+    if (action.committed_deadline) {
+        const d = new Date(action.committed_deadline)
+        const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+        const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
+        confirmMsg = `✅ Great! You've accepted "${taskTitle}" with a deadline of ${dateStr} at ${timeStr}. Good luck! 💪`
+    }
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_accept', null)
@@ -916,8 +914,10 @@ async function handleTaskEditDeadline(
         return
     }
 
-    const newDateStr = new Date(action.new_deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-    await sendWhatsAppReply(phone, `📅 Deadline for "${task.title}" has been changed to ${newDateStr}.`)
+    const d = new Date(action.new_deadline)
+    const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+    const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
+    await sendWhatsAppReply(phone, `📅 Deadline for "${task.title}" has been changed to ${dateStr} at ${timeStr}.`)
     await markProcessed(supabase, messageId, 'task_edit_deadline', null)
 
     // Fire-and-forget: notify all participants
