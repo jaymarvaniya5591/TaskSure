@@ -35,23 +35,6 @@ interface SeqNode {
     }[];
 }
 
-interface TaskRecord {
-    id: string;
-    parent_task_id: string | null;
-    created_by: string;
-    assigned_to: string;
-    title: string;
-    status: string;
-    created_at: string;
-    updated_at: string;
-}
-
-interface LogRecord {
-    action: string;
-    created_at: string;
-    entity_id: string;
-}
-
 // ─── Logic ──────────────────────────────────────────────────────────────────
 
 function StatusIcon({ status }: { status: string }) {

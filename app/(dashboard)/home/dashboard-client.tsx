@@ -128,7 +128,7 @@ export default function DashboardClient({
         }
 
         return { displayTasks: sortedTasks, displayTodos: sortedTodos };
-    }, [taskFilters, todoFilters, todaysTasks, todaysTodos, allTasks, filterPredicates, isOverdueTask]);
+    }, [taskFilters, todoFilters, todaysTasks, todaysTodos, filterPredicates, isOverdueTask]);
 
 
 
