@@ -136,33 +136,18 @@ async function fuzzyMatchUser(
 }
 
 // ---------------------------------------------------------------------------
-// POST handler — the AI pipeline
+// Core processing logic — callable directly from webhook via waitUntil
 // ---------------------------------------------------------------------------
 
-export async function POST(request: NextRequest) {
-    // 1. Auth
-    const secret = request.headers.get('x-internal-secret')
-    if (!secret || secret !== process.env.INTERNAL_PROCESSOR_SECRET) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // 2. Parse body
-    let body: { messageId?: string; audioMediaId?: string; audioMimeType?: string }
-    try {
-        body = await request.json()
-    } catch {
-        return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-    }
-
-    const { messageId, audioMediaId, audioMimeType } = body
-    if (!messageId || typeof messageId !== 'string') {
-        return NextResponse.json({ error: 'Missing messageId' }, { status: 400 })
-    }
-
+export async function processMessageInline(
+    messageId: string,
+    audioMediaId?: string,
+    audioMimeType?: string,
+): Promise<{ status: string; intent?: string }> {
     const supabase = createAdminClient() as SupabaseAdmin
 
     try {
-        // 3. Fetch message from DB
+        // 1. Fetch message from DB
         const { data: message, error: fetchError } = await supabase
             .from('incoming_messages')
             .select('id, phone, user_id, raw_text, processed, processing_error, intent_type')
@@ -171,18 +156,18 @@ export async function POST(request: NextRequest) {
 
         if (fetchError || !message) {
             console.error('[ProcessMessage] Message not found:', messageId, fetchError?.message)
-            return NextResponse.json({ status: 'not_found' }, { status: 200 })
+            return { status: 'not_found' }
         }
 
         const msg = message as IncomingMessage
 
-        // 4. Idempotency
+        // 2. Idempotency
         if (msg.processed) {
             console.log('[ProcessMessage] Already processed:', messageId)
-            return NextResponse.json({ status: 'already_processed' }, { status: 200 })
+            return { status: 'already_processed' }
         }
 
-        // 5. Resolve sender
+        // 3. Resolve sender
         const senderPhone10 = normalizePhone(msg.phone)
 
         const { data: senderUser } = await supabase
@@ -197,12 +182,12 @@ export async function POST(request: NextRequest) {
                 'Your phone number is not registered with Boldo. Please sign up first.',
                 `User not found for phone: ${msg.phone}`,
             )
-            return NextResponse.json({ status: 'user_not_found' }, { status: 200 })
+            return { status: 'user_not_found' }
         }
 
         const sender = senderUser as SenderUser
 
-        // 6. Audio transcription (if voice note)
+        // 4. Audio transcription (if voice note)
         let textForAI = msg.raw_text
 
         if (audioMediaId) {
@@ -229,12 +214,12 @@ export async function POST(request: NextRequest) {
                     "Sorry, I couldn't understand the voice note. Please try again or type your message.",
                     `Audio transcription failed: ${errMsg}`,
                 )
-                return NextResponse.json({ status: 'transcription_error' }, { status: 200 })
+                return { status: 'transcription_error' }
             }
         }
 
         // =====================================================================
-        // 7. AI PIPELINE — Stage 1: Classify intent
+        // 5. AI PIPELINE — Stage 1: Classify intent
         // =====================================================================
 
         console.log(`[ProcessMessage] Stage 1 — classifying intent for: "${textForAI.substring(0, 80)}"`)
@@ -242,20 +227,20 @@ export async function POST(request: NextRequest) {
         console.log(`[ProcessMessage] Intent: ${classification.intent} (confidence: ${classification.confidence.toFixed(2)})`)
 
         // =====================================================================
-        // 8. AI PIPELINE — Stage 2: Extract action data
+        // 6. AI PIPELINE — Stage 2: Extract action data
         // =====================================================================
 
         const action = await extractAction(classification.intent, textForAI)
         console.log(`[ProcessMessage] Action extracted: ${action.intent}`)
 
         // =====================================================================
-        // 9. Dispatch to intent handler
+        // 7. Dispatch to intent handler
         // =====================================================================
 
         await dispatchIntent(supabase, messageId, msg.phone, sender, textForAI, action)
 
         console.log(`[ProcessMessage] Done: ${messageId} → ${action.intent}`, audioMediaId ? '(from audio)' : '')
-        return NextResponse.json({ status: 'processed', intent: action.intent }, { status: 200 })
+        return { status: 'processed', intent: action.intent }
 
     } catch (err) {
         const errMsg = err instanceof Error ? err.message : 'Unknown internal error'
@@ -276,8 +261,36 @@ export async function POST(request: NextRequest) {
             console.error('[ProcessMessage] Cleanup failed:', cleanupErr)
         }
 
-        return NextResponse.json({ status: 'internal_error' }, { status: 200 })
+        return { status: 'internal_error' }
     }
+}
+
+// ---------------------------------------------------------------------------
+// POST handler — backwards-compatible HTTP endpoint
+// ---------------------------------------------------------------------------
+
+export async function POST(request: NextRequest) {
+    // 1. Auth
+    const secret = request.headers.get('x-internal-secret')
+    if (!secret || secret !== process.env.INTERNAL_PROCESSOR_SECRET) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // 2. Parse body
+    let body: { messageId?: string; audioMediaId?: string; audioMimeType?: string }
+    try {
+        body = await request.json()
+    } catch {
+        return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+
+    const { messageId, audioMediaId, audioMimeType } = body
+    if (!messageId || typeof messageId !== 'string') {
+        return NextResponse.json({ error: 'Missing messageId' }, { status: 400 })
+    }
+
+    const result = await processMessageInline(messageId, audioMediaId, audioMimeType)
+    return NextResponse.json(result, { status: 200 })
 }
 
 // ---------------------------------------------------------------------------

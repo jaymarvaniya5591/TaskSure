@@ -7,9 +7,14 @@ import {
 } from '@/lib/whatsapp'
 import { generateAuthToken } from '@/lib/auth-links'
 import { normalizePhone } from '@/lib/phone'
+import { waitUntil } from '@vercel/functions'
+import { processMessageInline } from '@/app/api/internal/process-message/route'
 
 // Co-locate this function with Supabase (ap-southeast-1 / Singapore)
 export const preferredRegion = 'sin1'
+
+// Allow up to 60s for the full AI pipeline (audio download + Sarvam + Gemini x2)
+export const maxDuration = 60
 
 // ---------------------------------------------------------------------------
 // In-memory rate limiter: 30 messages per 60 seconds per sender phone number
@@ -445,16 +450,15 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             processorPayload.audioMimeType = message.audio.mime_type || 'audio/ogg'
                         }
 
-                        fetch('https://boldoai.in/api/internal/process-message', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'x-internal-secret': process.env.INTERNAL_PROCESSOR_SECRET || '',
-                            },
-                            body: JSON.stringify(processorPayload),
-                        }).catch((err) => {
-                            console.error('[Webhook] Failed to trigger internal processor:', err)
-                        })
+                        waitUntil(
+                            processMessageInline(
+                                insertedMsg.id,
+                                processorPayload.audioMediaId,
+                                processorPayload.audioMimeType,
+                            ).catch((err) => {
+                                console.error('[Webhook] Background processing error:', err)
+                            })
+                        )
                     }
                 } catch (err) {
                     console.error('[Webhook] Error inserting message:', err)
