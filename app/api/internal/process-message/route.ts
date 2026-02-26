@@ -533,7 +533,7 @@ async function handleTaskAccept(
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_accept', null)
 
-    // Fire-and-forget: notify the task owner
+    // Fire-and-forget: notify all participants (actor excluded by source='whatsapp')
     const ownerIdStr = extractUserId(pendingTask.created_by)
     if (ownerIdStr) {
         notifyTaskAccepted(supabase, {
@@ -541,7 +541,9 @@ async function handleTaskAccept(
             assigneeId: sender.id,
             assigneeName: sender.name,
             taskTitle: taskTitle,
+            taskId: pendingTask.id,
             committedDeadline: action.committed_deadline,
+            source: 'whatsapp',
         }).catch(err => console.error('[ProcessMessage] Notification error (task_accept):', err))
     }
 }
@@ -595,7 +597,7 @@ async function handleTaskReject(
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_reject', null)
 
-    // Fire-and-forget: notify the task owner
+    // Fire-and-forget: notify all participants
     const ownerIdStr = extractUserId(pendingTask.created_by)
     if (ownerIdStr) {
         notifyTaskRejected(supabase, {
@@ -603,7 +605,9 @@ async function handleTaskReject(
             assigneeId: sender.id,
             assigneeName: sender.name,
             taskTitle: taskTitle,
+            taskId: pendingTask.id,
             reason: action.reason,
+            source: 'whatsapp',
         }).catch(err => console.error('[ProcessMessage] Notification error (task_reject):', err))
     }
 }
@@ -660,7 +664,7 @@ async function handleTaskComplete(
     await sendWhatsAppReply(phone, `🎉 "${task.title}" has been marked as completed. Nice work!`)
     await markProcessed(supabase, messageId, 'task_complete', null)
 
-    // Fire-and-forget: notify the assignee
+    // Fire-and-forget: notify all participants
     const assigneeIdStr = extractUserId(task.assigned_to)
     if (assigneeIdStr) {
         notifyTaskCompleted(supabase, {
@@ -668,6 +672,8 @@ async function handleTaskComplete(
             ownerName: sender.name,
             assigneeId: assigneeIdStr,
             taskTitle: task.title,
+            taskId: task.id,
+            source: 'whatsapp',
         }).catch(err => console.error('[ProcessMessage] Notification error (task_complete):', err))
     }
 }
@@ -732,7 +738,7 @@ async function handleTaskDelete(
     await sendWhatsAppReply(phone, `🗑️ "${task.title}" has been cancelled.`)
     await markProcessed(supabase, messageId, 'task_delete', null)
 
-    // Fire-and-forget: notify the assignee
+    // Fire-and-forget: notify all participants
     const assigneeIdDel = extractUserId(task.assigned_to)
     if (assigneeIdDel) {
         notifyTaskCancelled(supabase, {
@@ -740,6 +746,8 @@ async function handleTaskDelete(
             ownerName: sender.name,
             assigneeId: assigneeIdDel,
             taskTitle: task.title,
+            taskId: task.id,
+            source: 'whatsapp',
         }).catch(err => console.error('[ProcessMessage] Notification error (task_delete):', err))
     }
 }
@@ -803,7 +811,7 @@ async function handleTaskEditDeadline(
     await sendWhatsAppReply(phone, `📅 Deadline for "${task.title}" has been changed to ${newDateStr}.`)
     await markProcessed(supabase, messageId, 'task_edit_deadline', null)
 
-    // Fire-and-forget: notify the other party
+    // Fire-and-forget: notify all participants
     const dlOwnerId = extractUserId(task.created_by)
     const dlAssigneeId = extractUserId(task.assigned_to)
     if (dlOwnerId && dlAssigneeId) {
@@ -813,7 +821,9 @@ async function handleTaskEditDeadline(
             actorId: sender.id,
             actorName: sender.name,
             taskTitle: task.title,
+            taskId: task.id,
             newDeadline: action.new_deadline,
+            source: 'whatsapp',
         }).catch(err => console.error('[ProcessMessage] Notification error (task_edit_deadline):', err))
     }
 }
@@ -895,7 +905,7 @@ async function handleTaskEditAssignee(
     await sendWhatsAppReply(phone, `🔄 "${task.title}" has been reassigned to ${newAssignee.name}.`)
     await markProcessed(supabase, messageId, 'task_edit_assignee', null)
 
-    // Fire-and-forget: notify old + new assignees
+    // Fire-and-forget: notify all participants
     const oldAssigneeIdStr = extractUserId(task.assigned_to)
     if (oldAssigneeIdStr) {
         notifyAssigneeChanged(supabase, {
@@ -905,6 +915,8 @@ async function handleTaskEditAssignee(
             newAssigneeId: newAssignee.id,
             newAssigneeName: newAssignee.name,
             taskTitle: task.title,
+            taskId: task.id,
+            source: 'whatsapp',
         }).catch(err => console.error('[ProcessMessage] Notification error (task_edit_assignee):', err))
     }
 }
@@ -990,8 +1002,21 @@ async function handleTaskCreateSubtask(
     await sendWhatsAppReply(phone, `📎 Subtask "${action.title}" created under "${parentTask.title}". ✅`)
     await markProcessed(supabase, messageId, 'task_create_subtask', null)
 
-    // Fire-and-forget: notify parent task owner + subtask assignee
+    // Fire-and-forget: notify all participants via unified engine
+    // The subtask assignee will be notified through the Task Created event below
     const parentOwnerId = extractUserId(parentTask.created_by)
+
+    // Look up assignee name for richer notification
+    let subtaskAssigneeNameStr: string | undefined
+    if (subtaskAssigneeId !== sender.id) {
+        const { data: assigneeUser } = await supabase
+            .from('users')
+            .select('name')
+            .eq('id', subtaskAssigneeId)
+            .single() as { data: { name: string } | null }
+        subtaskAssigneeNameStr = assigneeUser?.name || undefined
+    }
+
     if (parentOwnerId) {
         notifySubtaskCreated(supabase, {
             parentTaskOwnerId: parentOwnerId,
@@ -999,7 +1024,10 @@ async function handleTaskCreateSubtask(
             creatorName: sender.name,
             subtaskTitle: action.title,
             parentTaskTitle: parentTask.title,
-        }).catch(err => console.error('[ProcessMessage] Notification error (subtask_create owner):', err))
+            subtaskId: newSubtask.id,
+            subtaskAssigneeName: subtaskAssigneeNameStr,
+            source: 'whatsapp',
+        }).catch(err => console.error('[ProcessMessage] Notification error (subtask_create):', err))
     }
 
     // Also notify the subtask assignee (if assigned to someone other than the creator)

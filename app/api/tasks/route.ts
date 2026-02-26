@@ -105,13 +105,27 @@ export async function POST(request: NextRequest) {
                 .eq('id', parent_task_id)
                 .single();
 
-            if (parentTask && parentTask.created_by !== currentUser.id) {
+            // Look up assignee name for richer notification
+            let subtaskAssigneeName: string | undefined;
+            if (assigned_to !== currentUser.id) {
+                const { data: assigneeUser } = await adminSupabase
+                    .from('users')
+                    .select('name')
+                    .eq('id', assigned_to)
+                    .single() as { data: { name: string } | null };
+                subtaskAssigneeName = assigneeUser?.name || undefined;
+            }
+
+            if (parentTask) {
                 notifySubtaskCreated(adminSupabase, {
                     parentTaskOwnerId: parentTask.created_by,
                     creatorId: currentUser.id,
                     creatorName: currentUser.name || 'A team member',
                     subtaskTitle: title,
                     parentTaskTitle: parentTask.title || 'Untitled task',
+                    subtaskId: data.id,
+                    subtaskAssigneeName,
+                    source: 'dashboard',
                 }).catch(err => console.error('[TasksRoute] Notification error (subtask_create):', err));
             }
         }

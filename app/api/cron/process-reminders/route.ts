@@ -260,6 +260,7 @@ async function processOverdueTasks(supabase: SupabaseAdmin): Promise<number> {
                 ownerId: task.created_by,
                 assigneeId: task.assigned_to,
                 taskTitle: task.title,
+                taskId: task.id,
                 deadline: task.committed_deadline,
             })
 

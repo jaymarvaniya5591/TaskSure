@@ -86,14 +86,16 @@ export async function PATCH(
                 metadata: { committed_deadline }
             });
 
-            // Notify task owner
+            // Notify all participants
             const adminDb = createAdminClient();
             notifyTaskAccepted(adminDb, {
                 ownerId: task.created_by,
                 assigneeId: userId,
                 assigneeName: currentUser.name || 'The assignee',
                 taskTitle: task.title || 'Untitled task',
+                taskId: taskId,
                 committedDeadline: committed_deadline,
+                source: 'dashboard',
             }).catch(err => console.error('[TaskPatch] Notification error (accept):', err));
 
             return NextResponse.json({ success: true, status: "accepted" });
@@ -137,14 +139,16 @@ export async function PATCH(
                 metadata: { reject_reason }
             });
 
-            // Notify task owner
+            // Notify all participants
             const adminDb = createAdminClient();
             notifyTaskRejected(adminDb, {
                 ownerId: task.created_by,
                 assigneeId: userId,
                 assigneeName: currentUser.name || 'The assignee',
                 taskTitle: task.title || 'Untitled task',
+                taskId: taskId,
                 reason: reject_reason || null,
+                source: 'dashboard',
             }).catch(err => console.error('[TaskPatch] Notification error (reject):', err));
 
             return NextResponse.json({ success: true, status: "rejected" });
@@ -200,13 +204,15 @@ export async function PATCH(
                 });
             }
 
-            // Notify assignee
+            // Notify all participants
             const adminDb = createAdminClient();
             notifyTaskCompleted(adminDb, {
                 ownerId: userId,
                 ownerName: currentUser.name || 'The task owner',
                 assigneeId: task.assigned_to,
                 taskTitle: fullTask?.title || task.title || 'Untitled task',
+                taskId: taskId,
+                source: 'dashboard',
             }).catch(err => console.error('[TaskPatch] Notification error (complete):', err));
 
             return NextResponse.json({ success: true, status: "completed" });
@@ -249,7 +255,7 @@ export async function PATCH(
                 metadata: { old_deadline: task.deadline, new_deadline }
             });
 
-            // Notify the other party
+            // Notify all participants
             const adminDb = createAdminClient();
             notifyDeadlineEdited(adminDb, {
                 ownerId: task.created_by,
@@ -257,7 +263,9 @@ export async function PATCH(
                 actorId: userId,
                 actorName: currentUser.name || 'A team member',
                 taskTitle: task.title || 'Untitled task',
+                taskId: taskId,
                 newDeadline: new_deadline,
+                source: 'dashboard',
             }).catch(err => console.error('[TaskPatch] Notification error (edit_deadline):', err));
 
             return NextResponse.json({ success: true, deadline: new_deadline });
@@ -314,7 +322,7 @@ export async function PATCH(
                 }
             });
 
-            // Notify old + new assignees
+            // Notify all participants
             const adminDb = createAdminClient();
             notifyAssigneeChanged(adminDb, {
                 ownerId: userId,
@@ -323,6 +331,8 @@ export async function PATCH(
                 newAssigneeId: new_assigned_to,
                 newAssigneeName: new_assigned_name || 'the new assignee',
                 taskTitle: task.title || 'Untitled task',
+                taskId: taskId,
+                source: 'dashboard',
             }).catch(err => console.error('[TaskPatch] Notification error (edit_persons):', err));
 
             return NextResponse.json({ success: true, assigned_to: new_assigned_to });
@@ -380,13 +390,15 @@ export async function PATCH(
                 entity_id: taskId
             });
 
-            // Notify assignee
+            // Notify all participants
             const adminDb = createAdminClient();
             notifyTaskCancelled(adminDb, {
                 ownerId: userId,
                 ownerName: currentUser.name || 'The task owner',
                 assigneeId: task.assigned_to,
                 taskTitle: task.title || 'Untitled task',
+                taskId: taskId,
+                source: 'dashboard',
             }).catch(err => console.error('[TaskPatch] Notification error (delete):', err));
 
             return NextResponse.json({ success: true, status: "cancelled" });
