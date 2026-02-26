@@ -67,12 +67,13 @@ const knownUsersCache = new Map<string, CachedUser | null>()
 async function getCachedUser(
     phone10: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    supabase: any
+    supabase: any,
+    forceDbCheck: boolean = false
 ): Promise<CachedUser | null> {
     const now = Date.now()
     const cached = knownUsersCache.get(phone10)
 
-    if (cached !== undefined) {
+    if (!forceDbCheck && cached !== undefined) {
         // Cache hit — check TTL
         if (cached === null || now - cached.cachedAt < KNOWN_USERS_TTL_MS) {
             return cached
@@ -269,7 +270,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         console.log(`[Webhook] Quick Reply: trigger signin for ${senderPhone10}`)
 
                         try {
-                            const user = await getCachedUser(senderPhone10, supabase)
+                            const user = await getCachedUser(senderPhone10, supabase, true)
 
                             if (user) {
                                 const tokenResult = await generateAuthToken(senderPhone10, 'signin', supabase)
@@ -307,7 +308,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         // Token is generated optimistically — if user doesn't exist, token is unused (expires naturally)
                         const tParallel = Date.now()
                         const [registeredUser, tokenResult] = await Promise.all([
-                            getCachedUser(senderPhone10, supabase),
+                            getCachedUser(senderPhone10, supabase, true),
                             generateAuthToken(senderPhone10, 'signin', supabase),
                         ])
                         console.log(`[Webhook] Parallel lookup+token took ${Date.now() - tParallel}ms`)
