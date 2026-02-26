@@ -147,8 +147,21 @@ async function processScheduledMessage(
         ? reminder.recipient_phone
         : `91${reminder.recipient_phone}`
 
+    // Look up the sender's name (the person who scheduled the message)
+    let senderName = 'your colleague'
+    const { data: senderUser } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', reminder.user_id)
+        .single()
+
+    if (senderUser?.name) {
+        senderName = (senderUser as ReminderUser).name
+    }
+
     const message = reminder.message_content
-        || `📨 Message from ${reminder.recipient_name || 'your colleague'}: ${reminder.subject}`
+        ? `📨 *Message from ${senderName}:*\n\n${reminder.message_content}`
+        : `📨 Message from ${senderName}: ${reminder.subject}`
 
     await sendWhatsAppMessage(intlPhone, message)
     await markReminderSent(supabase, reminder.id)

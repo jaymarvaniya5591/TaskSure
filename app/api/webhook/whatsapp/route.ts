@@ -292,6 +292,32 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         continue
                     }
 
+                    // Scenario 5 payload: assignee taps "Accept" on task assignment
+                    if (buttonPayload.startsWith('task_accept_prompt::')) {
+                        const taskId = buttonPayload.replace('task_accept_prompt::', '')
+                        console.log(`[Webhook] Quick Reply: task_accept_prompt ${taskId} from ${senderPhone10}`)
+
+                        // We ask them for a deadline. Their reply will be processed by Gemini as a task_accept intent.
+                        await sendWhatsAppMessage(
+                            rawSenderPhone,
+                            "Great! When can you complete this by? Please reply with a date (e.g., 'tomorrow', 'Friday', 'Feb 28')."
+                        )
+                        continue
+                    }
+
+                    // Scenario 5 payload: assignee taps "Reject" on task assignment
+                    if (buttonPayload.startsWith('task_reject_prompt::')) {
+                        const taskId = buttonPayload.replace('task_reject_prompt::', '')
+                        console.log(`[Webhook] Quick Reply: task_reject_prompt ${taskId} from ${senderPhone10}`)
+
+                        // We ask them for a reason. Their reply will be processed by Gemini as a task_reject intent.
+                        await sendWhatsAppMessage(
+                            rawSenderPhone,
+                            "Please reply with a brief reason so I can let the owner know why you're rejecting this task."
+                        )
+                        continue
+                    }
+
                     console.log(`[Webhook] Unknown button payload: ${buttonPayload}`)
                     continue
                 }

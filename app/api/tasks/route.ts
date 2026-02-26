@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCurrentUser } from "@/lib/user";
+import { notifyTaskCreated, notifySubtaskCreated } from '@/lib/notifications/whatsapp-notifier'
 
 export async function POST(request: NextRequest) {
     const supabase = await createClient();
@@ -79,6 +81,39 @@ export async function POST(request: NextRequest) {
                     assigned_to,
                 }
             });
+        }
+
+        // --- Notifications (fire-and-forget via admin client) ---
+        const adminSupabase = createAdminClient();
+
+        if (!isSelfAssigned) {
+            notifyTaskCreated(adminSupabase, {
+                ownerName: currentUser.name || 'Your manager',
+                ownerId: currentUser.id,
+                assigneeId: assigned_to,
+                taskTitle: title,
+                taskId: data.id,
+                source: 'dashboard',
+            }).catch(err => console.error('[TasksRoute] Notification error (task_create):', err));
+        }
+
+        if (isSubtask && parent_task_id) {
+            // Look up parent task to get owner info
+            const { data: parentTask } = await supabase
+                .from('tasks')
+                .select('title, created_by')
+                .eq('id', parent_task_id)
+                .single();
+
+            if (parentTask && parentTask.created_by !== currentUser.id) {
+                notifySubtaskCreated(adminSupabase, {
+                    parentTaskOwnerId: parentTask.created_by,
+                    creatorId: currentUser.id,
+                    creatorName: currentUser.name || 'A team member',
+                    subtaskTitle: title,
+                    parentTaskTitle: parentTask.title || 'Untitled task',
+                }).catch(err => console.error('[TasksRoute] Notification error (subtask_create):', err));
+            }
         }
 
         return NextResponse.json({ success: true, task: data });

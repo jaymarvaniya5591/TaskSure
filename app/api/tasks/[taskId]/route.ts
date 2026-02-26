@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCurrentUser } from "@/lib/user";
+import {
+    notifyTaskAccepted,
+    notifyTaskRejected,
+    notifyTaskCompleted,
+    notifyDeadlineEdited,
+    notifyAssigneeChanged,
+    notifyTaskCancelled,
+} from '@/lib/notifications/whatsapp-notifier'
 
 /**
  * PATCH /api/tasks/[taskId]
@@ -31,7 +40,7 @@ export async function PATCH(
     // Fetch the task
     const { data: task, error: fetchError } = await supabase
         .from("tasks")
-        .select("id, assigned_to, created_by, status, organisation_id, deadline, committed_deadline")
+        .select("id, title, assigned_to, created_by, status, organisation_id, deadline, committed_deadline")
         .eq("id", taskId)
         .single();
 
@@ -77,6 +86,16 @@ export async function PATCH(
                 metadata: { committed_deadline }
             });
 
+            // Notify task owner
+            const adminDb = createAdminClient();
+            notifyTaskAccepted(adminDb, {
+                ownerId: task.created_by,
+                assigneeId: userId,
+                assigneeName: currentUser.name || 'The assignee',
+                taskTitle: task.title || 'Untitled task',
+                committedDeadline: committed_deadline,
+            }).catch(err => console.error('[TaskPatch] Notification error (accept):', err));
+
             return NextResponse.json({ success: true, status: "accepted" });
         }
 
@@ -117,6 +136,16 @@ export async function PATCH(
                 entity_id: taskId,
                 metadata: { reject_reason }
             });
+
+            // Notify task owner
+            const adminDb = createAdminClient();
+            notifyTaskRejected(adminDb, {
+                ownerId: task.created_by,
+                assigneeId: userId,
+                assigneeName: currentUser.name || 'The assignee',
+                taskTitle: task.title || 'Untitled task',
+                reason: reject_reason || null,
+            }).catch(err => console.error('[TaskPatch] Notification error (reject):', err));
 
             return NextResponse.json({ success: true, status: "rejected" });
         }
@@ -171,6 +200,15 @@ export async function PATCH(
                 });
             }
 
+            // Notify assignee
+            const adminDb = createAdminClient();
+            notifyTaskCompleted(adminDb, {
+                ownerId: userId,
+                ownerName: currentUser.name || 'The task owner',
+                assigneeId: task.assigned_to,
+                taskTitle: fullTask?.title || task.title || 'Untitled task',
+            }).catch(err => console.error('[TaskPatch] Notification error (complete):', err));
+
             return NextResponse.json({ success: true, status: "completed" });
         }
 
@@ -210,6 +248,17 @@ export async function PATCH(
                 entity_id: taskId,
                 metadata: { old_deadline: task.deadline, new_deadline }
             });
+
+            // Notify the other party
+            const adminDb = createAdminClient();
+            notifyDeadlineEdited(adminDb, {
+                ownerId: task.created_by,
+                assigneeId: task.assigned_to,
+                actorId: userId,
+                actorName: currentUser.name || 'A team member',
+                taskTitle: task.title || 'Untitled task',
+                newDeadline: new_deadline,
+            }).catch(err => console.error('[TaskPatch] Notification error (edit_deadline):', err));
 
             return NextResponse.json({ success: true, deadline: new_deadline });
         }
@@ -265,6 +314,17 @@ export async function PATCH(
                 }
             });
 
+            // Notify old + new assignees
+            const adminDb = createAdminClient();
+            notifyAssigneeChanged(adminDb, {
+                ownerId: userId,
+                ownerName: currentUser.name || 'The task owner',
+                oldAssigneeId: task.assigned_to,
+                newAssigneeId: new_assigned_to,
+                newAssigneeName: new_assigned_name || 'the new assignee',
+                taskTitle: task.title || 'Untitled task',
+            }).catch(err => console.error('[TaskPatch] Notification error (edit_persons):', err));
+
             return NextResponse.json({ success: true, assigned_to: new_assigned_to });
         }
 
@@ -319,6 +379,15 @@ export async function PATCH(
                 entity_type: "task",
                 entity_id: taskId
             });
+
+            // Notify assignee
+            const adminDb = createAdminClient();
+            notifyTaskCancelled(adminDb, {
+                ownerId: userId,
+                ownerName: currentUser.name || 'The task owner',
+                assigneeId: task.assigned_to,
+                taskTitle: task.title || 'Untitled task',
+            }).catch(err => console.error('[TaskPatch] Notification error (delete):', err));
 
             return NextResponse.json({ success: true, status: "cancelled" });
         }

@@ -12,6 +12,16 @@ import { validateAction } from '@/lib/ai/action-rules'
 import { resolveTask, findMostRecentPendingTask } from '@/lib/ai/task-resolver'
 import { getNavigationHelpResponse } from '@/lib/ai/agent-reference'
 import { extractUserId } from '@/lib/task-service'
+import {
+    notifyTaskCreated,
+    notifyTaskAccepted,
+    notifyTaskRejected,
+    notifyTaskCompleted,
+    notifyDeadlineEdited,
+    notifyAssigneeChanged,
+    notifyTaskCancelled,
+    notifySubtaskCreated,
+} from '@/lib/notifications/whatsapp-notifier'
 import type { ExtractedAction } from '@/lib/ai/types'
 import type { Task } from '@/lib/types'
 
@@ -310,7 +320,7 @@ async function dispatchIntent(
         case 'reminder_create':
             return handleReminderCreate(supabase, messageId, phone, sender, action)
         case 'scheduled_message':
-            return handleComingSoon(supabase, messageId, phone, action.intent)
+            return handleScheduledMessage(supabase, messageId, phone, sender, action)
         case 'unknown':
         default:
             return handleUnknown(supabase, messageId, phone, action)
@@ -358,7 +368,7 @@ async function handleTaskCreate(
         // If no match found, assignee falls back to sender (becomes a to-do)
     }
 
-    const { error: taskError } = await supabase
+    const { data: newTask, error: taskError } = await supabase
         .from('tasks')
         .insert({
             title: action.title,
@@ -370,17 +380,29 @@ async function handleTaskCreate(
             status: 'pending',
             source: 'whatsapp',
         })
+        .select('id')
+        .single()
 
-    if (taskError) {
+    if (taskError || !newTask) {
         await sendErrorAndMark(supabase, messageId, phone,
             'Something went wrong while creating the task.',
-            `Task insert failed: ${taskError.message}`,
+            `Task insert failed: ${taskError?.message || 'Unknown error'}`,
         )
         return
     }
 
     await sendWhatsAppReply(phone, action.confirmation_message)
     await markProcessed(supabase, messageId, 'task_create', null)
+
+    // Fire-and-forget: notify the assignee (and skip if self-assigned)
+    notifyTaskCreated(supabase, {
+        ownerName: sender.name,
+        ownerId: sender.id,
+        assigneeId: assignedToId,
+        taskTitle: action.title,
+        taskId: newTask.id,
+        source: 'whatsapp',
+    }).catch(err => console.error('[ProcessMessage] Notification error (task_create):', err))
 }
 
 // ---------------------------------------------------------------------------
@@ -480,6 +502,18 @@ async function handleTaskAccept(
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_accept', null)
+
+    // Fire-and-forget: notify the task owner
+    const ownerIdStr = extractUserId(pendingTask.created_by)
+    if (ownerIdStr) {
+        notifyTaskAccepted(supabase, {
+            ownerId: ownerIdStr,
+            assigneeId: sender.id,
+            assigneeName: sender.name,
+            taskTitle: taskTitle,
+            committedDeadline: action.committed_deadline,
+        }).catch(err => console.error('[ProcessMessage] Notification error (task_accept):', err))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -530,6 +564,18 @@ async function handleTaskReject(
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_reject', null)
+
+    // Fire-and-forget: notify the task owner
+    const ownerIdStr = extractUserId(pendingTask.created_by)
+    if (ownerIdStr) {
+        notifyTaskRejected(supabase, {
+            ownerId: ownerIdStr,
+            assigneeId: sender.id,
+            assigneeName: sender.name,
+            taskTitle: taskTitle,
+            reason: action.reason,
+        }).catch(err => console.error('[ProcessMessage] Notification error (task_reject):', err))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -583,6 +629,17 @@ async function handleTaskComplete(
 
     await sendWhatsAppReply(phone, `🎉 "${task.title}" has been marked as completed. Nice work!`)
     await markProcessed(supabase, messageId, 'task_complete', null)
+
+    // Fire-and-forget: notify the assignee
+    const assigneeIdStr = extractUserId(task.assigned_to)
+    if (assigneeIdStr) {
+        notifyTaskCompleted(supabase, {
+            ownerId: sender.id,
+            ownerName: sender.name,
+            assigneeId: assigneeIdStr,
+            taskTitle: task.title,
+        }).catch(err => console.error('[ProcessMessage] Notification error (task_complete):', err))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -644,6 +701,17 @@ async function handleTaskDelete(
 
     await sendWhatsAppReply(phone, `🗑️ "${task.title}" has been cancelled.`)
     await markProcessed(supabase, messageId, 'task_delete', null)
+
+    // Fire-and-forget: notify the assignee
+    const assigneeIdDel = extractUserId(task.assigned_to)
+    if (assigneeIdDel) {
+        notifyTaskCancelled(supabase, {
+            ownerId: sender.id,
+            ownerName: sender.name,
+            assigneeId: assigneeIdDel,
+            taskTitle: task.title,
+        }).catch(err => console.error('[ProcessMessage] Notification error (task_delete):', err))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -704,6 +772,20 @@ async function handleTaskEditDeadline(
     const newDateStr = new Date(action.new_deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     await sendWhatsAppReply(phone, `📅 Deadline for "${task.title}" has been changed to ${newDateStr}.`)
     await markProcessed(supabase, messageId, 'task_edit_deadline', null)
+
+    // Fire-and-forget: notify the other party
+    const dlOwnerId = extractUserId(task.created_by)
+    const dlAssigneeId = extractUserId(task.assigned_to)
+    if (dlOwnerId && dlAssigneeId) {
+        notifyDeadlineEdited(supabase, {
+            ownerId: dlOwnerId,
+            assigneeId: dlAssigneeId,
+            actorId: sender.id,
+            actorName: sender.name,
+            taskTitle: task.title,
+            newDeadline: action.new_deadline,
+        }).catch(err => console.error('[ProcessMessage] Notification error (task_edit_deadline):', err))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -782,6 +864,19 @@ async function handleTaskEditAssignee(
 
     await sendWhatsAppReply(phone, `🔄 "${task.title}" has been reassigned to ${newAssignee.name}.`)
     await markProcessed(supabase, messageId, 'task_edit_assignee', null)
+
+    // Fire-and-forget: notify old + new assignees
+    const oldAssigneeIdStr = extractUserId(task.assigned_to)
+    if (oldAssigneeIdStr) {
+        notifyAssigneeChanged(supabase, {
+            ownerId: sender.id,
+            ownerName: sender.name,
+            oldAssigneeId: oldAssigneeIdStr,
+            newAssigneeId: newAssignee.id,
+            newAssigneeName: newAssignee.name,
+            taskTitle: task.title,
+        }).catch(err => console.error('[ProcessMessage] Notification error (task_edit_assignee):', err))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -838,7 +933,7 @@ async function handleTaskCreateSubtask(
         }
     }
 
-    const { error } = await supabase
+    const { data: newSubtask, error } = await supabase
         .from('tasks')
         .insert({
             title: action.title,
@@ -851,17 +946,43 @@ async function handleTaskCreateSubtask(
             status: 'pending',
             source: 'whatsapp',
         })
+        .select('id')
+        .single()
 
-    if (error) {
+    if (error || !newSubtask) {
         await sendErrorAndMark(supabase, messageId, phone,
             'Something went wrong while creating the subtask.',
-            `Subtask insert failed: ${error.message}`,
+            `Subtask insert failed: ${error?.message || 'Unknown error'}`,
         )
         return
     }
 
     await sendWhatsAppReply(phone, `📎 Subtask "${action.title}" created under "${parentTask.title}". ✅`)
     await markProcessed(supabase, messageId, 'task_create_subtask', null)
+
+    // Fire-and-forget: notify parent task owner + subtask assignee
+    const parentOwnerId = extractUserId(parentTask.created_by)
+    if (parentOwnerId) {
+        notifySubtaskCreated(supabase, {
+            parentTaskOwnerId: parentOwnerId,
+            creatorId: sender.id,
+            creatorName: sender.name,
+            subtaskTitle: action.title,
+            parentTaskTitle: parentTask.title,
+        }).catch(err => console.error('[ProcessMessage] Notification error (subtask_create owner):', err))
+    }
+
+    // Also notify the subtask assignee (if assigned to someone other than the creator)
+    if (subtaskAssigneeId !== sender.id) {
+        notifyTaskCreated(supabase, {
+            ownerName: sender.name,
+            ownerId: sender.id,
+            assigneeId: subtaskAssigneeId,
+            taskTitle: action.title,
+            taskId: newSubtask.id,
+            source: 'whatsapp',
+        }).catch(err => console.error('[ProcessMessage] Notification error (subtask_create assignee):', err))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1030,18 +1151,104 @@ async function handleReminderCreate(
 }
 
 // ---------------------------------------------------------------------------
-// scheduled_message — Coming soon (Phase 2.2)
+// scheduled_message — Schedule a message to be sent to someone later
 // ---------------------------------------------------------------------------
 
-async function handleComingSoon(
+async function handleScheduledMessage(
     supabase: SupabaseAdmin,
     messageId: string,
     phone: string,
-    intent: string,
+    sender: SenderUser,
+    action: ExtractedAction & { intent: 'scheduled_message' },
 ): Promise<void> {
-    await sendWhatsAppReply(phone,
-        "📨 Scheduled messages are coming soon! For now, I can help you create tasks, set reminders, and check your status. 😊")
-    await markProcessed(supabase, messageId, intent, null)
+    // Validate required fields
+    if (!action.recipient_name) {
+        await sendWhatsAppReply(phone, "I couldn't figure out who to send the message to. Could you mention their name?")
+        await markProcessed(supabase, messageId, 'scheduled_message', 'Missing recipient_name')
+        return
+    }
+
+    if (!action.message_content) {
+        await sendWhatsAppReply(phone, "I couldn't determine the message content. Could you tell me what message to send?")
+        await markProcessed(supabase, messageId, 'scheduled_message', 'Missing message_content')
+        return
+    }
+
+    // Resolve recipient by name in org
+    const matches = await fuzzyMatchUser(supabase, sender.organisation_id, action.recipient_name)
+
+    if (matches.length === 0) {
+        await sendWhatsAppReply(phone, `I couldn't find anyone named "${action.recipient_name}" in your organization.`)
+        await markProcessed(supabase, messageId, 'scheduled_message', `Recipient not found: ${action.recipient_name}`)
+        return
+    }
+
+    if (matches.length > 1) {
+        const nameList = matches
+            .map((u, i) => `${i + 1}. ${u.name}${u.phone_number ? ` (${u.phone_number})` : ''}`)
+            .join('\n')
+
+        await sendWhatsAppReply(phone,
+            `I found multiple people named "${action.recipient_name}":\n\n${nameList}\n\nPlease reply with the full name of the person you want to send the message to.`)
+        await markProcessed(supabase, messageId, 'needs_clarification', null)
+        return
+    }
+
+    const recipient = matches[0]
+
+    // Default to 9:00 AM IST tomorrow if no time specified
+    let sendAt: string
+    if (action.send_at) {
+        sendAt = action.send_at
+    } else {
+        const tomorrow = new Date()
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        const yyyy = tomorrow.getUTCFullYear()
+        const mm = String(tomorrow.getUTCMonth() + 1).padStart(2, '0')
+        const dd = String(tomorrow.getUTCDate()).padStart(2, '0')
+        sendAt = `${yyyy}-${mm}-${dd}T09:00:00+05:30`
+    }
+
+    // Insert into reminders table
+    const { error } = await supabase
+        .from('reminders')
+        .insert({
+            user_id: sender.id,
+            organisation_id: sender.organisation_id,
+            entity_type: 'scheduled_message',
+            subject: action.message_content,
+            message_content: action.message_content,
+            recipient_phone: recipient.phone_number,
+            recipient_name: recipient.name,
+            channel: 'whatsapp',
+            scheduled_at: sendAt,
+            status: 'pending',
+        })
+
+    if (error) {
+        await sendErrorAndMark(supabase, messageId, phone,
+            'Something went wrong while scheduling the message.',
+            `Scheduled message insert failed: ${error.message}`,
+        )
+        return
+    }
+
+    // Build friendly confirmation
+    const scheduledDate = new Date(sendAt)
+    const dateStr = scheduledDate.toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        timeZone: 'Asia/Kolkata',
+    })
+    const timeStr = scheduledDate.toLocaleTimeString('en-IN', {
+        hour: '2-digit', minute: '2-digit', hour12: true,
+        timeZone: 'Asia/Kolkata',
+    })
+
+    const confirmMsg = action.confirmation_message
+        || `📨 Got it! I'll send your message to ${recipient.name} on ${dateStr} at ${timeStr}.`
+
+    await sendWhatsAppReply(phone, confirmMsg)
+    await markProcessed(supabase, messageId, 'scheduled_message', null)
 }
 
 // ---------------------------------------------------------------------------
