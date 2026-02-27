@@ -100,6 +100,7 @@ CLASSIFICATION RULES:
 - "Remind me" / "yaad dila dena" / "bhulna mat mujhe" = "reminder_create" (bot is the actor).
 - If unsure between two intents, pick the one with higher confidence and explain your reasoning.
 - If the message contains NO clear action/task (no WHAT), still classify the intent but note low confidence.
+- RULE (MULTI-TURN CONTEXT): If the message starts with "[CONTEXT: ...]", it means the user is replying to a previous clarification request. The [CONTEXT] block contains the user's PREVIOUS message and why the bot asked for more info. Use BOTH the previous message AND the current reply together to determine the intent. For example, if the previous message was "Tell the tester to vacate the room" (clarification: missing WHO) and the current reply is "Gamma tester", classify as "task_create" because the combined context is a task assignment to "Gamma tester". Treat the [CONTEXT] + reply as ONE logical message.
 
 OUTPUT FORMAT (valid JSON):
 {
@@ -146,6 +147,7 @@ RULES:
 - If only a time is mentioned but no date/day, set when_type to "informal".
 - If no time reference at all, set when_type to "none" and deadline to null.
 - Never lose information from the user's message. Condense for clarity but preserve all key details — who, what, when, where.
+- MULTI-TURN CONTEXT: If the message starts with "[CONTEXT: ...]", it contains a previous message + follow-up reply. Extract task details from the COMBINED context. The follow-up often provides the missing piece (e.g., the assignee name). Extract assignee_name from the reply if it contains a person name.
 - Return null for any field you are not certain about. Do not guess. Do not infer. A null field triggers a clarification request, which is always better than a wrong value.`
 
 const TODO_CREATE_PROMPT = `You are Boldo AI. Extract structured to-do data from the user's message.

@@ -121,6 +121,33 @@ async function fetchUserTasks(
 }
 
 /**
+ * Multi-turn context: check if this user's most recent processed message
+ * (within the last 5 minutes) was a clarification request.
+ * If so, return that message's raw_text + processing_error so we can
+ * prepend it as context for the current message.
+ */
+async function fetchRecentClarification(
+    supabase: SupabaseAdmin,
+    phone: string,
+    currentMessageId: string,
+): Promise<{ raw_text: string; processing_error: string | null } | null> {
+    const { data, error } = await supabase
+        .from('incoming_messages')
+        .select('raw_text, processing_error')
+        .eq('phone', phone)
+        .neq('id', currentMessageId)
+        .in('intent_type', ['clarification_needed', 'needs_clarification'])
+        .eq('processed', true)
+        .gte('created_at', new Date(Date.now() - 5 * 60_000).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+    if (error || !data) return null
+    return data as { raw_text: string; processing_error: string | null }
+}
+
+/**
  * Fuzzy + phonetic match a person name within the organisation.
  * Handles first-name-only, last-name-only, and full-name lookups.
  * Uses both SQL ILIKE (for exact substring) and phonetic similarity
@@ -247,6 +274,18 @@ export async function processMessageInline(
                 )
                 return { status: 'transcription_error' }
             }
+        }
+
+        // =====================================================================
+        // 4b. MULTI-TURN CONTEXT — check for recent clarification
+        // =====================================================================
+
+        const recentClarification = await fetchRecentClarification(supabase, senderPhone10, messageId)
+        if (recentClarification) {
+            const prevText = recentClarification.raw_text.replace(/^\[audio\] /, '')
+            const reason = recentClarification.processing_error || 'more info needed'
+            textForAI = `[CONTEXT: The user previously said: "${prevText}". The bot asked for clarification because: ${reason}. The user is now replying with:] ${textForAI}`
+            console.log(`[ProcessMessage] Multi-turn context applied. Combined text: "${textForAI.substring(0, 200)}..."`)
         }
 
         // =====================================================================
