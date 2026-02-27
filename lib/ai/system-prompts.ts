@@ -44,7 +44,7 @@ INTENT CATEGORIES (with examples):
 
 1. "task_create" — User wants to assign a task to ANOTHER PERSON in their organisation.
    The message MUST mention another person's name as the one who should do the work.
-   Examples: "Tell Ramesh to send the invoice by Friday", "Ask Priya to prepare the report", "Ramesh ne invoice aaj bhej de", "ask diksha to buy a new sim"
+   Examples: "Tell Ramesh to send the invoice by Friday", "Ask Priya to prepare the report", "Ramesh ne invoice aaj bhej de", "ask diksha to buy a new sim", "Tell the tester that if someone comes before 12 o'clock, vacate the room"
 
 2. "todo_create" — User wants to create a personal to-do for THEMSELVES.
    The message is self-referential — no other person is expected to do the work.
@@ -90,10 +90,10 @@ INTENT CATEGORIES (with examples):
     Examples: "Hello", "Good morning", "How's the weather?", random messages
 
 CLASSIFICATION RULES:
-- If the message mentions ANOTHER PERSON by name + an action/task → "task_create" (the WHO is a named person).
-- If the message is about self only (I, me, my, mujhe, mera) and it asks to do/note/prepare something → "todo_create".
-- If the message asks the BOT to remind, alert, or notify the user → "reminder_create" (the WHO is the bot).
-- If the message asks the BOT to send a message/say something to another person at a future time → "scheduled_message".
+- RULE 1 (MOST IMPORTANT): Identify WHO is responsible for executing the action.
+  - If the WHO is ANOTHER PERSON (e.g. "Tell Ramesh to...", "Ask Priya to..."): classify as "task_create". This applies EVEN IF the action is a complex or conditional sentence. The entire instruction goes to them.
+  - If the WHO is THE SENDER/USER (e.g. "I have to call Ramesh", "Mujhe ye karna hai"): classify as "todo_create". Note: "Call Ramesh" has "Ramesh" in the sentence, but the SENDER is the one making the call, so it is a to-do, NOT a task for Ramesh.
+  - If the WHO is NO ONE or THE BOT (e.g. "Remind me to...", "Book the room", "Send a message"): The bot forms the WHO. If the bot is asked to remind or alert → "reminder_create". If the bot is asked to send a message later → "scheduled_message". If the bot is asked to do physical/impossible tasks (like booking a room without a system), still classify as task_create but set who_type to 'bot' during extraction.
 - If the user is responding to an assigned task with acceptance → "task_accept".
 - If the message says "done", "complete", "finished", "ho gaya" for a task → "task_complete".
 - Be smart about Indian languages: "bol do", "keh do", "bata do" followed by a person's name = "task_create".
@@ -136,9 +136,11 @@ OUTPUT FORMAT (valid JSON):
 
 RULES:
 - Extract the assignee name EXACTLY as it appears in the message (e.g. "Ramesh", "Priya", "diksha"). Do not modify or correct the name.
-- Do not include the assignee name in the title, but DO include other names/people/context mentioned as part of the task description.
+- If the who_type is "bot" or "self", set assignee_name to null.
+- Convert relative dates to ISO 8601 based on today.
 - For vague deadlines like "by Friday", "next week", "kal" — convert to an actual ISO date based on today's date. Set when_type to "formal" if you can derive both a date and time.
 - "aaj" = today, "kal" = tomorrow, "parso" = day after tomorrow.
+- If the action is a complex or conditional sentence (e.g., "that if someone comes before 12 o'clock, vacate the room"), the ENTIRE instruction should be extracted as the task title. Do not truncate or lose the conditional parts.
 - If the user mentions a time/deadline, include it in the title (e.g., 'Send the file to person X by 3 PM tomorrow').
 - If only a date/day is mentioned but no time, set deadline to end of day (23:59:00+05:30) for tasks, and set when_type to "informal".
 - If only a time is mentioned but no date/day, set when_type to "informal".
