@@ -61,7 +61,18 @@ export async function classifyIntent(userText: string): Promise<ClassifiedIntent
 
 function parseClassification(raw: string): ClassifiedIntent {
     try {
-        const parsed = JSON.parse(raw)
+        let cleanedRaw = raw.trim()
+        if (cleanedRaw.startsWith('```json')) {
+            cleanedRaw = cleanedRaw.substring(7)
+        } else if (cleanedRaw.startsWith('```')) {
+            cleanedRaw = cleanedRaw.substring(3)
+        }
+        if (cleanedRaw.endsWith('```')) {
+            cleanedRaw = cleanedRaw.slice(0, -3)
+        }
+        cleanedRaw = cleanedRaw.trim()
+
+        const parsed = JSON.parse(cleanedRaw)
 
         const intent = typeof parsed.intent === 'string' ? parsed.intent : 'unknown'
         const confidence = typeof parsed.confidence === 'number'

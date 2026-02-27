@@ -74,7 +74,19 @@ export async function extractAction(
 
 function parseExtractedAction(intent: IntentType, raw: string): ExtractedAction {
     try {
-        const p = JSON.parse(raw)
+        // Strip markdown backticks if Gemini accidentally includes them despite application/json mime type
+        let cleanedRaw = raw.trim()
+        if (cleanedRaw.startsWith('```json')) {
+            cleanedRaw = cleanedRaw.substring(7)
+        } else if (cleanedRaw.startsWith('```')) {
+            cleanedRaw = cleanedRaw.substring(3)
+        }
+        if (cleanedRaw.endsWith('```')) {
+            cleanedRaw = cleanedRaw.slice(0, -3)
+        }
+        cleanedRaw = cleanedRaw.trim()
+
+        const p = JSON.parse(cleanedRaw)
 
         switch (intent) {
             case 'task_create':
