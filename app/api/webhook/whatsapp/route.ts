@@ -301,7 +301,20 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         const taskId = buttonPayload.replace('task_accept_prompt::', '')
                         console.log(`[Webhook] Quick Reply: task_accept_prompt ${taskId} from ${senderPhone10}`)
 
-                        // We ask them for a deadline. Their reply will be processed by Gemini as a task_accept intent.
+                            // Store context marker so the next text message is handled as deadline input
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            ; (supabase as any)
+                                .from('incoming_messages')
+                                .insert({
+                                    phone: senderPhone10,
+                                    raw_text: `[button] Accept task ${taskId}`,
+                                    processed: true,
+                                    intent_type: 'awaiting_accept_deadline',
+                                    processing_error: taskId,
+                                })
+                                .then(() => { /* ignore */ })
+                                .catch((err: unknown) => console.error('[Webhook] Failed to store accept context:', err))
+
                         await sendWhatsAppMessage(
                             rawSenderPhone,
                             "Great! When can you complete this by? Please reply with a date (e.g., 'tomorrow', 'Friday', 'Feb 28')."
@@ -314,7 +327,20 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         const taskId = buttonPayload.replace('task_reject_prompt::', '')
                         console.log(`[Webhook] Quick Reply: task_reject_prompt ${taskId} from ${senderPhone10}`)
 
-                        // We ask them for a reason. Their reply will be processed by Gemini as a task_reject intent.
+                            // Store context marker so the next text message is handled as rejection reason
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            ; (supabase as any)
+                                .from('incoming_messages')
+                                .insert({
+                                    phone: senderPhone10,
+                                    raw_text: `[button] Reject task ${taskId}`,
+                                    processed: true,
+                                    intent_type: 'awaiting_reject_reason',
+                                    processing_error: taskId,
+                                })
+                                .then(() => { /* ignore */ })
+                                .catch((err: unknown) => console.error('[Webhook] Failed to store reject context:', err))
+
                         await sendWhatsAppMessage(
                             rawSenderPhone,
                             "Please reply with a brief reason so I can let the owner know why you're rejecting this task."

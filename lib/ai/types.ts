@@ -167,3 +167,30 @@ export interface ActionValidationResult {
     allowed: boolean
     reason?: string          // friendly message when disallowed
 }
+
+// ===========================================================================
+// NEW — Single-call pipeline types (MVP)
+// ===========================================================================
+
+/** The 4 intents the WhatsApp bot can match via Gemini */
+export type WhatsAppIntent =
+    | 'task_create'
+    | 'todo_create'
+    | 'send_dashboard_link'
+    | 'unknown'
+
+/** Output of the single-call message analyzer */
+export interface AnalyzedMessage {
+    who: {
+        type: 'self' | 'person' | 'agent'
+        name: string | null
+    }
+    what: string
+    when: {
+        date: string | null       // ISO 8601 or null
+        raw: string | null        // original time reference from user text
+    }
+    intent: WhatsAppIntent
+    confidence: number            // 0–1
+    reasoning: string
+}
