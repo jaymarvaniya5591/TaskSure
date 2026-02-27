@@ -261,8 +261,54 @@ export async function processMessageInline(
         // 6. AI PIPELINE — Stage 2: Extract action data
         // =====================================================================
 
-        const action = await extractAction(classification.intent, textForAI)
+        let action = await extractAction(classification.intent, textForAI)
         console.log(`[ProcessMessage] Action extracted: ${action.intent}`)
+
+        // ── Pipeline resilience: ActionExtractor failed but IntentClassifier succeeded ──
+        // If Stage 2 returns 'unknown' but Stage 1 gave a valid intent,
+        // create a fallback action from the raw text so we don't lose the classification.
+        const extractionError = ((action as unknown) as Record<string, unknown>)._extractionError as string | undefined
+        if (action.intent === 'unknown' && classification.intent !== 'unknown') {
+            console.warn(`[ProcessMessage] ⚠️ ActionExtractor returned unknown but IntentClassifier said "${classification.intent}". Creating fallback action.`)
+            console.warn(`[ProcessMessage] Extraction error: ${extractionError ?? 'none (JSON parse failure)'}`)
+
+            if (classification.intent === 'task_create') {
+                action = {
+                    intent: 'task_create',
+                    title: textForAI.substring(0, 120),
+                    description: textForAI,
+                    assignee_name: null,
+                    deadline: null,
+                    who_type: 'unknown' as const,
+                    when_type: 'none' as const,
+                }
+                console.log(`[ProcessMessage] Fallback task_create action created from raw text.`)
+            } else if (classification.intent === 'todo_create') {
+                action = {
+                    intent: 'todo_create',
+                    title: textForAI.substring(0, 120),
+                    description: textForAI,
+                    deadline: null,
+                    when_type: 'none' as const,
+                }
+                console.log(`[ProcessMessage] Fallback todo_create action created from raw text.`)
+            } else if (classification.intent === 'reminder_create') {
+                action = {
+                    intent: 'reminder_create',
+                    subject: textForAI.substring(0, 120),
+                    remind_at: null,
+                    when_type: 'none' as const,
+                }
+                console.log(`[ProcessMessage] Fallback reminder_create action created from raw text.`)
+            } else {
+                // For other intents, we can't create a meaningful fallback.
+                // Send a specific AI-error message instead of the generic unknown.
+                console.error(`[ProcessMessage] Cannot create fallback for intent "${classification.intent}". Sending AI error message.`)
+                await sendWhatsAppReply(msg.phone, "⚠️ Our AI assistant is temporarily having trouble processing your request. Please try sending your message again in a moment. If this keeps happening, try rephrasing your message.")
+                await markProcessed(supabase, messageId, classification.intent as string, `ActionExtractor failed: ${extractionError ?? 'unknown'}`)
+                return { status: 'ai_extraction_error', intent: classification.intent }
+            }
+        }
 
         // =====================================================================
         // 7. Dispatch to intent handler
@@ -275,7 +321,10 @@ export async function processMessageInline(
 
     } catch (err) {
         const errMsg = err instanceof Error ? err.message : 'Unknown internal error'
-        console.error('[ProcessMessage] Unhandled error:', errMsg)
+        const errStack = err instanceof Error ? err.stack : ''
+        console.error('[ProcessMessage] ❌ Unhandled error:', errMsg)
+        console.error('[ProcessMessage] Stack:', errStack)
+        console.error(`[ProcessMessage] Context: messageId=${messageId}, audioMediaId=${audioMediaId ?? 'none'}`)
 
         try {
             const { data: failMsg } = await supabase
@@ -285,7 +334,10 @@ export async function processMessageInline(
                 .single()
 
             if (failMsg?.phone) {
-                await sendWhatsAppMessage(failMsg.phone, 'Something went wrong while processing your request.')
+                await sendWhatsAppMessage(
+                    failMsg.phone,
+                    "⚠️ Our AI assistant ran into an issue while processing your message. Please try again in a moment. If the problem persists, try rephrasing your message or contact support."
+                )
             }
             await markProcessed(supabase, messageId, null, errMsg)
         } catch (cleanupErr) {
@@ -1456,6 +1508,7 @@ async function handleUnknown(
     messageId: string,
     phone: string,
 ): Promise<void> {
+    console.log(`[ProcessMessage] Handling unknown intent for message ${messageId}`)
     await sendWhatsAppReply(phone, "I'm not sure I understood that. I can help you manage tasks — try saying something like \"Tell Ramesh to send the invoice\" or \"Show my pending tasks\". 😊")
     await markProcessed(supabase, messageId, 'unknown', null)
 }

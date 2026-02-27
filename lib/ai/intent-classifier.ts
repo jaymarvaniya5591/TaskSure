@@ -47,10 +47,12 @@ export async function classifyIntent(userText: string): Promise<ClassifiedIntent
 
     try {
         const raw = await callGemini(getIntentClassifierPrompt(), userText)
+        console.log(`[IntentClassifier] Raw Gemini response (${raw.length} chars): ${raw.substring(0, 300)}`)
         return parseClassification(raw)
     } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error'
-        console.error('[IntentClassifier] Gemini call failed:', msg)
+        console.error(`[IntentClassifier] Gemini call THREW. Error: ${msg}`)
+        console.error(`[IntentClassifier] User text was: "${userText.substring(0, 200)}"`)
         return { ...UNKNOWN_FALLBACK, reasoning: `Gemini error: ${msg}` }
     }
 }
@@ -59,22 +61,42 @@ export async function classifyIntent(userText: string): Promise<ClassifiedIntent
 // Internal parser
 // ---------------------------------------------------------------------------
 
+/**
+ * Cleans raw Gemini text output and extracts JSON content.
+ * Handles: clean JSON, markdown-wrapped JSON, JSON embedded in prose.
+ */
+function extractJSON(raw: string): string {
+    const cleaned = raw.trim()
+
+    // 1. Check if it's already valid JSON
+    try {
+        JSON.parse(cleaned)
+        return cleaned
+    } catch {
+        // Not clean JSON, try other methods
+    }
+
+    // 2. Try to find a JSON block inside markdown backticks
+    const backtickMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+    if (backtickMatch && backtickMatch[1]) {
+        return backtickMatch[1].trim()
+    }
+
+    // 3. Fallback: extract outermost { ... }
+    const firstBrace = cleaned.indexOf('{')
+    const lastBrace = cleaned.lastIndexOf('}')
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        return cleaned.substring(firstBrace, lastBrace + 1).trim()
+    }
+
+    // 4. Nothing worked — return as-is
+    return cleaned
+}
+
 function parseClassification(raw: string): ClassifiedIntent {
     try {
-        let cleanedRaw = raw.trim()
-
-        // 1. Try to find a JSON block enclosed in markdown backticks
-        const match = cleanedRaw.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
-        if (match && match[1]) {
-            cleanedRaw = match[1].trim()
-        } else {
-            // 2. Fallback: Find the first '{' and the last '}'
-            const firstBrace = cleanedRaw.indexOf('{')
-            const lastBrace = cleanedRaw.lastIndexOf('}')
-            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-                cleanedRaw = cleanedRaw.substring(firstBrace, lastBrace + 1).trim()
-            }
-        }
+        const cleanedRaw = extractJSON(raw)
+        console.log(`[IntentClassifier] Cleaned JSON (${cleanedRaw.length} chars): ${cleanedRaw.substring(0, 200)}`)
 
         const parsed = JSON.parse(cleanedRaw)
 
@@ -102,9 +124,12 @@ function parseClassification(raw: string): ClassifiedIntent {
             }
         }
 
+        console.log(`[IntentClassifier] Classified as "${intent}" (confidence: ${confidence.toFixed(2)}). Reasoning: ${reasoning}`)
         return { intent: intent as IntentType, confidence, reasoning }
-    } catch {
-        console.error('[IntentClassifier] Failed to parse Gemini JSON:', raw.substring(0, 300))
+    } catch (parseErr) {
+        const errMsg = parseErr instanceof Error ? parseErr.message : 'Unknown parse error'
+        console.error(`[IntentClassifier] JSON parse FAILED. Parse error: ${errMsg}`)
+        console.error(`[IntentClassifier] Raw input (first 500 chars): ${raw.substring(0, 500)}`)
         return { ...UNKNOWN_FALLBACK, reasoning: 'Invalid JSON from Gemini.' }
     }
 }
