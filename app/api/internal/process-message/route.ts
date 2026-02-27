@@ -3,7 +3,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
 import { transcribeAudio } from '@/lib/sarvam'
 import { normalizePhone } from '@/lib/phone'
-import { generateAuthToken } from '@/lib/auth-links'
 
 // New single-call AI module
 import { analyzeMessage } from '@/lib/ai/message-analyzer'
@@ -616,22 +615,27 @@ async function handleSendDashboardLink(
     analysis: AnalyzedMessage,
 ): Promise<void> {
     try {
+        const { generateAuthToken } = await import('@/lib/auth-links')
+        const { sendWhatsAppMessage } = await import('@/lib/whatsapp')
+
         const tokenResult = await generateAuthToken(sender.phone_number, 'signin', supabase)
 
         if (tokenResult.success && tokenResult.token) {
-            const dashboardUrl = `https://${process.env.VERCEL_URL || 'www.boldoai.in'}/auth/verify?token=${tokenResult.token}`
-
             const actionDesc = analysis.what || 'this action'
-            const msg = `For "${actionDesc}", please use the Boldo dashboard:\n\n🔗 ${dashboardUrl}\n\nThis link will log you in automatically and is valid for 10 minutes.`
+            const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || `https://${process.env.VERCEL_URL || 'www.boldoai.in'}`
+            const dashboardUrl = `${baseUrl}/auth/verify?token=${tokenResult.token}`
 
-            await sendWhatsAppReply(phone, msg)
+            const msg = `For "${actionDesc}", please use the Boldo dashboard. Sending you the link for it:\n\n🔗 ${dashboardUrl}\n\nThis link will log you in automatically and is valid for 10 minutes.`
+
+            await sendWhatsAppMessage(phone, msg)
         } else {
-            await sendWhatsAppReply(phone,
+            await sendWhatsAppMessage(phone,
                 'I understand what you need, but this action can only be done on the dashboard. Type "signin" to get your dashboard link!')
         }
     } catch (err) {
         console.error('[ProcessMessage] Dashboard link error:', err)
-        await sendWhatsAppReply(phone,
+        const { sendWhatsAppMessage } = await import('@/lib/whatsapp')
+        await sendWhatsAppMessage(phone,
             'I understand what you need, but this action can only be done on the dashboard. Type "signin" to get your dashboard link!')
     }
 
