@@ -62,15 +62,19 @@ export async function classifyIntent(userText: string): Promise<ClassifiedIntent
 function parseClassification(raw: string): ClassifiedIntent {
     try {
         let cleanedRaw = raw.trim()
-        if (cleanedRaw.startsWith('```json')) {
-            cleanedRaw = cleanedRaw.substring(7)
-        } else if (cleanedRaw.startsWith('```')) {
-            cleanedRaw = cleanedRaw.substring(3)
+
+        // 1. Try to find a JSON block enclosed in markdown backticks
+        const match = cleanedRaw.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+        if (match && match[1]) {
+            cleanedRaw = match[1].trim()
+        } else {
+            // 2. Fallback: Find the first '{' and the last '}'
+            const firstBrace = cleanedRaw.indexOf('{')
+            const lastBrace = cleanedRaw.lastIndexOf('}')
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                cleanedRaw = cleanedRaw.substring(firstBrace, lastBrace + 1).trim()
+            }
         }
-        if (cleanedRaw.endsWith('```')) {
-            cleanedRaw = cleanedRaw.slice(0, -3)
-        }
-        cleanedRaw = cleanedRaw.trim()
 
         const parsed = JSON.parse(cleanedRaw)
 
