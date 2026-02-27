@@ -624,7 +624,7 @@ async function handleSendDashboardLink(
             const actionDesc = analysis.what || 'this action'
             const dashboardUrl = buildAuthUrl(tokenResult.token)
 
-            const msg = `For "${actionDesc}", please use the Boldo dashboard. Sending you the link for it:\n\n🔗 ${dashboardUrl}\n\nThis link will log you in automatically and is valid for 10 minutes.`
+            const msg = `For "${actionDesc}", please use the Boldo dashboard:\n\n🔗 ${dashboardUrl}\n\nThis link will log you in automatically and is valid for 10 minutes.`
 
             await sendWhatsAppMessage(phone, msg)
         } else {
