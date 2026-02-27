@@ -615,15 +615,14 @@ async function handleSendDashboardLink(
     analysis: AnalyzedMessage,
 ): Promise<void> {
     try {
-        const { generateAuthToken } = await import('@/lib/auth-links')
+        const { generateAuthToken, buildAuthUrl } = await import('@/lib/auth-links')
         const { sendWhatsAppMessage } = await import('@/lib/whatsapp')
 
         const tokenResult = await generateAuthToken(sender.phone_number, 'signin', supabase)
 
         if (tokenResult.success && tokenResult.token) {
             const actionDesc = analysis.what || 'this action'
-            const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || `https://${process.env.VERCEL_URL || 'www.boldoai.in'}`
-            const dashboardUrl = `${baseUrl}/auth/verify?token=${tokenResult.token}`
+            const dashboardUrl = buildAuthUrl(tokenResult.token)
 
             const msg = `For "${actionDesc}", please use the Boldo dashboard. Sending you the link for it:\n\n🔗 ${dashboardUrl}\n\nThis link will log you in automatically and is valid for 10 minutes.`
 
