@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { waitUntil } from '@vercel/functions';
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCurrentUser } from "@/lib/user";
@@ -87,14 +88,16 @@ export async function POST(request: NextRequest) {
         const adminSupabase = createAdminClient();
 
         if (!isSelfAssigned) {
-            notifyTaskCreated(adminSupabase, {
-                ownerName: currentUser.name || 'Your manager',
-                ownerId: currentUser.id,
-                assigneeId: assigned_to,
-                taskTitle: title,
-                taskId: data.id,
-                source: 'dashboard',
-            }).catch(err => console.error('[TasksRoute] Notification error (task_create):', err));
+            waitUntil(
+                notifyTaskCreated(adminSupabase, {
+                    ownerName: currentUser.name || 'Your manager',
+                    ownerId: currentUser.id,
+                    assigneeId: assigned_to,
+                    taskTitle: title,
+                    taskId: data.id,
+                    source: 'dashboard',
+                }).catch(err => console.error('[TasksRoute] Notification error (task_create):', err))
+            );
         }
 
         if (isSubtask && parent_task_id) {
@@ -117,16 +120,18 @@ export async function POST(request: NextRequest) {
             }
 
             if (parentTask) {
-                notifySubtaskCreated(adminSupabase, {
-                    parentTaskOwnerId: parentTask.created_by,
-                    creatorId: currentUser.id,
-                    creatorName: currentUser.name || 'A team member',
-                    subtaskTitle: title,
-                    parentTaskTitle: parentTask.title || 'Untitled task',
-                    subtaskId: data.id,
-                    subtaskAssigneeName,
-                    source: 'dashboard',
-                }).catch(err => console.error('[TasksRoute] Notification error (subtask_create):', err));
+                waitUntil(
+                    notifySubtaskCreated(adminSupabase, {
+                        parentTaskOwnerId: parentTask.created_by,
+                        creatorId: currentUser.id,
+                        creatorName: currentUser.name || 'A team member',
+                        subtaskTitle: title,
+                        parentTaskTitle: parentTask.title || 'Untitled task',
+                        subtaskId: data.id,
+                        subtaskAssigneeName,
+                        source: 'dashboard',
+                    }).catch(err => console.error('[TasksRoute] Notification error (subtask_create):', err))
+                );
             }
         }
 
