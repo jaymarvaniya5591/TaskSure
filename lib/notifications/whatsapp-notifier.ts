@@ -343,14 +343,17 @@ export async function notifyTaskEvent(
     opts: NotifyTaskEventOpts,
 ): Promise<void> {
     try {
+        console.log(`[Notifier] notifyTaskEvent triggered for ${opts.eventType}. actorId: ${opts.actorId}, assigneeId: ${opts.assigneeId}`);
         // For task_created with a non-self-assigned task, use the assignment template
         // for the assignee (they get a special interactive message)
         if (opts.eventType === 'task_created' && opts.assigneeId && opts.assigneeId !== opts.actorId) {
+            console.log(`[Notifier] Calling sendAssignmentTemplateToAssignee for assignee: ${opts.assigneeId}`);
             await sendAssignmentTemplateToAssignee(supabase, opts)
         }
 
         // Compute all recipients
         const recipientIds = await computeRecipientIds(supabase, opts)
+        console.log(`[Notifier] Computed recipient IDs:`, recipientIds);
 
         if (recipientIds.length === 0) return
 
@@ -383,18 +386,25 @@ async function sendAssignmentTemplateToAssignee(
     supabase: SupabaseAdmin,
     opts: NotifyTaskEventOpts,
 ): Promise<void> {
+    console.log(`[Notifier] sendAssignmentTemplateToAssignee started. assigneeId: ${opts.assigneeId}`);
     if (!opts.assigneeId) return
 
     const assignee = await lookupUser(supabase, opts.assigneeId)
-    if (!assignee?.phone_number) return
+    console.log(`[Notifier] Looked up assignee:`, assignee);
+    if (!assignee?.phone_number) {
+        console.log(`[Notifier] Assignee has no phone number, aborting template send.`);
+        return;
+    }
 
     try {
-        await sendTaskAssignmentTemplate(
+        console.log(`[Notifier] Sending task_assignment template to ${assignee.phone_number}`);
+        const result = await sendTaskAssignmentTemplate(
             toIntlPhone(assignee.phone_number),
             opts.actorName,
             opts.taskTitle,
             opts.taskId,
         )
+        console.log(`[Notifier] Template send result:`, result);
     } catch (err) {
         console.error(`[Notifier] Failed to send assignment template:`, err)
     }
