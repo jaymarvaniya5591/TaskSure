@@ -524,8 +524,8 @@ async function handleTaskCreate(
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_create', null)
 
-    // Fire-and-forget: notify the assignee
-    notifyTaskCreated(supabase, {
+    // Notify the assignee (await to ensure Vercel doesn't terminate early)
+    await notifyTaskCreated(supabase, {
         ownerName: sender.name,
         ownerId: sender.id,
         assigneeId: assignee.id,
@@ -755,9 +755,9 @@ async function handleAcceptDeadlineReply(
         .eq('phone', sender.phone_number)
         .eq('intent_type', 'awaiting_accept_deadline')
 
-    // Fire-and-forget: notify the task owner
+    // Notify the task owner (await to ensure Vercel doesn't terminate early)
     const { notifyTaskAccepted } = await import('@/lib/notifications/whatsapp-notifier')
-    notifyTaskAccepted(supabase, {
+    await notifyTaskAccepted(supabase, {
         ownerId: task.created_by,
         assigneeId: sender.id,
         assigneeName: sender.name,
@@ -848,9 +848,9 @@ async function handleRejectReasonReply(
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_reject', null)
 
-    // Fire-and-forget: notify the task owner
+    // Notify the task owner (await to ensure Vercel doesn't terminate early)
     const { notifyTaskRejected } = await import('@/lib/notifications/whatsapp-notifier')
-    notifyTaskRejected(supabase, {
+    await notifyTaskRejected(supabase, {
         ownerId: task.created_by,
         assigneeId: sender.id,
         assigneeName: sender.name,

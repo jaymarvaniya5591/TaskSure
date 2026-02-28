@@ -271,7 +271,7 @@ function buildNotificationMessage(opts: NotifyTaskEventOpts, recipientId?: strin
         case 'task_created': {
             if (recipientId && recipientId === assigneeId) {
                 // If the recipient is the assignee (and they are receiving this text as a fallback)
-                return `📝 *${ownerName || 'Someone'}* has assigned you a task: "${taskTitle}". Please check your dashboard to accept or reject it.`
+                return `📝 *${actorName || ownerName || 'Someone'}* has assigned you a task: "${taskTitle}". Please check your dashboard to accept or reject it.`
             } else if (assigneeName) {
                 // If the recipient is the creator
                 return `✅ Task created! I've asked *${assigneeName}* to "${taskTitle}". Waiting for them to accept.`
@@ -439,6 +439,7 @@ export async function notifyTaskCreated(
         actorName: opts.ownerName,
         source: opts.source,
         ownerId: opts.ownerId,
+        ownerName: opts.ownerName,
         assigneeId: opts.assigneeId,
         assigneeName: assignee?.name || 'the assignee',
     })
