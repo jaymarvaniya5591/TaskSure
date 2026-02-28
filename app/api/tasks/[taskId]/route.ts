@@ -160,16 +160,6 @@ export async function PATCH(
                 return NextResponse.json({ error: "Only the owner (creator) can complete a task" }, { status: 403 });
             }
 
-            const { error } = await supabase
-                .from("tasks")
-                .update({
-                    status: "completed",
-                    updated_at: new Date().toISOString(),
-                })
-                .eq("id", taskId);
-
-            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
             // Fetch the full task to check if it's a subtask and get the title
             const { data: fullTask } = await supabase
                 .from("tasks")
@@ -179,6 +169,28 @@ export async function PATCH(
 
             const isTodo = task.created_by === task.assigned_to;
             const isSubtask = !!fullTask?.parent_task_id;
+
+            // Notify all participants BEFORE updating status
+            const adminDb = createAdminClient();
+            await notifyTaskCompleted(adminDb, {
+                ownerId: userId,
+                ownerName: currentUser.name || 'The task owner',
+                assigneeId: task.assigned_to,
+                taskTitle: fullTask?.title || task.title || 'Untitled task',
+                taskId: taskId,
+                source: 'dashboard',
+            }).catch(err => console.error('[TaskPatch] Notification error (complete):', err));
+
+            // Now update the task status
+            const { error } = await supabase
+                .from("tasks")
+                .update({
+                    status: "completed",
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", taskId);
+
+            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
             await supabase.from("audit_log").insert({
                 user_id: userId,
@@ -203,17 +215,6 @@ export async function PATCH(
                     }
                 });
             }
-
-            // Notify all participants
-            const adminDb = createAdminClient();
-            notifyTaskCompleted(adminDb, {
-                ownerId: userId,
-                ownerName: currentUser.name || 'The task owner',
-                assigneeId: task.assigned_to,
-                taskTitle: fullTask?.title || task.title || 'Untitled task',
-                taskId: taskId,
-                source: 'dashboard',
-            }).catch(err => console.error('[TaskPatch] Notification error (complete):', err));
 
             return NextResponse.json({ success: true, status: "completed" });
         }
@@ -344,6 +345,17 @@ export async function PATCH(
                 return NextResponse.json({ error: "Only the owner can delete a task" }, { status: 403 });
             }
 
+            // Notify all participants BEFORE cancelling
+            const adminDb = createAdminClient();
+            await notifyTaskCancelled(adminDb, {
+                ownerId: userId,
+                ownerName: currentUser.name || 'The task owner',
+                assigneeId: task.assigned_to,
+                taskTitle: task.title || 'Untitled task',
+                taskId: taskId,
+                source: 'dashboard',
+            }).catch(err => console.error('[TaskPatch] Notification error (delete):', err));
+
             // Cancel all active subtasks recursively
             const cancelSubtasks = async (parentId: string): Promise<void> => {
                 const { data: subs } = await supabase
@@ -389,17 +401,6 @@ export async function PATCH(
                 entity_type: "task",
                 entity_id: taskId
             });
-
-            // Notify all participants
-            const adminDb = createAdminClient();
-            notifyTaskCancelled(adminDb, {
-                ownerId: userId,
-                ownerName: currentUser.name || 'The task owner',
-                assigneeId: task.assigned_to,
-                taskTitle: task.title || 'Untitled task',
-                taskId: taskId,
-                source: 'dashboard',
-            }).catch(err => console.error('[TaskPatch] Notification error (delete):', err));
 
             return NextResponse.json({ success: true, status: "cancelled" });
         }

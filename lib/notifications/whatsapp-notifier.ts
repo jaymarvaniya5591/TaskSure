@@ -270,18 +270,14 @@ function buildNotificationMessage(opts: NotifyTaskEventOpts): string {
     switch (eventType) {
         case 'task_created': {
             if (assigneeName) {
-                return `📋 *${actorName}* created a new task "${taskTitle}" for *${assigneeName}*. Waiting for acceptance.`
+                return `✅ Task created! I've asked *${assigneeName}* to "${taskTitle}". Waiting for them to accept.`
             }
-            return `📋 *${actorName}* created a new task "${taskTitle}".`
+            return `✅ To-do noted: "${taskTitle}". I'll keep track of it for you!`
         }
 
         case 'task_accepted': {
-            const deadlineStr = committedDeadline ? formatDate(committedDeadline) : null
-            const byWhom = `*${actorName}*`
-            if (deadlineStr) {
-                return `✅ ${byWhom} accepted "${taskTitle}" with deadline *${deadlineStr}*.`
-            }
-            return `✅ ${byWhom} accepted "${taskTitle}".`
+            const deadlineStr = formatDate(committedDeadline!)
+            return `✅ *${actorName}* accepted "${taskTitle}" with deadline *${deadlineStr}*.`
         }
 
         case 'task_rejected': {
@@ -504,7 +500,6 @@ export async function notifyTaskCompleted(
         source: 'whatsapp' | 'dashboard'
     },
 ): Promise<void> {
-    if (opts.ownerId === opts.assigneeId) return
 
     // Look up assignee name for richer messages
     const assignee = await lookupUser(supabase, opts.assigneeId)
@@ -535,7 +530,6 @@ export async function notifyDeadlineEdited(
         source: 'whatsapp' | 'dashboard'
     },
 ): Promise<void> {
-    if (opts.ownerId === opts.assigneeId) return
 
     // Look up assignee name
     const assignee = await lookupUser(supabase, opts.assigneeId)
@@ -596,7 +590,6 @@ export async function notifyTaskCancelled(
         source: 'whatsapp' | 'dashboard'
     },
 ): Promise<void> {
-    if (opts.ownerId === opts.assigneeId) return
 
     // Look up assignee name
     const assignee = await lookupUser(supabase, opts.assigneeId)
