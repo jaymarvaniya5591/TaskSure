@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
         //    all dependent records, re-link the reporting chain, and delete the user.
         const adminClient = createAdminClient();
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: rpcResult, error: rpcError } = await (adminClient as any)
             .rpc("cascade_delete_user", { target_user_id: userId });
 
