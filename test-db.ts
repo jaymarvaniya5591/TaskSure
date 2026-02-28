@@ -1,5 +1,12 @@
 import { createAdminClient } from './lib/supabase/admin'
 
+interface IncomingMessage {
+    id: string
+    phone: string
+    created_at: string
+    raw_text: string
+}
+
 async function run() {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -10,8 +17,10 @@ async function run() {
 
     if (error) { console.error('Error:', error); return; }
 
+    const messages = data as IncomingMessage[];
+
     console.log('Most recent messages:');
-    for (const row of data) {
+    for (const row of messages) {
         console.log(row.created_at, '|', row.phone, '|', row.raw_text);
     }
 }
