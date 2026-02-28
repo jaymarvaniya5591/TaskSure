@@ -65,46 +65,32 @@ export async function POST(req: NextRequest) {
 
         console.log(`User ${userId} requested deletion and passed name validation.`);
 
-        // 4. Proceed with account deletion using the Admin API
+        // 4. Call the cascade_delete_user SQL function to atomically clean up
+        //    all dependent records, re-link the reporting chain, and delete the user.
         const adminClient = createAdminClient();
 
-        // Delete from public.users first to avoid orphaned auth accounts.
-        const { error: deleteRecordError } = await adminClient
-            .from("users")
-            .delete()
-            .eq("id", userId);
+        const { data: rpcResult, error: rpcError } = await (adminClient as any)
+            .rpc("cascade_delete_user", { target_user_id: userId });
 
-        if (deleteRecordError) {
-            console.error("Error deleting user record from DB:", deleteRecordError);
+        if (rpcError) {
+            console.error("Error in cascade_delete_user RPC:", rpcError);
             return NextResponse.json(
                 { success: false, error: "Failed to delete user profile data." },
                 { status: 500 }
             );
         }
 
-        // 5. Clean up orphaned organisation if this was the last member
-        if (dbUser.organisation_id) {
-            const { count } = await adminClient
-                .from("users")
-                .select("id", { count: "exact", head: true })
-                .eq("organisation_id", dbUser.organisation_id);
-
-            if (count === 0) {
-                const { error: deleteOrgError } = await adminClient
-                    .from("organisations")
-                    .delete()
-                    .eq("id", dbUser.organisation_id);
-
-                if (deleteOrgError) {
-                    // Log but don't fail the request — user is already deleted
-                    console.error("Error cleaning up orphaned organisation:", deleteOrgError);
-                } else {
-                    console.log(`Cleaned up orphaned organisation ${dbUser.organisation_id}`);
-                }
-            }
+        if (rpcResult && !rpcResult.success) {
+            console.error("cascade_delete_user returned failure:", rpcResult.error);
+            return NextResponse.json(
+                { success: false, error: rpcResult.error || "Failed to delete user profile data." },
+                { status: 500 }
+            );
         }
 
-        // 6. Delete the user from auth.users using the admin api
+        console.log(`cascade_delete_user completed for ${userId}:`, rpcResult);
+
+        // 5. Delete the user from auth.users using the admin api
         const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(userId);
 
         if (deleteAuthError) {
