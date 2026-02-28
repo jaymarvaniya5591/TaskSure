@@ -258,10 +258,10 @@ async function computeRecipientIds(
 // Message Builder
 // ---------------------------------------------------------------------------
 
-function buildNotificationMessage(opts: NotifyTaskEventOpts): string {
+function buildNotificationMessage(opts: NotifyTaskEventOpts, recipientId?: string): string {
     const {
         eventType, taskTitle, actorName,
-        assigneeName, committedDeadline, newDeadline,
+        assigneeName, assigneeId, committedDeadline, newDeadline,
         reason, subtaskTitle, subtaskAssigneeName,
         parentTaskTitle, ownerName,
         newAssigneeName, oldAssigneeName,
@@ -269,7 +269,11 @@ function buildNotificationMessage(opts: NotifyTaskEventOpts): string {
 
     switch (eventType) {
         case 'task_created': {
-            if (assigneeName) {
+            if (recipientId && recipientId === assigneeId) {
+                // If the recipient is the assignee (and they are receiving this text as a fallback)
+                return `📝 *${ownerName || 'Someone'}* has assigned you a task: "${taskTitle}". Please check your dashboard to accept or reject it.`
+            } else if (assigneeName) {
+                // If the recipient is the creator
                 return `✅ Task created! I've asked *${assigneeName}* to "${taskTitle}". Waiting for them to accept.`
             }
             return `✅ To-do noted: "${taskTitle}". I'll keep track of it for you!`
@@ -360,15 +364,13 @@ export async function notifyTaskEvent(
         // Look up all recipients in one query
         const recipients = await lookupUsers(supabase, recipientIds)
 
-        // Build the notification message
-        const message = buildNotificationMessage(opts)
-
-        // Send text notification to ALL recipients (including the assignee).
-        // The assignee may also get the template message if billing is active,
-        // but text serves as a reliable fallback if Meta silently drops templates.
+        // Build and send the personalized notification message for each recipient
         const sends = recipients
             .filter(r => r.phone_number)
-            .map(r => safeSend(r.phone_number!, message))
+            .map(r => {
+                const message = buildNotificationMessage(opts, r.id)
+                return safeSend(r.phone_number!, message)
+            })
 
         await Promise.all(sends)
     } catch (err) {
