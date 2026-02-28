@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { waitUntil } from '@vercel/functions';
+
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCurrentUser } from "@/lib/user";
@@ -89,17 +89,15 @@ export async function PATCH(
 
             // Notify all participants
             const adminDb = createAdminClient();
-            waitUntil(
-                notifyTaskAccepted(adminDb, {
-                    ownerId: task.created_by,
-                    assigneeId: userId,
-                    assigneeName: currentUser.name || 'The assignee',
-                    taskTitle: task.title || 'Untitled task',
-                    taskId: taskId,
-                    committedDeadline: committed_deadline,
-                    source: 'dashboard',
-                }).catch(err => console.error('[TaskPatch] Notification error (accept):', err))
-            );
+            await notifyTaskAccepted(adminDb, {
+                ownerId: task.created_by,
+                assigneeId: userId,
+                assigneeName: currentUser.name || 'The assignee',
+                taskTitle: task.title || 'Untitled task',
+                taskId: taskId,
+                committedDeadline: committed_deadline,
+                source: 'dashboard',
+            }).catch(err => console.error('[TaskPatch] Notification error (accept):', err));
 
             return NextResponse.json({ success: true, status: "accepted" });
         }
@@ -144,17 +142,15 @@ export async function PATCH(
 
             // Notify all participants
             const adminDb = createAdminClient();
-            waitUntil(
-                notifyTaskRejected(adminDb, {
-                    ownerId: task.created_by,
-                    assigneeId: userId,
-                    assigneeName: currentUser.name || 'The assignee',
-                    taskTitle: task.title || 'Untitled task',
-                    taskId: taskId,
-                    reason: reject_reason || null,
-                    source: 'dashboard',
-                }).catch(err => console.error('[TaskPatch] Notification error (reject):', err))
-            );
+            await notifyTaskRejected(adminDb, {
+                ownerId: task.created_by,
+                assigneeId: userId,
+                assigneeName: currentUser.name || 'The assignee',
+                taskTitle: task.title || 'Untitled task',
+                taskId: taskId,
+                reason: reject_reason || null,
+                source: 'dashboard',
+            }).catch(err => console.error('[TaskPatch] Notification error (reject):', err));
 
             return NextResponse.json({ success: true, status: "rejected" });
         }
@@ -263,18 +259,16 @@ export async function PATCH(
 
             // Notify all participants
             const adminDb = createAdminClient();
-            waitUntil(
-                notifyDeadlineEdited(adminDb, {
-                    ownerId: task.created_by,
-                    assigneeId: task.assigned_to,
-                    actorId: userId,
-                    actorName: currentUser.name || 'A team member',
-                    taskTitle: task.title || 'Untitled task',
-                    taskId: taskId,
-                    newDeadline: new_deadline,
-                    source: 'dashboard',
-                }).catch(err => console.error('[TaskPatch] Notification error (edit_deadline):', err))
-            );
+            await notifyDeadlineEdited(adminDb, {
+                ownerId: task.created_by,
+                assigneeId: task.assigned_to,
+                actorId: userId,
+                actorName: currentUser.name || 'A team member',
+                taskTitle: task.title || 'Untitled task',
+                taskId: taskId,
+                newDeadline: new_deadline,
+                source: 'dashboard',
+            }).catch(err => console.error('[TaskPatch] Notification error (edit_deadline):', err));
 
             return NextResponse.json({ success: true, deadline: new_deadline });
         }
@@ -332,18 +326,16 @@ export async function PATCH(
 
             // Notify all participants
             const adminDb = createAdminClient();
-            waitUntil(
-                notifyAssigneeChanged(adminDb, {
-                    ownerId: userId,
-                    ownerName: currentUser.name || 'The task owner',
-                    oldAssigneeId: task.assigned_to,
-                    newAssigneeId: new_assigned_to,
-                    newAssigneeName: new_assigned_name || 'the new assignee',
-                    taskTitle: task.title || 'Untitled task',
-                    taskId: taskId,
-                    source: 'dashboard',
-                }).catch(err => console.error('[TaskPatch] Notification error (edit_persons):', err))
-            );
+            await notifyAssigneeChanged(adminDb, {
+                ownerId: userId,
+                ownerName: currentUser.name || 'The task owner',
+                oldAssigneeId: task.assigned_to,
+                newAssigneeId: new_assigned_to,
+                newAssigneeName: new_assigned_name || 'the new assignee',
+                taskTitle: task.title || 'Untitled task',
+                taskId: taskId,
+                source: 'dashboard',
+            }).catch(err => console.error('[TaskPatch] Notification error (edit_persons):', err));
 
             return NextResponse.json({ success: true, assigned_to: new_assigned_to });
         }

@@ -49,7 +49,16 @@ export const TaskCard = memo(function TaskCard({
     const [showTimeline, setShowTimeline] = useState(false);
 
     const styles = getCategoryStyles(category);
-    const effectiveDeadline = task.committed_deadline || task.deadline;
+    // For tasks with a separate owner/assignee: show committed_deadline only (set on acceptance)
+    // For self-assigned tasks (todos): show deadline directly (owner IS the assignee)
+    const isSelfAssigned = typeof task.created_by === 'string'
+        ? task.created_by === task.assigned_to
+        : typeof task.assigned_to === 'string'
+            ? task.created_by?.id === task.assigned_to
+            : task.created_by?.id === task.assigned_to?.id;
+    const effectiveDeadline = isSelfAssigned
+        ? (task.committed_deadline || task.deadline)
+        : task.committed_deadline;
 
     // Determine who to show: last_active_participant (computed), or fallback to assigned_to/created_by
     const lastActive = task.last_active_participant;
