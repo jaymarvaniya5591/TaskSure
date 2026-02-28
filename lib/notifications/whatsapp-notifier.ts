@@ -363,12 +363,11 @@ export async function notifyTaskEvent(
         // Build the notification message
         const message = buildNotificationMessage(opts)
 
-        // Send to all recipients (except the assignee of a new task who got the template)
-        const skipTemplateRecipient = opts.eventType === 'task_created' ? opts.assigneeId : null
-
+        // Send text notification to ALL recipients (including the assignee).
+        // The assignee may also get the template message if billing is active,
+        // but text serves as a reliable fallback if Meta silently drops templates.
         const sends = recipients
             .filter(r => r.phone_number)
-            .filter(r => r.id !== skipTemplateRecipient) // Assignee already got the template
             .map(r => safeSend(r.phone_number!, message))
 
         await Promise.all(sends)
