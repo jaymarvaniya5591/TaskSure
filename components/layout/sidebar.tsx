@@ -7,6 +7,7 @@
  */
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarProvider";
@@ -86,10 +87,8 @@ export function Sidebar() {
             )}>
                 {/* Logo & Mobile Close Button */}
                 <div className="flex h-16 shrink-0 items-center justify-between px-6">
-                    <Link href="/home" className="flex items-center gap-2 font-bold text-xl tracking-tight text-foreground" onClick={() => setIsMobileOpen(false)}>
-                        <div className="w-7 h-7 rounded-lg bg-accent-500 flex items-center justify-center text-white">
-                            <span className="text-base font-bold">B</span>
-                        </div>
+                    <Link href="/home" className="flex items-center gap-3 font-bold text-xl tracking-tight text-foreground" onClick={() => setIsMobileOpen(false)}>
+                        <Image src="/logo.png" alt="Boldo AI Logo" width={28} height={28} className="rounded-lg object-contain" />
                         Boldo AI
                     </Link>
                     <button

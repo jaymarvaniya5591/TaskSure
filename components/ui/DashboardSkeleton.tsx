@@ -8,6 +8,7 @@
  */
 
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 // ─── Base shimmer bar ────────────────────────────────────────────────────────
 
@@ -111,8 +112,8 @@ export function DashboardShellSkeleton() {
         <div className="flex flex-col items-center justify-center h-[60vh] animate-fade-in-up">
             <div className="relative">
                 {/* Pulsing logo */}
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-200/50 animate-pulse">
-                    <span className="text-2xl font-black text-white">B</span>
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200/50 animate-pulse relative overflow-hidden bg-white z-10">
+                    <Image src="/logo.png" alt="Boldo AI Logo" fill className="object-cover" />
                 </div>
                 {/* Spinning ring around logo */}
                 <div className="absolute -inset-2 rounded-2xl border-2 border-amber-300/30 animate-spin" style={{ animationDuration: "3s" }} />
