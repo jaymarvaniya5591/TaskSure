@@ -4,14 +4,21 @@ import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
 import { transcribeAudio } from '@/lib/sarvam'
 import { normalizePhone } from '@/lib/phone'
 
-// New single-call AI module
+// AI modules
 import { analyzeMessage } from '@/lib/ai/message-analyzer'
 import { findPhoneticMatches } from '@/lib/ai/phonetic-match'
 import type { OrgUser } from '@/lib/ai/phonetic-match'
 import type { AnalyzedMessage } from '@/lib/ai/types'
+import { notifyTaskCreated } from '@/lib/notifications/whatsapp-notifier'
+
+// Session-based conversation context
 import {
-    notifyTaskCreated,
-} from '@/lib/notifications/whatsapp-notifier'
+    getActiveSession,
+    createSession,
+    resolveSession,
+    buildIntentChangeAcknowledgment,
+} from '@/lib/ai/conversation-context'
+import { handleSessionReply } from '@/lib/ai/session-reply-handler'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -86,70 +93,6 @@ async function sendWhatsAppReply(phone: string, message: string): Promise<void> 
 }
 
 /**
- * Multi-turn context: check if this user's most recent processed message
- * (within the last 5 minutes) was a clarification request.
- */
-async function fetchRecentClarification(
-    supabase: SupabaseAdmin,
-    phone: string,
-    currentMessageId: string,
-): Promise<{ raw_text: string; processing_error: string | null } | null> {
-    const { data, error } = await supabase
-        .from('incoming_messages')
-        .select('raw_text, processing_error')
-        .eq('phone', phone)
-        .neq('id', currentMessageId)
-        .in('intent_type', ['clarification_needed', 'needs_clarification'])
-        .eq('processed', true)
-        .gte('created_at', new Date(Date.now() - 5 * 60_000).toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-    if (error || !data) return null
-    return data as { raw_text: string; processing_error: string | null }
-}
-
-/**
- * Check if this user recently tapped Accept or Reject on a task.
- * We store this context in the incoming_messages table via intent_type
- * 'awaiting_accept_deadline' or 'awaiting_reject_reason' with the
- * task_id in processing_error.
- */
-async function fetchPendingButtonContext(
-    supabase: SupabaseAdmin,
-    phone: string,
-    currentMessageId: string,
-): Promise<{ type: 'accept' | 'reject'; taskId: string } | null> {
-    const { data, error } = await supabase
-        .from('incoming_messages')
-        .select('intent_type, processing_error')
-        .eq('phone', phone)
-        .neq('id', currentMessageId)
-        .in('intent_type', ['awaiting_accept_deadline', 'awaiting_reject_reason'])
-        .eq('processed', true)
-        .gte('created_at', new Date(Date.now() - 10 * 60_000).toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-    if (error || !data) return null
-
-    const intentType = data.intent_type as string
-    const taskId = data.processing_error as string
-
-    if (!taskId) return null
-
-    if (intentType === 'awaiting_accept_deadline') {
-        return { type: 'accept', taskId }
-    }
-    if (intentType === 'awaiting_reject_reason') {
-        return { type: 'reject', taskId }
-    }
-    return null
-}
-
-/**
  * Fuzzy + phonetic match a person name within the organisation.
  */
 async function fuzzyMatchUser(
@@ -185,38 +128,6 @@ async function fuzzyMatchUser(
     }
 
     return []
-}
-
-/**
- * Parse a date from free-form text (for accept deadline responses).
- * Uses simple Gemini call to extract just the date.
- */
-async function parseDateFromText(text: string): Promise<string | null> {
-    // Try to import and use Gemini for date parsing
-    try {
-        const { callGemini } = await import('@/lib/gemini')
-
-        const now = new Date()
-        const istOffset = 5.5 * 60 * 60_000
-        const ist = new Date(now.getTime() + istOffset + now.getTimezoneOffset() * 60_000)
-        const iso = ist.toISOString().split('T')[0]
-        const dayName = ist.toLocaleDateString('en-IN', { weekday: 'long' })
-
-        const prompt = `You are a date parser. Today is ${dayName}, ${iso} (IST).
-Convert the user's text into an ISO 8601 datetime string in IST timezone (+05:30).
-If only a date/day is given (no time), default to 18:00:00+05:30 (6 PM IST).
-If only a time is given (no date), assume today if the time hasn't passed, otherwise tomorrow.
-"kal" = tomorrow, "parso" = day after tomorrow, "aaj" = today.
-"by Friday" = next Friday at 18:00:00+05:30.
-
-Return ONLY a JSON object: { "date": "ISO 8601 string or null" }`
-
-        const result = await callGemini(prompt, text)
-        const parsed = JSON.parse(result.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim())
-        return parsed.date || null
-    } catch {
-        return null
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -303,34 +214,38 @@ export async function processMessageInline(
         }
 
         // =====================================================================
-        // 4b. BUTTON CONTEXT — check if user is replying to Accept/Reject
+        // 5. SESSION-BASED CONTEXT — check for active conversation session
         // =====================================================================
 
-        const buttonContext = await fetchPendingButtonContext(supabase, senderPhone10, messageId)
-        if (buttonContext) {
-            console.log(`[ProcessMessage] Button context found: ${buttonContext.type} for task ${buttonContext.taskId}`)
+        const activeSession = await getActiveSession(senderPhone10, supabase)
 
-            if (buttonContext.type === 'accept') {
-                return await handleAcceptDeadlineReply(supabase, messageId, msg.phone, sender, textForAI, buttonContext.taskId)
-            } else {
-                return await handleRejectReasonReply(supabase, messageId, msg.phone, sender, textForAI, buttonContext.taskId)
+        if (activeSession) {
+            console.log(`[ProcessMessage] Active session found: ${activeSession.session_type} (${activeSession.id})`)
+
+            // Try to handle the reply within the session context
+            const sessionResult = await handleSessionReply(
+                supabase, activeSession, textForAI, sender, messageId,
+            )
+
+            if (sessionResult.handled) {
+                console.log(`[ProcessMessage] Session handled reply: intent=${sessionResult.intent}`)
+                return { status: 'processed', intent: sessionResult.intent }
             }
+
+            // Session couldn't handle the reply — this means the user sent something
+            // that doesn't fit the current session. We need to:
+            //  1. Send an acknowledgment that we're switching context
+            //  2. Resolve the session
+            //  3. Process the message through the normal AI pipeline
+
+            console.log(`[ProcessMessage] Session fall-through — processing as new intent`)
+            const ackMessage = buildIntentChangeAcknowledgment(activeSession)
+            await sendWhatsAppReply(msg.phone, ackMessage)
+            await resolveSession(activeSession.id, supabase)
         }
 
         // =====================================================================
-        // 4c. MULTI-TURN CONTEXT — check for recent clarification
-        // =====================================================================
-
-        const recentClarification = await fetchRecentClarification(supabase, senderPhone10, messageId)
-        if (recentClarification) {
-            const prevText = recentClarification.raw_text.replace(/^\[audio\] /, '')
-            const reason = recentClarification.processing_error || 'more info needed'
-            textForAI = `[CONTEXT: The user previously said: "${prevText}". The bot asked for clarification because: ${reason}. The user is now replying with:] ${textForAI}`
-            console.log(`[ProcessMessage] Multi-turn context applied. Combined text: "${textForAI.substring(0, 200)}..."`)
-        }
-
-        // =====================================================================
-        // 5. AI PIPELINE — Single Gemini call
+        // 6. AI PIPELINE — Single Gemini call (normal path, no session)
         // =====================================================================
 
         console.log(`[ProcessMessage] Analyzing message: "${textForAI.substring(0, 80)}"`)
@@ -338,7 +253,7 @@ export async function processMessageInline(
         console.log(`[ProcessMessage] Analysis: intent=${analysis.intent} conf=${analysis.confidence.toFixed(2)} who=${analysis.who.type}`)
 
         // =====================================================================
-        // 6. Dispatch to handler
+        // 7. Dispatch to handler
         // =====================================================================
 
         switch (analysis.intent) {
@@ -445,23 +360,46 @@ async function handleTaskCreate(
         await sendWhatsAppReply(phone,
             `I can't do "${analysis.what}" myself, but I can help you create a to-do! ` +
             `Just say something like "I need to ${analysis.what}".`)
-        await markProcessed(supabase, messageId, 'clarification_needed', 'WHO is agent — re-route needed')
+        await markProcessed(supabase, messageId, 'task_create', 'WHO is agent — re-route needed')
         return
     }
 
     // ── VALIDATION: WHAT ──
     if (!analysis.what || analysis.what.length < 3) {
-        await sendWhatsAppReply(phone, 'Please tell me what task you need done. For example: "Tell Ramesh to send the invoice by Friday"')
-        await markProcessed(supabase, messageId, 'clarification_needed', 'Missing WHAT: no task description')
+        // Create session to wait for task description
+        await createSession(phone, 'awaiting_task_description', {
+            original_intent: 'task_create',
+            who_name: analysis.who.name,
+            sender_id: sender.id,
+            sender_name: sender.name,
+            organisation_id: sender.organisation_id,
+        }, 10, supabase)
+
+        await sendWhatsAppReply(phone,
+            'What task do you need done? Please describe it.' +
+            (analysis.who.name ? ` (I\'ll assign it to ${analysis.who.name})` : ''))
+        await markProcessed(supabase, messageId, 'task_create', 'Awaiting task description via session')
         return
     }
 
     // ── VALIDATION: WHO — need a name ──
     if (!analysis.who.name) {
+        // Create session to wait for assignee name
+        await createSession(phone, 'awaiting_assignee_name', {
+            original_intent: 'task_create',
+            what: analysis.what,
+            when_date: analysis.when.date,
+            when_raw: analysis.when.raw,
+            sender_id: sender.id,
+            sender_name: sender.name,
+            organisation_id: sender.organisation_id,
+            original_message: analysis.what,
+        }, 10, supabase)
+
         await sendWhatsAppReply(phone,
-            `I understood the task "${analysis.what}", but I'm not sure who should do it. ` +
-            `Please mention the person's name. For example: "Tell [person name] to ${analysis.what}".`)
-        await markProcessed(supabase, messageId, 'clarification_needed', 'Missing WHO: no assignee name')
+            `I understood the task "${analysis.what}", but who should do it? ` +
+            `Please reply with the person's name.`)
+        await markProcessed(supabase, messageId, 'task_create', 'Awaiting assignee name via session')
         return
     }
 
@@ -481,22 +419,32 @@ async function handleTaskCreate(
             .map((u, i) => `${i + 1}. ${u.name}${u.phone_number ? ` (${u.phone_number})` : ''}`)
             .join('\n')
 
+        // Create session to wait for selection
+        await createSession(phone, 'awaiting_assignee_selection', {
+            original_intent: 'task_create',
+            who_name: analysis.who.name,
+            what: analysis.what,
+            when_date: analysis.when.date,
+            when_raw: analysis.when.raw,
+            candidates: matches.map(u => ({ id: u.id, name: u.name, phone_number: u.phone_number })),
+            sender_id: sender.id,
+            sender_name: sender.name,
+            organisation_id: sender.organisation_id,
+        }, 10, supabase)
+
         const clarifyMsg =
             `I found multiple people matching "${analysis.who.name}" in your organization:\n\n` +
             `${nameList}\n\n` +
-            `Please reply with the full name of the person you want to assign "${analysis.what}" to.`
+            `Please reply with the number or the full name of the person you want to assign "${analysis.what}" to.`
 
         await sendWhatsAppReply(phone, clarifyMsg)
-        await markProcessed(supabase, messageId, 'needs_clarification', null)
+        await markProcessed(supabase, messageId, 'task_create', 'Awaiting assignee selection via session')
         return
     }
 
     // ── Single match — create the task ──
     const assignee = matches[0]
 
-    // NOTE: We do NOT set deadline during task creation.
-    // The assignee sets the deadline when they accept the task.
-    // The deadline info is preserved in the title/what text.
     const { data: newTask, error: taskError } = await supabase
         .from('tasks')
         .insert({
@@ -548,8 +496,17 @@ async function handleTodoCreate(
 ): Promise<void> {
     // ── VALIDATION: WHAT ──
     if (!analysis.what || analysis.what.length < 3) {
-        await sendWhatsAppReply(phone, 'Please tell me what you want to add as a to-do. For example: "I need to call the client tomorrow at 3pm"')
-        await markProcessed(supabase, messageId, 'clarification_needed', 'Missing WHAT for to-do')
+        // Create session to wait for task description
+        await createSession(phone, 'awaiting_task_description', {
+            original_intent: 'todo_create',
+            sender_id: sender.id,
+            sender_name: sender.name,
+            organisation_id: sender.organisation_id,
+        }, 10, supabase)
+
+        await sendWhatsAppReply(phone,
+            'What do you want to add as a to-do? Please describe it.')
+        await markProcessed(supabase, messageId, 'todo_create', 'Awaiting task description via session')
         return
     }
 
@@ -557,15 +514,23 @@ async function handleTodoCreate(
     let deadline = analysis.when.date
 
     if (!deadline) {
+        // Create session to wait for deadline
+        await createSession(phone, 'awaiting_todo_deadline', {
+            original_intent: 'todo_create',
+            what: analysis.what,
+            sender_id: sender.id,
+            sender_name: sender.name,
+            organisation_id: sender.organisation_id,
+        }, 10, supabase)
+
         await sendWhatsAppReply(phone,
-            `I understood the to-do "${analysis.what}", but I need a deadline to create it. ` +
-            `Please include a date, for example: "${analysis.what} by Friday" or "${analysis.what} tomorrow at 3pm".`)
-        await markProcessed(supabase, messageId, 'clarification_needed', 'Missing WHEN: deadline required for to-do')
+            `Got it: "${analysis.what}". When should this be done? ` +
+            `(e.g., "tomorrow 3pm", "Friday", "March 10")`)
+        await markProcessed(supabase, messageId, 'todo_create', 'Awaiting deadline via session')
         return
     }
 
     // ── Default time to 6 AM IST if only date/day is given (no time component) ──
-    // The Gemini prompt already defaults to 06:00:00+05:30, but double-check
     if (deadline && !deadline.includes('T')) {
         deadline = `${deadline}T06:00:00+05:30`
     }
@@ -655,210 +620,4 @@ async function handleUnknown(
         "I'm not sure I understood that. I can help you manage tasks — try saying something like " +
         "\"Tell Ramesh to send the invoice\" or \"I need to call the client tomorrow at 3pm\". 😊")
     await markProcessed(supabase, messageId, 'unknown', null)
-}
-
-// ============================================================================
-// BUTTON-DRIVEN HANDLERS (Accept / Reject follow-up replies)
-// ============================================================================
-
-/**
- * Handle the user's reply after tapping "Accept" on a task.
- * The reply should contain a deadline. We parse it and accept the task.
- */
-async function handleAcceptDeadlineReply(
-    supabase: SupabaseAdmin,
-    messageId: string,
-    phone: string,
-    sender: SenderUser,
-    userText: string,
-    taskId: string,
-): Promise<{ status: string; intent?: string }> {
-    // Fetch the task
-    const { data: task, error: fetchError } = await supabase
-        .from('tasks')
-        .select('id, title, assigned_to, created_by, status, organisation_id')
-        .eq('id', taskId)
-        .single()
-
-    if (fetchError || !task) {
-        await sendWhatsAppReply(phone, "I couldn't find the task you're trying to accept. It may have been deleted.")
-        await markProcessed(supabase, messageId, 'task_accept', 'Task not found')
-        return { status: 'processed', intent: 'task_accept' }
-    }
-
-    // Verify permissions
-    if (task.assigned_to !== sender.id) {
-        await sendWhatsAppReply(phone, "You can only accept tasks assigned to you.")
-        await markProcessed(supabase, messageId, 'task_accept', 'Not the assignee')
-        return { status: 'processed', intent: 'task_accept' }
-    }
-
-    if (task.status !== 'pending') {
-        await sendWhatsAppReply(phone, "This task has already been accepted or is no longer pending.")
-        await markProcessed(supabase, messageId, 'task_accept', `Task status is ${task.status}`)
-        return { status: 'processed', intent: 'task_accept' }
-    }
-
-    // Parse deadline from user text
-    const deadline = await parseDateFromText(userText)
-
-    // ── Date parsing failed — don't accept, notify user ──
-    if (!deadline) {
-        // Clear the awaiting context so the next message goes through normal pipeline
-        await supabase
-            .from('incoming_messages')
-            .update({ intent_type: 'accept_deadline_expired' })
-            .eq('phone', sender.phone_number)
-            .eq('intent_type', 'awaiting_accept_deadline')
-
-        await sendWhatsAppReply(phone,
-            `⚠️ I couldn't detect a date in your reply. The task "${task.title}" has NOT been accepted yet.\n\n` +
-            `If you were trying to set a deadline, please tap the Accept button again and reply with a date ` +
-            `(e.g., "tomorrow", "Friday", "March 5th").\n\n` +
-            `If you were trying to send something else (like a new task), please send that message again — ` +
-            `it wasn't processed because I was looking for a deadline. ` +
-            `You can accept this task anytime from the dashboard.`)
-        await markProcessed(supabase, messageId, 'task_accept', 'Date parse failed — task not accepted')
-        return { status: 'processed', intent: 'task_accept' }
-    }
-
-    // ── Date parsed successfully — accept the task ──
-    const { error } = await supabase
-        .from('tasks')
-        .update({
-            status: 'accepted',
-            committed_deadline: deadline,
-            updated_at: new Date().toISOString(),
-        })
-        .eq('id', taskId)
-
-    if (error) {
-        await sendErrorAndMark(supabase, messageId, phone,
-            'Something went wrong while accepting the task.',
-            `Task accept failed: ${error.message}`,
-        )
-        return { status: 'processed', intent: 'task_accept' }
-    }
-
-    const d = new Date(deadline)
-    const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
-    const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
-    const confirmMsg = `✅ Great! You've accepted "${task.title}" with a deadline of ${dateStr} at ${timeStr}. Good luck! 💪`
-
-    await sendWhatsAppReply(phone, confirmMsg)
-    await markProcessed(supabase, messageId, 'task_accept', null)
-
-    // Clear the awaiting context
-    await supabase
-        .from('incoming_messages')
-        .update({ intent_type: 'accept_deadline_expired' })
-        .eq('phone', sender.phone_number)
-        .eq('intent_type', 'awaiting_accept_deadline')
-
-    // Notify the task owner (await to ensure Vercel doesn't terminate early)
-    const { notifyTaskAccepted } = await import('@/lib/notifications/whatsapp-notifier')
-    await notifyTaskAccepted(supabase, {
-        ownerId: task.created_by,
-        assigneeId: sender.id,
-        assigneeName: sender.name,
-        taskTitle: task.title || 'Untitled task',
-        taskId: taskId,
-        committedDeadline: deadline,
-        source: 'whatsapp',
-    }).catch((err: unknown) => console.error('[ProcessMessage] Notification error (task_accept):', err))
-
-    return { status: 'processed', intent: 'task_accept' }
-}
-
-/**
- * Handle the user's reply after tapping "Reject" on a task.
- * The reply should contain a rejection reason.
- */
-async function handleRejectReasonReply(
-    supabase: SupabaseAdmin,
-    messageId: string,
-    phone: string,
-    sender: SenderUser,
-    userText: string,
-    taskId: string,
-): Promise<{ status: string; intent?: string }> {
-    // Fetch the task
-    const { data: task, error: fetchError } = await supabase
-        .from('tasks')
-        .select('id, title, assigned_to, created_by, status, organisation_id')
-        .eq('id', taskId)
-        .single()
-
-    if (fetchError || !task) {
-        await sendWhatsAppReply(phone, "I couldn't find the task you're trying to reject. It may have been deleted.")
-        await markProcessed(supabase, messageId, 'task_reject', 'Task not found')
-        return { status: 'processed', intent: 'task_reject' }
-    }
-
-    // Verify permissions
-    if (task.assigned_to !== sender.id) {
-        await sendWhatsAppReply(phone, "You can only reject tasks assigned to you.")
-        await markProcessed(supabase, messageId, 'task_reject', 'Not the assignee')
-        return { status: 'processed', intent: 'task_reject' }
-    }
-
-    if (task.status !== 'pending') {
-        await sendWhatsAppReply(phone, "This task has already been rejected or is no longer pending.")
-        await markProcessed(supabase, messageId, 'task_reject', `Task status is ${task.status}`)
-        return { status: 'processed', intent: 'task_reject' }
-    }
-
-    // Update status to cancelled
-    const { error } = await supabase
-        .from('tasks')
-        .update({
-            status: 'cancelled',
-            updated_at: new Date().toISOString(),
-        })
-        .eq('id', taskId)
-
-    if (error) {
-        await sendErrorAndMark(supabase, messageId, phone,
-            'Something went wrong while rejecting the task.',
-            `Task reject failed: ${error.message}`,
-        )
-        return { status: 'processed', intent: 'task_reject' }
-    }
-
-    // Store rejection reason as comment
-    if (userText) {
-        await supabase.from('task_comments').insert({
-            task_id: taskId,
-            user_id: sender.id,
-            content: `Rejected: ${userText}`,
-        }).catch((err: unknown) => console.error('[ProcessMessage] Failed to store rejection comment:', err))
-    }
-
-    // Resolve owner name for message
-    const { data: ownerData } = await supabase
-        .from('users')
-        .select('name')
-        .eq('id', task.created_by)
-        .single()
-
-    const ownerName = ownerData?.name || 'the task owner'
-    const reasonStr = userText ? ` Reason: ${userText}` : ''
-    const confirmMsg = `Got it. I've let ${ownerName} know that you've declined "${task.title}".${reasonStr}`
-
-    await sendWhatsAppReply(phone, confirmMsg)
-    await markProcessed(supabase, messageId, 'task_reject', null)
-
-    // Notify the task owner (await to ensure Vercel doesn't terminate early)
-    const { notifyTaskRejected } = await import('@/lib/notifications/whatsapp-notifier')
-    await notifyTaskRejected(supabase, {
-        ownerId: task.created_by,
-        assigneeId: sender.id,
-        assigneeName: sender.name,
-        taskTitle: task.title || 'Untitled task',
-        taskId: taskId,
-        reason: userText || null,
-        source: 'whatsapp',
-    }).catch((err: unknown) => console.error('[ProcessMessage] Notification error (task_reject):', err))
-
-    return { status: 'processed', intent: 'task_reject' }
 }

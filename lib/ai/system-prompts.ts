@@ -100,11 +100,6 @@ Map to EXACTLY ONE of these 4 intents:
 
 ${actionsRef}
 
-# Multi-turn Context
-
-If the message starts with "[CONTEXT: ...]", it contains a previous message + follow-up reply.
-Use BOTH together as one logical message. The follow-up often provides the missing piece (e.g., the assignee name).
-
 # Classification Confidence
 
 - Set confidence to 0.0–1.0 based on how certain you are.

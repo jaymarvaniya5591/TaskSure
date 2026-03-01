@@ -1,0 +1,216 @@
+/**
+ * Conversation Context — Session-based multi-turn state machine.
+ *
+ * Replaces the fragmented context markers (clarification_needed, awaiting_accept_deadline, etc.)
+ * with a single, clean session model. Each user can have at most ONE active session at a time.
+ *
+ * Sessions are stored in the `conversation_sessions` table with a 10-minute TTL.
+ *
+ * Session types:
+ *   - awaiting_assignee_name:      task_create — bot asked "who should do this?"
+ *   - awaiting_assignee_selection:  task_create — bot showed multiple name matches
+ *   - awaiting_task_description:    task/todo   — bot knows who, needs what
+ *   - awaiting_todo_deadline:       todo_create — bot knows what, needs when
+ *   - awaiting_accept_deadline:     accept flow — user tapped Accept, bot needs deadline
+ *   - awaiting_reject_reason:       reject flow — user tapped Reject, bot needs reason
+ */
+
+import { createAdminClient } from '@/lib/supabase/admin'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseAdmin = any
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type SessionType =
+    | 'awaiting_assignee_name'
+    | 'awaiting_assignee_selection'
+    | 'awaiting_task_description'
+    | 'awaiting_todo_deadline'
+    | 'awaiting_accept_deadline'
+    | 'awaiting_reject_reason'
+
+export interface ConversationSession {
+    id: string
+    phone: string
+    session_type: SessionType
+    context_data: SessionContextData
+    created_at: string
+    expires_at: string
+    resolved: boolean
+}
+
+/**
+ * context_data JSON shape — carries all intermediate state.
+ * Not all fields are used by every session type.
+ */
+export interface SessionContextData {
+    /** The original intent that started this session */
+    original_intent?: string
+    /** Extracted assignee name from the original message */
+    who_name?: string | null
+    /** Extracted task description */
+    what?: string | null
+    /** Extracted deadline */
+    when_date?: string | null
+    when_raw?: string | null
+    /** Candidate users for disambiguation */
+    candidates?: Array<{ id: string; name: string; phone_number?: string }>
+    /** Task ID for accept/reject flows */
+    task_id?: string | null
+    /** The original raw user message that started the flow */
+    original_message?: string | null
+    /** Sender info for creating tasks */
+    sender_id?: string | null
+    sender_name?: string | null
+    organisation_id?: string | null
+}
+
+const DEFAULT_TTL_MINUTES = 10
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the currently active (non-expired, non-resolved) session for a phone number.
+ * Returns null if no session exists or all sessions have expired.
+ */
+export async function getActiveSession(
+    phone: string,
+    supabase?: SupabaseAdmin,
+): Promise<ConversationSession | null> {
+    const sb = supabase || createAdminClient()
+
+    const { data, error } = await sb
+        .from('conversation_sessions')
+        .select('*')
+        .eq('phone', phone)
+        .eq('resolved', false)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+    if (error || !data) return null
+    return data as ConversationSession
+}
+
+/**
+ * Create a new session for a user. Any existing active session is auto-resolved first.
+ */
+export async function createSession(
+    phone: string,
+    sessionType: SessionType,
+    contextData: SessionContextData,
+    ttlMinutes: number = DEFAULT_TTL_MINUTES,
+    supabase?: SupabaseAdmin,
+): Promise<ConversationSession> {
+    const sb = supabase || createAdminClient()
+
+    // Auto-resolve any existing active session for this user
+    await sb
+        .from('conversation_sessions')
+        .update({ resolved: true })
+        .eq('phone', phone)
+        .eq('resolved', false)
+
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60_000).toISOString()
+
+    const { data, error } = await sb
+        .from('conversation_sessions')
+        .insert({
+            phone,
+            session_type: sessionType,
+            context_data: contextData,
+            expires_at: expiresAt,
+        })
+        .select('*')
+        .single()
+
+    if (error) {
+        console.error('[ConversationContext] Failed to create session:', error.message)
+        throw new Error(`Failed to create conversation session: ${error.message}`)
+    }
+
+    console.log(`[ConversationContext] Session created: ${sessionType} for ${phone} (expires ${expiresAt})`)
+    return data as ConversationSession
+}
+
+/**
+ * Mark a session as resolved (consumed). Called after successful processing.
+ */
+export async function resolveSession(
+    sessionId: string,
+    supabase?: SupabaseAdmin,
+): Promise<void> {
+    const sb = supabase || createAdminClient()
+
+    const { error } = await sb
+        .from('conversation_sessions')
+        .update({ resolved: true })
+        .eq('id', sessionId)
+
+    if (error) {
+        console.error('[ConversationContext] Failed to resolve session:', error.message)
+    } else {
+        console.log(`[ConversationContext] Session resolved: ${sessionId}`)
+    }
+}
+
+/**
+ * Resolve all active sessions for a phone number.
+ * Used when a user explicitly starts a completely new flow.
+ */
+export async function resolveAllSessions(
+    phone: string,
+    supabase?: SupabaseAdmin,
+): Promise<void> {
+    const sb = supabase || createAdminClient()
+
+    await sb
+        .from('conversation_sessions')
+        .update({ resolved: true })
+        .eq('phone', phone)
+        .eq('resolved', false)
+}
+
+// ---------------------------------------------------------------------------
+// Intent-change acknowledgment messages
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a concise acknowledgment message when we detect the user has abandoned
+ * a previous flow and started a new one.
+ */
+export function buildIntentChangeAcknowledgment(session: ConversationSession): string {
+    switch (session.session_type) {
+        case 'awaiting_assignee_name':
+        case 'awaiting_assignee_selection':
+            return `↩️ I was waiting for a name for the task "${session.context_data.what || 'your task'}". ` +
+                `Since you've sent a new message, I'll move on to that instead. (You can create that task again anytime.)`
+
+        case 'awaiting_task_description':
+            return `↩️ I was waiting for a task description. ` +
+                `Since you've sent a new message, I'll process it instead.`
+
+        case 'awaiting_todo_deadline':
+            return `↩️ I was waiting for a deadline for "${session.context_data.what || 'your to-do'}". ` +
+                `Since you've sent a new message, I'll process it instead. (You can create that to-do again anytime.)`
+
+        case 'awaiting_accept_deadline':
+            return `↩️ I was waiting for a deadline to accept a task, but I see you've sent something else. ` +
+                `The task has NOT been accepted. Tap the Accept button again when you're ready with a deadline. ` +
+                `I'll process your new message now — no need to send it again.`
+
+        case 'awaiting_reject_reason':
+            return `↩️ I was waiting for a rejection reason, but I see you've sent something else. ` +
+                `The task has NOT been rejected. You can reject it from the dashboard. ` +
+                `I'll process your new message now — no need to send it again.`
+
+        default:
+            return `↩️ I was in the middle of something, but I'll process your new message instead.`
+    }
+}

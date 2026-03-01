@@ -9,6 +9,7 @@ import { generateAuthToken } from '@/lib/auth-links'
 import { normalizePhone } from '@/lib/phone'
 import { waitUntil } from '@vercel/functions'
 import { processMessageInline } from '@/app/api/internal/process-message/route'
+import { createSession } from '@/lib/ai/conversation-context'
 
 // Co-locate this function with Supabase (ap-southeast-1 / Singapore)
 export const preferredRegion = 'sin1'
@@ -323,19 +324,15 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         const taskId = buttonPayload.replace('task_accept_prompt::', '')
                         console.log(`[Webhook] Quick Reply: task_accept_prompt ${taskId} from ${senderPhone10}`)
 
-                            // Store context marker so the next text message is handled as deadline input
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            ; (supabase as any)
-                                .from('incoming_messages')
-                                .insert({
-                                    phone: senderPhone10,
-                                    raw_text: `[button] Accept task ${taskId}`,
-                                    processed: true,
-                                    intent_type: 'awaiting_accept_deadline',
-                                    processing_error: taskId,
-                                })
-                                .then(() => { /* ignore */ })
-                                .catch((err: unknown) => console.error('[Webhook] Failed to store accept context:', err))
+                        // Create a conversation session so the next message is routed as deadline input
+                        try {
+                            await createSession(senderPhone10, 'awaiting_accept_deadline', {
+                                task_id: taskId,
+                                original_intent: 'task_accept',
+                            }, 10, supabase)
+                        } catch (err) {
+                            console.error('[Webhook] Failed to create accept session:', err)
+                        }
 
                         await sendWhatsAppMessage(
                             rawSenderPhone,
@@ -349,19 +346,15 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         const taskId = buttonPayload.replace('task_reject_prompt::', '')
                         console.log(`[Webhook] Quick Reply: task_reject_prompt ${taskId} from ${senderPhone10}`)
 
-                            // Store context marker so the next text message is handled as rejection reason
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            ; (supabase as any)
-                                .from('incoming_messages')
-                                .insert({
-                                    phone: senderPhone10,
-                                    raw_text: `[button] Reject task ${taskId}`,
-                                    processed: true,
-                                    intent_type: 'awaiting_reject_reason',
-                                    processing_error: taskId,
-                                })
-                                .then(() => { /* ignore */ })
-                                .catch((err: unknown) => console.error('[Webhook] Failed to store reject context:', err))
+                        // Create a conversation session so the next message is routed as rejection reason
+                        try {
+                            await createSession(senderPhone10, 'awaiting_reject_reason', {
+                                task_id: taskId,
+                                original_intent: 'task_reject',
+                            }, 10, supabase)
+                        } catch (err) {
+                            console.error('[Webhook] Failed to create reject session:', err)
+                        }
 
                         await sendWhatsAppMessage(
                             rawSenderPhone,
