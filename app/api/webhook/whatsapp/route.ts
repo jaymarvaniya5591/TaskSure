@@ -213,6 +213,26 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
         if (!entry.changes || !Array.isArray(entry.changes)) continue
 
         for (const change of entry.changes) {
+            // Check for message delivery status updates (e.g., failed deliveries from Meta)
+            if (change.field === 'messages' && change.value?.statuses) {
+                for (const statusObj of change.value.statuses as any[]) {
+                    if (statusObj.status === 'failed') {
+                        console.error('[Webhook] Template delivery FAILED:', JSON.stringify(statusObj));
+                        // Log to DB for persistent tracking
+                        ; (supabase as any)
+                            .from('incoming_messages')
+                            .insert({
+                                phone: statusObj.recipient_id || 'unknown',
+                                raw_text: `[STATUS] FAILED: ${JSON.stringify(statusObj.errors)}`,
+                                payload: statusObj,
+                                processed: true,
+                            })
+                            .then(() => { })
+                            .catch((err: any) => console.error('[Webhook] Failed to log status error:', err));
+                    }
+                }
+            }
+
             if (change.field !== 'messages') continue
 
             const messages = change.value?.messages
