@@ -215,10 +215,12 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
         for (const change of entry.changes) {
             // Check for message delivery status updates (e.g., failed deliveries from Meta)
             if (change.field === 'messages' && change.value?.statuses) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 for (const statusObj of change.value.statuses as any[]) {
                     if (statusObj.status === 'failed') {
                         console.error('[Webhook] Template delivery FAILED:', JSON.stringify(statusObj));
                         // Log to DB for persistent tracking
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         ; (supabase as any)
                             .from('incoming_messages')
                             .insert({
@@ -228,7 +230,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                 processed: true,
                             })
                             .then(() => { })
-                            .catch((err: any) => console.error('[Webhook] Failed to log status error:', err));
+                            .catch((err: unknown) => console.error('[Webhook] Failed to log status error:', err));
                     }
                 }
             }
