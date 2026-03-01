@@ -88,7 +88,9 @@ export function Sidebar() {
                 {/* Logo & Mobile Close Button */}
                 <div className="flex h-16 shrink-0 items-center justify-between px-6">
                     <Link href="/home" className="flex items-center gap-3 font-bold text-xl tracking-tight text-foreground" onClick={() => setIsMobileOpen(false)}>
-                        <Image src="/logo.png" alt="Boldo AI Logo" width={28} height={28} className="rounded-lg object-contain" />
+                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center p-0.5">
+                            <Image src="/logo.png" alt="Boldo AI Logo" width={28} height={28} className="object-contain" />
+                        </div>
                         Boldo AI
                     </Link>
                     <button
