@@ -575,18 +575,18 @@ async function handleSendDashboardLink(
     analysis: AnalyzedMessage,
 ): Promise<void> {
     try {
-        const { generateAuthToken, buildAuthUrl } = await import('@/lib/auth-links')
-        const { sendWhatsAppMessage } = await import('@/lib/whatsapp')
+        const { generateAuthToken } = await import('@/lib/auth-links')
+        const { sendWhatsAppMessage, sendSigninLinkTemplate } = await import('@/lib/whatsapp')
 
         const tokenResult = await generateAuthToken(sender.phone_number, 'signin', supabase)
 
         if (tokenResult.success && tokenResult.token) {
             const actionDesc = analysis.what || 'this action'
-            const dashboardUrl = buildAuthUrl(tokenResult.token)
 
-            const msg = `🖥️ *Open in Dashboard*\n\nFor:\n_"${actionDesc}"_\n\n🔗 ${dashboardUrl}\n\n_This link logs you in automatically.\nValid for 10 minutes._`
+            const msg1 = `Intended action - "${actionDesc}"\n\nYou can use the Boldo dashboard for this. Sharing the personalised link to access your dashboard.`
+            await sendWhatsAppMessage(phone, msg1)
 
-            await sendWhatsAppMessage(phone, msg)
+            await sendSigninLinkTemplate(phone, sender.name, tokenResult.token)
         } else {
             await sendWhatsAppMessage(phone,
                 '🖥️ *Dashboard Required*\n\nThis action can only be completed on the dashboard.\n\nType *"signin"* to get your login link.')
