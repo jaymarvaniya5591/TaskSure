@@ -363,6 +363,134 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         continue
                     }
 
+                    // Stage 2 payload: assignee taps "Yes, on track" on reminder
+                    if (buttonPayload.startsWith('task_on_track::')) {
+                        const taskId = buttonPayload.replace('task_on_track::', '')
+                        console.log(`[Webhook] Quick Reply: task_on_track ${taskId} from ${senderPhone10}`)
+
+                        // Mark the reminder notification as acknowledged
+                        try {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: reminderNotifs } = await (supabase as any)
+                                .from('task_notifications')
+                                .select('id, metadata')
+                                .eq('task_id', taskId)
+                                .eq('stage', 'reminder')
+                                .eq('channel', 'whatsapp')
+                                .eq('status', 'sent')
+                                .order('sent_at', { ascending: false })
+                                .limit(1)
+
+                            if (reminderNotifs && reminderNotifs.length > 0) {
+                                const notif = reminderNotifs[0]
+                                const updatedMetadata = { ...(notif.metadata || {}), acknowledged: true, acknowledged_at: new Date().toISOString() }
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                await (supabase as any)
+                                    .from('task_notifications')
+                                    .update({ metadata: updatedMetadata, updated_at: new Date().toISOString() })
+                                    .eq('id', notif.id)
+                            }
+
+                            // Cancel any pending call escalation for this task's reminders
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            await (supabase as any)
+                                .from('task_notifications')
+                                .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+                                .eq('task_id', taskId)
+                                .eq('stage', 'reminder')
+                                .eq('channel', 'call')
+                                .eq('status', 'pending')
+                        } catch (err) {
+                            console.error('[Webhook] Error acknowledging reminder:', err)
+                        }
+
+                        await sendWhatsAppMessage(rawSenderPhone, '👍 Great! Noted that things are on track.')
+                        continue
+                    }
+
+                    // Stage 3 payload: owner taps "Mark Completed" on overdue notification
+                    if (buttonPayload.startsWith('task_mark_completed::')) {
+                        const taskId = buttonPayload.replace('task_mark_completed::', '')
+                        console.log(`[Webhook] Quick Reply: task_mark_completed ${taskId} from ${senderPhone10}`)
+
+                        try {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { error: updateError } = await (supabase as any)
+                                .from('tasks')
+                                .update({ status: 'completed', updated_at: new Date().toISOString() })
+                                .eq('id', taskId)
+
+                            if (updateError) {
+                                console.error('[Webhook] Failed to mark task completed:', updateError.message)
+                                await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                            } else {
+                                // Cancel remaining escalation notifications
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                await (supabase as any)
+                                    .from('task_notifications')
+                                    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+                                    .eq('task_id', taskId)
+                                    .eq('status', 'pending')
+
+                                await sendWhatsAppMessage(rawSenderPhone, '✅ Task marked as completed!')
+                            }
+                        } catch (err) {
+                            console.error('[Webhook] Error marking task completed:', err)
+                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                        }
+                        continue
+                    }
+
+                    // Stage 3 payload: owner taps "Notify Assignee" on overdue notification
+                    if (buttonPayload.startsWith('task_notify_assignee::')) {
+                        const taskId = buttonPayload.replace('task_notify_assignee::', '')
+                        console.log(`[Webhook] Quick Reply: task_notify_assignee ${taskId} from ${senderPhone10}`)
+
+                        try {
+                            // Fetch task details + assignee info
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: task } = await (supabase as any)
+                                .from('tasks')
+                                .select('title, assigned_to, created_by')
+                                .eq('id', taskId)
+                                .single()
+
+                            if (!task) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'Task not found. It may have been deleted.')
+                                continue
+                            }
+
+                            // Look up owner name and assignee phone
+                            /* eslint-disable @typescript-eslint/no-explicit-any */
+                            const [ownerData, assigneeData] = await Promise.all([
+                                (supabase as any).from('users').select('name').eq('id', task.created_by).single(),
+                                (supabase as any).from('users').select('phone_number, name').eq('id', task.assigned_to).single(),
+                            ])
+                            /* eslint-enable @typescript-eslint/no-explicit-any */
+
+                            const ownerName = ownerData?.data?.name || 'Your manager'
+                            const assigneePhone = assigneeData?.data?.phone_number
+
+                            if (!assigneePhone) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'Could not find assignee contact info.')
+                                continue
+                            }
+
+                            const assigneeIntlPhone = assigneePhone.startsWith('91') ? assigneePhone : `91${assigneePhone}`
+
+                            const assigneeMessage =
+                                `⚠️ The deadline for "*${task.title}*" has crossed. ` +
+                                `*${ownerName}* has asked you to get in touch with them regarding this task.`
+
+                            await sendWhatsAppMessage(assigneeIntlPhone, assigneeMessage)
+                            await sendWhatsAppMessage(rawSenderPhone, `📨 Notified *${assigneeData?.data?.name || 'the assignee'}* to get in touch with you.`)
+                        } catch (err) {
+                            console.error('[Webhook] Error notifying assignee:', err)
+                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                        }
+                        continue
+                    }
+
                     console.log(`[Webhook] Unknown button payload: ${buttonPayload}`)
                     continue
                 }

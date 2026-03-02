@@ -305,6 +305,79 @@ export async function sendTaskAssignmentTemplate(
     ])
 }
 
+/**
+ * Stage 2: Mid-task reminder with "Yes, on track" button
+ * Template: task_reminder_check
+ * Body {{1}} = task title, {{2}} = deadline, {{3}} = owner name
+ * Quick Reply button payload = "task_on_track::{taskId}"
+ */
+export async function sendTaskReminderTemplate(
+    to: string,
+    taskTitle: string,
+    deadline: string,
+    ownerName: string,
+    taskId: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppTemplate(to, 'task_reminder_check', 'en', [
+        {
+            type: 'body',
+            parameters: [
+                { type: 'text', text: taskTitle },
+                { type: 'text', text: deadline },
+                { type: 'text', text: ownerName },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '0',
+            parameters: [
+                { type: 'payload', payload: `task_on_track::${taskId}` },
+            ],
+        },
+    ])
+}
+
+/**
+ * Stage 3: Deadline crossed notification to owner
+ * Template: task_overdue_owner
+ * Body {{1}} = task title, {{2}} = assignee name
+ * Quick Reply button 1 payload = "task_mark_completed::{taskId}"
+ * Quick Reply button 2 payload = "task_notify_assignee::{taskId}"
+ */
+export async function sendTaskOverdueOwnerTemplate(
+    to: string,
+    taskTitle: string,
+    assigneeName: string,
+    taskId: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppTemplate(to, 'task_overdue_owner', 'en', [
+        {
+            type: 'body',
+            parameters: [
+                { type: 'text', text: taskTitle },
+                { type: 'text', text: assigneeName },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '0',
+            parameters: [
+                { type: 'payload', payload: `task_mark_completed::${taskId}` },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '1',
+            parameters: [
+                { type: 'payload', payload: `task_notify_assignee::${taskId}` },
+            ],
+        },
+    ])
+}
+
 // ---------------------------------------------------------------------------
 // Media download (for voice notes, images, etc.)
 // ---------------------------------------------------------------------------

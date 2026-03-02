@@ -24,6 +24,11 @@
  */
 
 import { sendWhatsAppMessage, sendTaskAssignmentTemplate } from '@/lib/whatsapp'
+import {
+    scheduleAcceptanceFollowups,
+    scheduleTaskReminders,
+    cancelPendingNotifications,
+} from './task-notification-scheduler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAdmin = any
@@ -431,6 +436,16 @@ export async function notifyTaskCreated(
     // Look up assignee name for richer messages
     const assignee = await lookupUser(supabase, opts.assigneeId)
 
+    // Fire-and-forget: Schedule acceptance followup notifications (Stage 1)
+    scheduleAcceptanceFollowups(
+        opts.taskId,
+        opts.assigneeId,
+        opts.ownerId,
+        opts.taskTitle,
+        opts.ownerName,
+        supabase,
+    ).catch(err => console.error('[Notifier] Failed to schedule acceptance followups:', err))
+
     return notifyTaskEvent(supabase, {
         eventType: 'task_created',
         taskId: opts.taskId,
@@ -458,6 +473,25 @@ export async function notifyTaskAccepted(
     },
 ): Promise<void> {
     if (opts.ownerId === opts.assigneeId) return
+
+    // Fire-and-forget: Cancel acceptance followups (Stage 1) now that task is accepted
+    cancelPendingNotifications(opts.taskId, 'acceptance', supabase)
+        .catch(err => console.error('[Notifier] Failed to cancel acceptance followups:', err))
+
+    // Fire-and-forget: Schedule mid-task reminders (Stage 2) if there's a deadline
+    if (opts.committedDeadline) {
+        const owner = await lookupUser(supabase, opts.ownerId)
+        scheduleTaskReminders(
+            opts.taskId,
+            opts.assigneeId,
+            opts.ownerId,
+            new Date(), // accepted now
+            new Date(opts.committedDeadline),
+            opts.taskTitle,
+            owner?.name || 'your manager',
+            supabase,
+        ).catch(err => console.error('[Notifier] Failed to schedule task reminders:', err))
+    }
 
     return notifyTaskEvent(supabase, {
         eventType: 'task_accepted',
@@ -487,6 +521,10 @@ export async function notifyTaskRejected(
 ): Promise<void> {
     if (opts.ownerId === opts.assigneeId) return
 
+    // Fire-and-forget: Cancel all pending notifications for this task
+    cancelPendingNotifications(opts.taskId, undefined, supabase)
+        .catch(err => console.error('[Notifier] Failed to cancel notifications on reject:', err))
+
     return notifyTaskEvent(supabase, {
         eventType: 'task_rejected',
         taskId: opts.taskId,
@@ -512,6 +550,10 @@ export async function notifyTaskCompleted(
         source: 'whatsapp' | 'dashboard'
     },
 ): Promise<void> {
+
+    // Fire-and-forget: Cancel all pending notifications for this task
+    cancelPendingNotifications(opts.taskId, undefined, supabase)
+        .catch(err => console.error('[Notifier] Failed to cancel notifications on complete:', err))
 
     // Look up assignee name for richer messages
     const assignee = await lookupUser(supabase, opts.assigneeId)
@@ -602,6 +644,10 @@ export async function notifyTaskCancelled(
         source: 'whatsapp' | 'dashboard'
     },
 ): Promise<void> {
+
+    // Fire-and-forget: Cancel all pending notifications for this task
+    cancelPendingNotifications(opts.taskId, undefined, supabase)
+        .catch(err => console.error('[Notifier] Failed to cancel notifications on cancel:', err))
 
     // Look up assignee name
     const assignee = await lookupUser(supabase, opts.assigneeId)
