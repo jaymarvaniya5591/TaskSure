@@ -189,13 +189,13 @@ export function buildIntentChangeAcknowledgment(session: ConversationSession): s
     switch (session.session_type) {
         case 'awaiting_assignee_name':
         case 'awaiting_assignee_selection':
-            return `↩️ *Flow Interrupted*\n\nI was waiting for a person's name for:\n_"${session.context_data.what || 'your task'}"_\n\nSince you sent a new message,\nI'll process that instead.\n\n_You can always create this task again._`
+            return `↩️ *Flow Interrupted*\n\nI was waiting for a person's name for...\n\n*Task:*\n"${session.context_data.what || 'your task'}"\n\nSince you sent a new message,\nI'll process that instead.\n\n_You can always create this task again._`
 
         case 'awaiting_task_description':
             return '↩️ *Flow Interrupted*\n\nI was waiting for a task description.\n\nSince you sent a new message,\nI\'ll process that instead.'
 
         case 'awaiting_todo_deadline':
-            return `↩️ *Flow Interrupted*\n\nI was waiting for a deadline for:\n_"${session.context_data.what || 'your to-do'}"_\n\nSince you sent a new message,\nI'll process that instead.\n\n_You can always create this to-do again._`
+            return `↩️ *Flow Interrupted*\n\nI was waiting for a deadline for...\n\n*To-do:*\n"${session.context_data.what || 'your to-do'}"\n\nSince you sent a new message,\nI'll process that instead.\n\n_You can always create this to-do again._`
 
         case 'awaiting_accept_deadline':
             return '↩️ *Task NOT Accepted*\n\nI was waiting for a deadline to accept the task.\n\n⚠️ The task has *not* been accepted.\n\nTap "Accept" again when you\'re ready.\n\n_Processing your new message now..._'

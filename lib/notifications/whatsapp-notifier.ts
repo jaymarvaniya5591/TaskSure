@@ -276,62 +276,62 @@ function buildNotificationMessage(opts: NotifyTaskEventOpts, recipientId?: strin
         case 'task_created': {
             if (recipientId && recipientId === assigneeId) {
                 // If the recipient is the assignee (and they are receiving this text as a fallback)
-                return `📝 *New Task Assigned!*\n\nAssigned by:\n*${actorName || ownerName || 'Someone'}*\n\nTask:\n_"${taskTitle}"_\n\nPlease check your dashboard to accept or reject it.`
+                return `📝 *New Task Assigned!*\n\n*Assigned by:*\n${actorName || ownerName || 'Someone'}\n\n*Task:*\n"${taskTitle}"\n\n_Please check your dashboard to accept or reject it._`
             } else if (assigneeName) {
                 // If the recipient is the creator
-                return `✅ *Task Created!*\n\nAssigned to:\n*${assigneeName}*\n\nTask:\n_"${taskTitle}"_\n\n_Waiting for them to accept._`
+                return `✅ *Task Created!*\n\n*Assigned to:*\n${assigneeName}\n\n*Task:*\n"${taskTitle}"\n\n_Waiting for them to accept._`
             }
-            return `✅ *To-Do Noted!*\n\nTo-do:\n_"${taskTitle}"_\n\n_I'll keep track of it for you!_`
+            return `✅ *To-Do Noted!*\n\n*To-do:*\n"${taskTitle}"\n\n_I'll keep track of it for you!_`
         }
 
         case 'task_accepted': {
             const deadlineStr = formatDate(committedDeadline!)
-            return `✅ *Task Accepted!*\n\nAccepted by:\n*${actorName}*\n\nTask:\n_"${taskTitle}"_\n\nDeadline:\n*${deadlineStr}*`
+            return `✅ *Task Accepted!*\n\n*Accepted by:*\n${actorName}\n\n*Task:*\n"${taskTitle}"\n\n*Deadline:*\n${deadlineStr}`
         }
 
         case 'task_rejected': {
-            const reasonStr = reason ? `\n\nReason:\n_${reason}_` : ''
-            return `❌ *Task Rejected!*\n\nRejected by:\n*${actorName}*\n\nTask:\n_"${taskTitle}"_${reasonStr}`
+            const reasonStr = reason ? `\n\n*Reason:*\n${reason}` : ''
+            return `❌ *Task Rejected!*\n\n*Rejected by:*\n${actorName}\n\n*Task:*\n"${taskTitle}"${reasonStr}`
         }
 
         case 'task_completed': {
-            const assigneeInfo = assigneeName ? `\n\nAssigned to:\n*${assigneeName}*` : ''
-            return `🎊 *Task Completed!*\n\nMarked by:\n*${actorName}*\n\nTask:\n_"${taskTitle}"_${assigneeInfo}`
+            const assigneeInfo = assigneeName ? `\n\n*Assigned to:*\n${assigneeName}` : ''
+            return `🎊 *Task Completed!*\n\n*Marked by:*\n${actorName}\n\n*Task:*\n"${taskTitle}"${assigneeInfo}`
         }
 
         case 'deadline_edited': {
             const dateStr = newDeadline ? formatDate(newDeadline) : 'a new date'
-            const assigneeInfo = assigneeName ? `\n\nAssigned to:\n*${assigneeName}*` : ''
-            return `📅 *Deadline Changed!*\n\nChanged by:\n*${actorName}*\n\nTask:\n_"${taskTitle}"_\n\nNew Deadline:\n*${dateStr}*${assigneeInfo}`
+            const assigneeInfo = assigneeName ? `\n\n*Assigned to:*\n${assigneeName}` : ''
+            return `📅 *Deadline Changed!*\n\n*Changed by:*\n${actorName}\n\n*Task:*\n"${taskTitle}"\n\n*New Deadline:*\n${dateStr}${assigneeInfo}`
         }
 
         case 'assignee_changed': {
             const from = oldAssigneeName || 'someone'
             const to = newAssigneeName || 'someone'
-            return `🔄 *Task Reassigned!*\n\nReassigned by:\n*${actorName}*\n\nTask:\n_"${taskTitle}"_\n\nFrom:\n*${from}*\n\nTo:\n*${to}*`
+            return `🔄 *Task Reassigned!*\n\n*Reassigned by:*\n${actorName}\n\n*Task:*\n"${taskTitle}"\n\n*From:*\n${from}\n\n*To:*\n${to}`
         }
 
         case 'task_cancelled': {
-            const assigneeInfo = assigneeName ? `\n\nAssigned to:\n*${assigneeName}*` : ''
-            return `🗑️ *Task Cancelled!*\n\nCancelled by:\n*${actorName}*\n\nTask:\n_"${taskTitle}"_${assigneeInfo}`
+            const assigneeInfo = assigneeName ? `\n\n*Assigned to:*\n${assigneeName}` : ''
+            return `🗑️ *Task Cancelled!*\n\n*Cancelled by:*\n${actorName}\n\n*Task:*\n"${taskTitle}"${assigneeInfo}`
         }
 
         case 'subtask_created': {
             const title = subtaskTitle || taskTitle
-            const parentInfo = parentTaskTitle ? `\n\nUnder:\n_"${parentTaskTitle}"_` : ''
-            const assigneeInfo = subtaskAssigneeName ? `\n\nAssigned to:\n*${subtaskAssigneeName}*` : ''
+            const parentInfo = parentTaskTitle ? `\n\n*Under:*\n"${parentTaskTitle}"` : ''
+            const assigneeInfo = subtaskAssigneeName ? `\n\n*Assigned to:*\n${subtaskAssigneeName}` : ''
             const creatorInfo = actorName || 'Someone'
-            return `📎 *Subtask Created!*\n\nCreated by:\n*${creatorInfo}*\n\nSubtask:\n_"${title}"_${parentInfo}${assigneeInfo}`
+            return `📎 *Subtask Created!*\n\n*Created by:*\n${creatorInfo}\n\n*Subtask:*\n"${title}"${parentInfo}${assigneeInfo}`
         }
 
         case 'task_overdue': {
-            const assigneeInfo = assigneeName ? `\n\nAssigned to:\n*${assigneeName}*` : ''
-            const ownerInfo = ownerName ? `\n\nOwner:\n*${ownerName}*` : ''
-            return `⚠️ *Task is Overdue!*\n\nTask:\n_"${taskTitle}"_${assigneeInfo}${ownerInfo}`
+            const assigneeInfo = assigneeName ? `\n\n*Assigned to:*\n${assigneeName}` : ''
+            const ownerInfo = ownerName ? `\n\n*Owner:*\n${ownerName}` : ''
+            return `⚠️ *Task is Overdue!*\n\n*Task:*\n"${taskTitle}"${assigneeInfo}${ownerInfo}`
         }
 
         default:
-            return `📌 *Task Updated!*\n\nTask:\n_"${taskTitle}"_\n\nUpdated by:\n*${actorName}*`
+            return `📌 *Task Updated!*\n\n*Task:*\n"${taskTitle}"\n\n*Updated by:*\n${actorName}`
     }
 }
 

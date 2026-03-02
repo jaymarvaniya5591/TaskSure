@@ -336,7 +336,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                         await sendWhatsAppMessage(
                             rawSenderPhone,
-                            '🎯 *When Can You Complete This?*\n\nPlease reply with a date.\n\nExamples:\n_"tomorrow"_, _"Friday"_, _"Feb 28"_'
+                            '🎯 *When Can You Complete This?*\n\nPlease reply with a date.\n\n*Examples:*\n"tomorrow", "Friday", "Feb 28"'
                         )
                         continue
                     }
@@ -456,7 +456,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                 .single()
 
                             if (!task) {
-                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n_It may have been deleted._')
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n\n_It may have been deleted._')
                                 continue
                             }
 
@@ -479,10 +479,10 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             const assigneeIntlPhone = assigneePhone.startsWith('91') ? assigneePhone : `91${assigneePhone}`
 
                             const assigneeMessage =
-                                `⚠️ *Deadline Crossed!*\n\nTask:\n_"${task.title}"_\n\nRequested by:\n*${ownerName}*\n\nPlease get in touch with them about this task.`
+                                `⚠️ *Deadline Crossed!*\n\n*Task:*\n"${task.title}"\n\n*Requested by:*\n${ownerName}\n\nPlease get in touch with them about this task.`
 
                             await sendWhatsAppMessage(assigneeIntlPhone, assigneeMessage)
-                            await sendWhatsAppMessage(rawSenderPhone, `📨 *Assignee Pinged!*\n\nNotified:\n*${assigneeData?.data?.name || 'the assignee'}*\n\n_They've been asked to get in touch with you._`)
+                            await sendWhatsAppMessage(rawSenderPhone, `📨 *Assignee Pinged!*\n\n*Notified:*\n${assigneeData?.data?.name || 'the assignee'}\n\n_They've been asked to get in touch with you._`)
                         } catch (err) {
                             console.error('[Webhook] Error notifying assignee:', err)
                             await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')

@@ -295,7 +295,7 @@ export async function processMessageInline(
             if (failMsg?.phone) {
                 await sendWhatsAppMessage(
                     failMsg.phone,
-                    '⚠️ *Something Went Wrong*\n\nOur AI assistant ran into an issue while processing your message.\n\nPlease try again in a moment.\n_If the issue persists, try rephrasing or contact support._'
+                    '⚠️ *Something Went Wrong*\n\nOur AI assistant ran into an issue while processing your message.\n\nPlease try again in a moment.\n\n_If the issue persists, try rephrasing or contact support._'
                 )
             }
             await markProcessed(supabase, messageId, null, errMsg)
@@ -358,7 +358,7 @@ async function handleTaskCreate(
     // ── WHO is "agent"? Can't do tasks ──
     if (analysis.who.type === 'agent') {
         await sendWhatsAppReply(phone,
-            `🤖 *I Can't Do That!*\n\nI can't perform this myself:\n_"${analysis.what}"_\n\nBut I can create a to-do for you!\n\nTry saying:\n_"I need to ${analysis.what}"_`)
+            `🤖 *I Can't Do That!*\n\nI can't perform this myself:\n"${analysis.what}"\n\nBut I can create a to-do for you!\n\n*Try saying:*\n"I need to ${analysis.what}"`)
         await markProcessed(supabase, messageId, 'task_create', 'WHO is agent — re-route needed')
         return
     }
@@ -396,7 +396,7 @@ async function handleTaskCreate(
         }, 10, supabase)
 
         await sendWhatsAppReply(phone,
-            `👤 *Who Should Do This?*\n\nTask:\n_"${analysis.what}"_\n\nPlease reply with the person's name.`)
+            `👤 *Who Should Do This?*\n\n*Task:*\n"${analysis.what}"\n\nPlease reply with the person's name.`)
         await markProcessed(supabase, messageId, 'task_create', 'Awaiting assignee name via session')
         return
     }
@@ -406,7 +406,7 @@ async function handleTaskCreate(
 
     if (matches.length === 0) {
         await sendWhatsAppReply(phone,
-            `🔍 *Assignee Not Found*\n\nNo match found for:\n*${analysis.who.name}*\n\nPlease check the name and try again, or use the full name.`)
+            `🔍 *Assignee Not Found*\n\n*No match found for:*\n${analysis.who.name}\n\nPlease check the name and try again, or use the full name.`)
         await markProcessed(supabase, messageId, 'task_create', `Assignee not found: ${analysis.who.name}`)
         return
     }
@@ -430,8 +430,8 @@ async function handleTaskCreate(
         }, 10, supabase)
 
         const clarifyMsg =
-            `👥 *Multiple Matches Found*\n\nSearched for:\n*${analysis.who.name}*\n\n` +
-            `${nameList}\n\nPlease reply with the *number* or the *full name* to continue.`
+            `👥 *Multiple Matches Found*\n\n*Searched for:*\n${analysis.who.name}\n\n` +
+            `${nameList}\n\nPlease reply with the number or the full name to continue.`
 
         await sendWhatsAppReply(phone, clarifyMsg)
         await markProcessed(supabase, messageId, 'task_create', 'Awaiting assignee selection via session')
@@ -463,7 +463,7 @@ async function handleTaskCreate(
         return
     }
 
-    const confirmMsg = `✅ *Task Created!*\n\nTask:\n_"${analysis.what}"_\n\nAssigned to:\n*${assignee.name}*\n\n_They'll receive a notification to accept it._`
+    const confirmMsg = `✅ *Task Created!*\n\n*Task:*\n"${analysis.what}"\n\n*Assigned to:*\n${assignee.name}\n\n_They'll receive a notification to accept it._`
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_create', null)
@@ -520,7 +520,7 @@ async function handleTodoCreate(
         }, 10, supabase)
 
         await sendWhatsAppReply(phone,
-            `⏰ *Deadline Needed*\n\nTo-do:\n_"${analysis.what}"_\n\nWhen should this be done?\n\nExamples:\n_"tomorrow 3pm"_, _"Friday"_, _"March 10"_`)
+            `⏰ *Deadline Needed*\n\n*To-do:*\n"${analysis.what}"\n\nWhen should this be done?\n\n*Examples:*\n"tomorrow 3pm", "Friday", "March 10"`)
         await markProcessed(supabase, messageId, 'todo_create', 'Awaiting deadline via session')
         return
     }
@@ -557,7 +557,7 @@ async function handleTodoCreate(
     const d = new Date(deadline)
     const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
     const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
-    const confirmMsg = `✅ *To-Do Created!*\n\nTo-do:\n_"${analysis.what}"_\n\nDeadline:\n*${dateStr}* at *${timeStr}*`
+    const confirmMsg = `✅ *To-Do Created!*\n\n*To-do:*\n"${analysis.what}"\n\n*Deadline:*\n${dateStr} at ${timeStr}`
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'todo_create', null)
@@ -583,7 +583,7 @@ async function handleSendDashboardLink(
         if (tokenResult.success && tokenResult.token) {
             const actionDesc = analysis.what || 'this action'
 
-            const msg1 = `Intended action - "${actionDesc}"\n\nYou can use the Boldo dashboard for this. Sharing the personalised link to access your dashboard.`
+            const msg1 = `📋 Intended action:\n"${actionDesc}"\n\n🖥️ You can use the Boldo dashboard for this. Sharing the personalised link to access your dashboard.`
             await sendWhatsAppMessage(phone, msg1)
 
             await sendSigninLinkTemplate(phone, sender.name, tokenResult.token)
@@ -612,6 +612,6 @@ async function handleUnknown(
 ): Promise<void> {
     console.log(`[ProcessMessage] Handling unknown intent for message ${messageId}`)
     await sendWhatsAppReply(phone,
-        '🤔 *Didn\'t Catch That!*\n\nI can help you manage tasks.\n\nTry something like:\n_"Tell Ramesh to send the invoice"_\nor\n_"I need to call the client tomorrow at 3pm"_ 😊')
+        '🤔 *Didn\'t Catch That!*\n\nI can help you manage tasks.\n\n*Try something like:*\n"Tell Ramesh to send the invoice"\nor\n"I need to call the client tomorrow at 3pm" 😊')
     await markProcessed(supabase, messageId, 'unknown', null)
 }
