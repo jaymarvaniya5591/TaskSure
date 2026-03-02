@@ -280,7 +280,7 @@ async function handleAwaitingTodoDeadline(
 
     let normalizedDeadline = deadline
     if (!normalizedDeadline.includes('T')) {
-        normalizedDeadline = `${normalizedDeadline}T06:00:00+05:30`
+        normalizedDeadline = `${normalizedDeadline}T23:59:00+05:30`
     }
 
     const { error: todoError } = await supabase
@@ -330,6 +330,16 @@ async function handleAwaitingAcceptDeadline(
     const taskId = ctx.task_id
 
     if (!taskId) {
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
+    // First, check if the message is actually a deadline response or a new intent.
+    // If it looks like a full sentence with a subject/verb/action, treat it as a
+    // new intent rather than a deadline reply.
+    const looksLikeDeadline = await isDeadlineResponse(userText)
+    if (!looksLikeDeadline) {
+        // The user sent a different intent — resolve session and fall through.
         await resolveSession(session.id, supabase)
         return { handled: false, fallThrough: true }
     }
@@ -632,6 +642,43 @@ async function fetchOrgUsers(supabase: SupabaseAdmin, orgId: string): Promise<Or
 }
 
 /**
+ * Determine if a message is genuinely a deadline response (e.g. "tomorrow",
+ * "next Friday 5pm") vs. a new intent/sentence (e.g. "Ask beta tester to get
+ * the file ready by tomorrow").
+ *
+ * Returns true only if the message's PRIMARY purpose is to communicate a date/time.
+ */
+async function isDeadlineResponse(text: string): Promise<boolean> {
+    try {
+        const { callGemini } = await import('@/lib/gemini')
+
+        const prompt = `You are an intent classifier for a WhatsApp task-management bot.
+The bot asked the user: "When is your deadline for this task?"
+
+Determine if the user's reply is PURELY providing a deadline (date/time), or if it is
+a new/unrelated message that just happens to mention a time word (like "tomorrow").
+
+A reply is a DEADLINE RESPONSE if it:
+- Is just a date or time expression: "tomorrow", "Friday 5pm", "March 10", "next week"
+- Confirms a time: "by tomorrow", "end of day", "tonight"
+
+A reply is NOT a deadline response if it:
+- Contains a subject + verb + action: "Ask John to send the file by tomorrow"
+- Describes something to be done: "Get the report ready by Friday"
+- Is clearly a new instruction or task
+
+Return ONLY a JSON object: { "is_deadline": true } or { "is_deadline": false }`
+
+        const result = await callGemini(prompt, text)
+        const parsed = JSON.parse(result.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim())
+        return parsed.is_deadline === true
+    } catch {
+        // On error, be conservative: let parseDateFromText handle it
+        return true
+    }
+}
+
+/**
  * Parse a date from free-form text using Gemini.
  */
 async function parseDateFromText(text: string): Promise<string | null> {
@@ -646,10 +693,10 @@ async function parseDateFromText(text: string): Promise<string | null> {
 
         const prompt = `You are a date parser. Today is ${dayName}, ${iso} (IST).
 Convert the user's text into an ISO 8601 datetime string in IST timezone (+05:30).
-If only a date/day is given (no time), default to 18:00:00+05:30 (6 PM IST).
+If only a date/day is given (no time), default to 23:59:00+05:30 (11:59 PM IST, i.e. end of that day).
 If only a time is given (no date), assume today if the time hasn't passed, otherwise tomorrow.
 "kal" = tomorrow, "parso" = day after tomorrow, "aaj" = today.
-"by Friday" = next Friday at 18:00:00+05:30.
+"by Friday" = next Friday at 23:59:00+05:30.
 
 Return ONLY a JSON object: { "date": "ISO 8601 string or null" }`
 

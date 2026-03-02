@@ -355,14 +355,20 @@ export async function notifyTaskEvent(
         console.log(`[Notifier] notifyTaskEvent triggered for ${opts.eventType}. actorId: ${opts.actorId}, assigneeId: ${opts.assigneeId}`);
         // For task_created with a non-self-assigned task, use the assignment template
         // for the assignee (they get a special interactive message)
+        let templateSentToAssignee = false;
         if (opts.eventType === 'task_created' && opts.assigneeId && opts.assigneeId !== opts.actorId) {
             console.log(`[Notifier] Calling sendAssignmentTemplateToAssignee for assignee: ${opts.assigneeId}`);
-            await sendAssignmentTemplateToAssignee(supabase, opts)
+            templateSentToAssignee = await sendAssignmentTemplateToAssignee(supabase, opts)
         }
 
         // Compute all recipients
-        const recipientIds = await computeRecipientIds(supabase, opts)
+        let recipientIds = await computeRecipientIds(supabase, opts)
         console.log(`[Notifier] Computed recipient IDs:`, recipientIds);
+
+        // Fallback text message filtering: exclude the assignee if template was sent successfully
+        if (templateSentToAssignee && opts.assigneeId) {
+            recipientIds = recipientIds.filter(id => id !== opts.assigneeId)
+        }
 
         if (recipientIds.length === 0) return
 
@@ -391,15 +397,15 @@ export async function notifyTaskEvent(
 async function sendAssignmentTemplateToAssignee(
     supabase: SupabaseAdmin,
     opts: NotifyTaskEventOpts,
-): Promise<void> {
+): Promise<boolean> {
     console.log(`[Notifier] sendAssignmentTemplateToAssignee started. assigneeId: ${opts.assigneeId}`);
-    if (!opts.assigneeId) return
+    if (!opts.assigneeId) return false
 
     const assignee = await lookupUser(supabase, opts.assigneeId)
     console.log(`[Notifier] Looked up assignee:`, assignee);
     if (!assignee?.phone_number) {
         console.log(`[Notifier] Assignee has no phone number, aborting template send.`);
-        return;
+        return false;
     }
 
     try {
@@ -411,8 +417,10 @@ async function sendAssignmentTemplateToAssignee(
             opts.taskId,
         )
         console.log(`[Notifier] Template send result:`, result);
+        return result.success;
     } catch (err) {
         console.error(`[Notifier] Failed to send assignment template:`, err)
+        return false;
     }
 }
 
