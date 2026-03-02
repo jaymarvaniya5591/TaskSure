@@ -197,9 +197,7 @@ async function processAcceptanceFollowup(
                         : `Error: ${callResult.error || 'Unknown'}`
 
                 const ownerMessage =
-                    `📞 *Acceptance Followup #${notif.stage_number}* for "${taskTitle}"\n\n` +
-                    `Call to *${targetUser.name || 'assignee'}*: ${callStatusEmoji} ${callStatusText}\n` +
-                    `Task acceptance template re-sent.`
+                    `📞 *Acceptance Followup #${notif.stage_number}*\n\nTask:\n_"${taskTitle}"_\n\nCall to:\n*${targetUser.name || 'assignee'}*\n\nCall Status:\n${callStatusEmoji} ${callStatusText}\n\n_Task acceptance reminder has been re-sent._`
 
                 try {
                     await sendWhatsAppMessage(toIntlPhone(owner.phone_number), ownerMessage)

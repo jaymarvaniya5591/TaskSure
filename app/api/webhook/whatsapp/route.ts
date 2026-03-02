@@ -252,7 +252,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                 // --- Rate limiting ---
                 if (isRateLimited(senderPhone10)) {
                     console.warn(`[Webhook] Rate limited: ${senderPhone10}`)
-                    await sendWhatsAppMessage(rawSenderPhone, 'You are sending messages too quickly. Please wait a moment.')
+                    await sendWhatsAppMessage(rawSenderPhone, '⏳ *Slow Down!*\n\nYou\'re sending messages too quickly.\nPlease wait a moment before trying again.')
                     continue
                 }
 
@@ -279,15 +279,15 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             })
 
                             if (res.ok) {
-                                await sendWhatsAppMessage(rawSenderPhone, 'Request approved successfully.')
+                                await sendWhatsAppMessage(rawSenderPhone, '✅ *Request Approved!*\n\nThe join request has been approved successfully.')
                             } else {
                                 const errBody = await res.text()
                                 console.error('[Webhook] Accept-join call failed:', errBody)
-                                await sendWhatsAppMessage(rawSenderPhone, 'Could not process the approval. The request may have already been handled.')
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Could Not Approve*\n\nThis request may have already been handled.\nPlease check and try again.')
                             }
                         } catch (err) {
                             console.error('[Webhook] Error calling accept-join:', err)
-                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                            await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                         }
 
                         continue
@@ -306,14 +306,14 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                     fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
                                     await sendSigninLinkTemplate(rawSenderPhone, user.name, tokenResult.token)
                                 } else {
-                                    await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                                    await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                                 }
                             } else {
-                                await sendWhatsAppMessage(rawSenderPhone, 'Your account was not found. Please contact support.')
+                                await sendWhatsAppMessage(rawSenderPhone, '🔍 *Account Not Found*\n\nWe couldn\'t find your account.\nPlease contact support.')
                             }
                         } catch (err) {
                             console.error('[Webhook] Error handling trigger_signin:', err)
-                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                            await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                         }
 
                         continue
@@ -336,7 +336,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                         await sendWhatsAppMessage(
                             rawSenderPhone,
-                            "Great! When can you complete this by? Please reply with a date (e.g., 'tomorrow', 'Friday', 'Feb 28')."
+                            '🎯 *When Can You Complete This?*\n\nPlease reply with a date.\n\nExamples:\n_"tomorrow"_, _"Friday"_, _"Feb 28"_'
                         )
                         continue
                     }
@@ -358,7 +358,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                         await sendWhatsAppMessage(
                             rawSenderPhone,
-                            "Please reply with a brief reason so I can let the owner know why you're rejecting this task."
+                            '📝 *Reason Required*\n\nPlease reply with a brief reason for rejecting this task.\n\n_I\'ll pass it along to the task owner._'
                         )
                         continue
                     }
@@ -404,7 +404,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             console.error('[Webhook] Error acknowledging reminder:', err)
                         }
 
-                        await sendWhatsAppMessage(rawSenderPhone, '👍 Great! Noted that things are on track.')
+                        await sendWhatsAppMessage(rawSenderPhone, '👍 *Noted!*\n\nThings are on track.\n_Keep it up!_')
                         continue
                     }
 
@@ -422,7 +422,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                             if (updateError) {
                                 console.error('[Webhook] Failed to mark task completed:', updateError.message)
-                                await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                                await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                             } else {
                                 // Cancel remaining escalation notifications
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -432,11 +432,11 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                     .eq('task_id', taskId)
                                     .eq('status', 'pending')
 
-                                await sendWhatsAppMessage(rawSenderPhone, '✅ Task marked as completed!')
+                                await sendWhatsAppMessage(rawSenderPhone, '🎊 *Task Completed!*\n\nThe task has been marked as completed.')
                             }
                         } catch (err) {
                             console.error('[Webhook] Error marking task completed:', err)
-                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                            await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                         }
                         continue
                     }
@@ -456,7 +456,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                 .single()
 
                             if (!task) {
-                                await sendWhatsAppMessage(rawSenderPhone, 'Task not found. It may have been deleted.')
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n_It may have been deleted._')
                                 continue
                             }
 
@@ -472,21 +472,20 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             const assigneePhone = assigneeData?.data?.phone_number
 
                             if (!assigneePhone) {
-                                await sendWhatsAppMessage(rawSenderPhone, 'Could not find assignee contact info.')
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Assignee Unreachable*\n\nCould not find the assignee\'s contact info.')
                                 continue
                             }
 
                             const assigneeIntlPhone = assigneePhone.startsWith('91') ? assigneePhone : `91${assigneePhone}`
 
                             const assigneeMessage =
-                                `⚠️ The deadline for "*${task.title}*" has crossed. ` +
-                                `*${ownerName}* has asked you to get in touch with them regarding this task.`
+                                `⚠️ *Deadline Crossed!*\n\nTask:\n_"${task.title}"_\n\nRequested by:\n*${ownerName}*\n\nPlease get in touch with them about this task.`
 
                             await sendWhatsAppMessage(assigneeIntlPhone, assigneeMessage)
-                            await sendWhatsAppMessage(rawSenderPhone, `📨 Notified *${assigneeData?.data?.name || 'the assignee'}* to get in touch with you.`)
+                            await sendWhatsAppMessage(rawSenderPhone, `📨 *Assignee Pinged!*\n\nNotified:\n*${assigneeData?.data?.name || 'the assignee'}*\n\n_They've been asked to get in touch with you._`)
                         } catch (err) {
                             console.error('[Webhook] Error notifying assignee:', err)
-                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                            await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                         }
                         continue
                     }
@@ -520,7 +519,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             if (signupToken.success && signupToken.token) {
                                 await sendSignupLinkTemplate(rawSenderPhone, signupToken.token)
                             } else {
-                                await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again later.')
+                                await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again later.')
                             }
 
                             // Fire-and-forget log
@@ -543,7 +542,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             console.log(`[Webhook] Template send took ${Date.now() - tSend}ms`)
                         } else {
                             console.error('[Webhook] Token generation failed:', tokenResult.error)
-                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                            await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                         }
                     } catch (err) {
                         console.error('[Webhook] Error in signin fast-path:', err)
@@ -575,7 +574,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         if (tokenResult.success && tokenResult.token) {
                             await sendSignupLinkTemplate(rawSenderPhone, tokenResult.token)
                         } else {
-                            await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again later.')
+                            await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again later.')
                         }
                     } catch (err) {
                         console.error('[Webhook] Error sending signup link:', err)
@@ -610,7 +609,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                     if (insertError) {
                         console.error('[Webhook] Failed to log message:', insertError.message)
-                        await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                        await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                     } else if (insertedMsg?.id) {
                         // Build the processor payload — include audio info if this is a voice note
                         const processorPayload: Record<string, string> = { messageId: insertedMsg.id }
@@ -632,7 +631,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                 } catch (err) {
                     console.error('[Webhook] Error inserting message:', err)
                     try {
-                        await sendWhatsAppMessage(rawSenderPhone, 'Something went wrong. Please try again.')
+                        await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                     } catch (sendErr) {
                         console.error('[Webhook] Failed to send error message:', sendErr)
                     }

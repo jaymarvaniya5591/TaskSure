@@ -110,8 +110,7 @@ async function handleAwaitingAssigneeName(
     if (matches.length === 0) {
         // No match — ask again, keep session alive
         await sendReply(session.phone,
-            `I couldn't find anyone named "${userText.trim()}" in your organization. ` +
-            `Please try the full name, or say "cancel" to start over.`)
+            `🔍 *Not Found*\n\nNo match found for:\n*${userText.trim()}*\n\nPlease try the full name, or say *"cancel"* to start over.`)
         return { handled: true, intent: 'task_create' }
     }
 
@@ -129,8 +128,7 @@ async function handleAwaitingAssigneeName(
         await resolveSession(session.id, supabase)
 
         await sendReply(session.phone,
-            `I found multiple people matching "${userText.trim()}":\n\n${nameList}\n\n` +
-            `Please reply with the number or the full name of the person.`)
+            `👥 *Multiple Matches Found*\n\nSearched for:\n*${userText.trim()}*\n\n${nameList}\n\nPlease reply with the *number* or the *full name* to continue.`)
 
         return { handled: true, intent: 'task_create' }
     }
@@ -208,7 +206,7 @@ async function handleAwaitingAssigneeSelection(
         .join('\n')
 
     await sendReply(session.phone,
-        `I couldn't match "${trimmed}" to any of the options. Please reply with the number:\n\n${nameList}`)
+        `❌ *Invalid Selection*\n\nCouldn't match:\n_"${trimmed}"_\n\nPlease reply with the *number*:\n\n${nameList}`)
 
     return { handled: true, intent: 'task_create' }
 }
@@ -228,7 +226,7 @@ async function handleAwaitingTaskDescription(
 
     if (trimmed.length < 3) {
         await sendReply(session.phone,
-            `Please provide a task description (at least a few words). What needs to be done?`)
+            `📋 *More Details Needed*\n\nPlease provide a task description (at least a few words).\n\nWhat needs to be done?`)
         return { handled: true, intent: ctx.original_intent || 'task_create' }
     }
 
@@ -240,8 +238,7 @@ async function handleAwaitingTaskDescription(
         // This is a self-todo — but we still need a deadline
         await createSession(session.phone, 'awaiting_todo_deadline', ctx, 10, supabase)
         await sendReply(session.phone,
-            `Got it: "${trimmed}". Now when should this be done? ` +
-            `(e.g., "tomorrow 3pm", "Friday", "March 10")`)
+            `⏰ *Deadline Needed*\n\nTo-do:\n_"${trimmed}"_\n\nWhen should this be done?\n\nExamples:\n_"tomorrow 3pm"_, _"Friday"_, _"March 10"_`)
         return { handled: true, intent: 'todo_create' }
     }
 
@@ -274,7 +271,7 @@ async function handleAwaitingTodoDeadline(
 
     if (!deadline) {
         await sendReply(session.phone,
-            `I couldn't detect a date in your reply. Please try something like "tomorrow", "Friday 3pm", or "March 10".`)
+            `⏰ *Date Unclear*\n\nI couldn't detect a date in your reply.\n\nTry something like:\n_"tomorrow"_, _"Friday 3pm"_, or _"March 10"_`)
         return { handled: true, intent: 'todo_create' }
     }
 
@@ -302,7 +299,7 @@ async function handleAwaitingTodoDeadline(
 
     if (todoError) {
         console.error('[SessionReply] Todo insert failed:', todoError.message)
-        await sendReply(session.phone, 'Something went wrong while creating the to-do. Please try again.')
+        await sendReply(session.phone, '❌ *Error*\n\nSomething went wrong while creating the to-do.\n\nPlease try again.')
         return { handled: true, intent: 'todo_create' }
     }
 
@@ -311,7 +308,7 @@ async function handleAwaitingTodoDeadline(
     const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
 
     await sendReply(session.phone,
-        `✅ To-do created: "${ctx.what}". Deadline: ${dateStr} at ${timeStr}.`)
+        `✅ *To-Do Created!*\n\nTo-do:\n_"${ctx.what}"_\n\nDeadline:\n*${dateStr}* at *${timeStr}*`)
 
     await markProcessed(supabase, messageId, 'todo_create', null)
     return { handled: true, intent: 'todo_create' }
@@ -356,21 +353,21 @@ async function handleAwaitingAcceptDeadline(
 
     if (fetchError || !task) {
         await resolveSession(session.id, supabase)
-        await sendReply(session.phone, "I couldn't find the task you're trying to accept. It may have been deleted.")
+        await sendReply(session.phone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n_It may have been deleted._')
         await markProcessed(supabase, messageId, 'task_accept', 'Task not found')
         return { handled: true, intent: 'task_accept' }
     }
 
     if (task.assigned_to !== sender.id) {
         await resolveSession(session.id, supabase)
-        await sendReply(session.phone, "You can only accept tasks assigned to you.")
+        await sendReply(session.phone, '🚫 *Action Denied*\n\nYou can only accept or reject tasks\nthat are assigned to you.')
         await markProcessed(supabase, messageId, 'task_accept', 'Not the assignee')
         return { handled: true, intent: 'task_accept' }
     }
 
     if (task.status !== 'pending') {
         await resolveSession(session.id, supabase)
-        await sendReply(session.phone, "This task has already been accepted or is no longer pending.")
+        await sendReply(session.phone, 'ℹ️ *Already Handled*\n\nThis task has already been accepted/rejected\nor is no longer pending.')
         await markProcessed(supabase, messageId, 'task_accept', `Task status is ${task.status}`)
         return { handled: true, intent: 'task_accept' }
     }
@@ -387,7 +384,7 @@ async function handleAwaitingAcceptDeadline(
 
     if (error) {
         await resolveSession(session.id, supabase)
-        await sendReply(session.phone, 'Something went wrong while accepting the task.')
+        await sendReply(session.phone, '❌ *Error*\n\nSomething went wrong while accepting the task.\n\nPlease try again.')
         await markProcessed(supabase, messageId, 'task_accept', `Task accept failed: ${error.message}`)
         return { handled: true, intent: 'task_accept' }
     }
@@ -398,7 +395,7 @@ async function handleAwaitingAcceptDeadline(
     const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
     const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
     await sendReply(session.phone,
-        `✅ Great! You've accepted "${task.title}" with a deadline of ${dateStr} at ${timeStr}. Good luck! 💪`)
+        `✅ *Task Accepted!* 💪\n\nTask:\n_"${task.title}"_\n\nYour Deadline:\n*${dateStr}* at *${timeStr}*\n\n_Good luck!_`)
 
     await markProcessed(supabase, messageId, 'task_accept', null)
 
@@ -442,21 +439,21 @@ async function handleAwaitingRejectReason(
 
     if (fetchError || !task) {
         await resolveSession(session.id, supabase)
-        await sendReply(session.phone, "I couldn't find the task you're trying to reject. It may have been deleted.")
+        await sendReply(session.phone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n_It may have been deleted._')
         await markProcessed(supabase, messageId, 'task_reject', 'Task not found')
         return { handled: true, intent: 'task_reject' }
     }
 
     if (task.assigned_to !== sender.id) {
         await resolveSession(session.id, supabase)
-        await sendReply(session.phone, "You can only reject tasks assigned to you.")
+        await sendReply(session.phone, '🚫 *Action Denied*\n\nYou can only accept or reject tasks\nthat are assigned to you.')
         await markProcessed(supabase, messageId, 'task_reject', 'Not the assignee')
         return { handled: true, intent: 'task_reject' }
     }
 
     if (task.status !== 'pending') {
         await resolveSession(session.id, supabase)
-        await sendReply(session.phone, "This task has already been rejected or is no longer pending.")
+        await sendReply(session.phone, 'ℹ️ *Already Handled*\n\nThis task has already been accepted/rejected\nor is no longer pending.')
         await markProcessed(supabase, messageId, 'task_reject', `Task status is ${task.status}`)
         return { handled: true, intent: 'task_reject' }
     }
@@ -472,7 +469,7 @@ async function handleAwaitingRejectReason(
 
     if (error) {
         await resolveSession(session.id, supabase)
-        await sendReply(session.phone, 'Something went wrong while rejecting the task.')
+        await sendReply(session.phone, '❌ *Error*\n\nSomething went wrong while rejecting the task.\n\nPlease try again.')
         await markProcessed(supabase, messageId, 'task_reject', `Task reject failed: ${error.message}`)
         return { handled: true, intent: 'task_reject' }
     }
@@ -496,9 +493,9 @@ async function handleAwaitingRejectReason(
         .single()
 
     const ownerName = ownerData?.name || 'the task owner'
-    const reasonStr = userText ? ` Reason: ${userText}` : ''
+    const reasonStr = userText ? `\n\nReason:\n_${userText}_` : ''
     await sendReply(session.phone,
-        `Got it. I've let ${ownerName} know that you've declined "${task.title}".${reasonStr}`)
+        `❌ *Task Declined*\n\nTask:\n_"${task.title}"_\n\nNotified:\n*${ownerName}*${reasonStr}`)
 
     await markProcessed(supabase, messageId, 'task_reject', null)
 
@@ -544,13 +541,13 @@ async function createTaskWithAssignee(
 
     if (taskError || !newTask) {
         console.error('[SessionReply] Task insert failed:', taskError?.message)
-        await sendReply(phone, 'Something went wrong while creating the task. Please try again.')
+        await sendReply(phone, '❌ *Error*\n\nSomething went wrong while creating the task.\n\nPlease try again.')
         await markProcessed(supabase, messageId, 'task_create', `Task insert failed: ${taskError?.message}`)
         return { handled: true, intent: 'task_create' }
     }
 
     await sendReply(phone,
-        `✅ Task created: "${ctx.what}" assigned to ${assignee.name}. They'll receive a notification to accept it.`)
+        `✅ *Task Created!*\n\nTask:\n_"${ctx.what}"_\n\nAssigned to:\n*${assignee.name}*\n\n_They'll receive a notification to accept it._`)
 
     await markProcessed(supabase, messageId, 'task_create', null)
 

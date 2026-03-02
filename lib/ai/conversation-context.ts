@@ -189,28 +189,21 @@ export function buildIntentChangeAcknowledgment(session: ConversationSession): s
     switch (session.session_type) {
         case 'awaiting_assignee_name':
         case 'awaiting_assignee_selection':
-            return `↩️ I was waiting for a name for the task "${session.context_data.what || 'your task'}". ` +
-                `Since you've sent a new message, I'll move on to that instead. (You can create that task again anytime.)`
+            return `↩️ *Flow Interrupted*\n\nI was waiting for a person's name for:\n_"${session.context_data.what || 'your task'}"_\n\nSince you sent a new message,\nI'll process that instead.\n\n_You can always create this task again._`
 
         case 'awaiting_task_description':
-            return `↩️ I was waiting for a task description. ` +
-                `Since you've sent a new message, I'll process it instead.`
+            return '↩️ *Flow Interrupted*\n\nI was waiting for a task description.\n\nSince you sent a new message,\nI\'ll process that instead.'
 
         case 'awaiting_todo_deadline':
-            return `↩️ I was waiting for a deadline for "${session.context_data.what || 'your to-do'}". ` +
-                `Since you've sent a new message, I'll process it instead. (You can create that to-do again anytime.)`
+            return `↩️ *Flow Interrupted*\n\nI was waiting for a deadline for:\n_"${session.context_data.what || 'your to-do'}"_\n\nSince you sent a new message,\nI'll process that instead.\n\n_You can always create this to-do again._`
 
         case 'awaiting_accept_deadline':
-            return `↩️ I was waiting for a deadline to accept a task, but I see you've sent something else. ` +
-                `The task has NOT been accepted. Tap the Accept button again when you're ready with a deadline. ` +
-                `I'll process your new message now — no need to send it again.`
+            return '↩️ *Task NOT Accepted*\n\nI was waiting for a deadline to accept the task.\n\n⚠️ The task has *not* been accepted.\n\nTap "Accept" again when you\'re ready.\n\n_Processing your new message now..._'
 
         case 'awaiting_reject_reason':
-            return `↩️ I was waiting for a rejection reason, but I see you've sent something else. ` +
-                `The task has NOT been rejected. You can reject it from the dashboard. ` +
-                `I'll process your new message now — no need to send it again.`
+            return '↩️ *Task NOT Rejected*\n\nI was waiting for a rejection reason.\n\n⚠️ The task has *not* been rejected.\n\nYou can reject it from the dashboard.\n\n_Processing your new message now..._'
 
         default:
-            return `↩️ I was in the middle of something, but I'll process your new message instead.`
+            return '↩️ *Flow Interrupted*\n\nI was in the middle of something.\nI\'ll process your new message instead.'
     }
 }
