@@ -47,6 +47,7 @@ export const TaskCard = memo(function TaskCard({
     tags,
 }: TaskCardProps) {
     const [showTimeline, setShowTimeline] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     const styles = getCategoryStyles(category);
     // For tasks with a separate owner/assignee: show committed_deadline only (set on acceptance)
@@ -91,7 +92,17 @@ export const TaskCard = memo(function TaskCard({
             {/* Main row */}
             <div className={cn("flex items-start justify-between gap-2", compact ? "p-3" : "p-3 sm:p-4")}>
                 <div className="flex flex-col gap-1.5 pl-3 flex-1 min-w-0">
-                    <p className="font-semibold text-sm sm:text-[15px] pr-1 text-gray-900 line-clamp-2 break-words">
+                    <p
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsExpanded(!isExpanded);
+                        }}
+                        className={cn(
+                            "font-semibold text-sm sm:text-[15px] pr-1 text-gray-900 break-words cursor-pointer transition-all duration-200",
+                            !isExpanded && "line-clamp-2"
+                        )}
+                        title={!isExpanded ? "Click to see full task" : "Click to collapse"}
+                    >
                         {task.title}
                     </p>
                     <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
