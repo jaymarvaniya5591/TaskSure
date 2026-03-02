@@ -273,7 +273,7 @@ export async function sendTaskAssignmentTemplate(
     taskTitle: string,
     taskId: string
 ): Promise<WhatsAppSendResult> {
-    return sendWhatsAppTemplate(to, 'task_assignment', 'en', [
+    return sendWhatsAppTemplate(to, 'task_acceptance', 'en', [
         {
             type: 'header',
             parameters: [

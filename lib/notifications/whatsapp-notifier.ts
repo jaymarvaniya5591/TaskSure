@@ -402,7 +402,7 @@ async function sendAssignmentTemplateToAssignee(
         const result = await sendTaskAssignmentTemplate(
             toIntlPhone(assignee.phone_number),
             opts.actorName,
-            opts.taskTitle,
+            opts.taskTitle, // Only pass the raw title without any extra formatting or \n
             opts.taskId,
         )
         console.log(`[Notifier] Template send result:`, result);
