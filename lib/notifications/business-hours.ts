@@ -15,6 +15,10 @@ const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000 // UTC+5:30
 const BIZ_START_HOUR = 9  // 9:00 AM IST
 const BIZ_END_HOUR = 20   // 8:00 PM IST
 
+// Personal hours for To-Dos in IST (24h format)
+const PERSONAL_START_HOUR = 6  // 6:00 AM IST
+const PERSONAL_END_HOUR = 22   // 10:00 PM IST
+
 /**
  * Convert a UTC Date to IST hours/minutes for comparison.
  */
@@ -103,4 +107,38 @@ export function isWithinBusinessHours(date: Date): boolean {
  */
 export function adjustAllToBusinessHours(dates: Date[]): Date[] {
     return dates.map(d => adjustToBusinessHours(d))
+}
+
+/**
+ * Adjust a scheduled datetime to fall within personal hours (for To-Dos).
+ *
+ * - If before 6 AM IST → shift to 6 AM same day
+ * - If after 10 PM IST → shift to 6 AM next day
+ * - Runs 7 days a week (includes Sunday)
+ *
+ * @param date The original scheduled datetime (UTC)
+ * @returns Adjusted datetime guaranteed to be within personal hours
+ */
+export function adjustToPersonalHours(date: Date): Date {
+    let adjusted = new Date(date.getTime())
+
+    const istHour = getISTHours(adjusted)
+
+    if (istHour < PERSONAL_START_HOUR) {
+        // Before personal hours → shift to 6 AM same day
+        adjusted = setISTHour(adjusted, PERSONAL_START_HOUR)
+    } else if (istHour >= PERSONAL_END_HOUR) {
+        // After personal hours → shift to 6 AM next day
+        adjusted = setISTHour(addDays(adjusted, 1), PERSONAL_START_HOUR)
+    }
+
+    return adjusted
+}
+
+/**
+ * Check if a given datetime is within personal hours.
+ */
+export function isWithinPersonalHours(date: Date): boolean {
+    const istHour = getISTHours(date)
+    return istHour >= PERSONAL_START_HOUR && istHour < PERSONAL_END_HOUR
 }

@@ -9,7 +9,7 @@
  * The actual sending is handled by the cron-driven processor.
  */
 
-import { adjustToBusinessHours } from './business-hours'
+import { adjustToBusinessHours, adjustToPersonalHours } from './business-hours'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -192,21 +192,30 @@ export async function scheduleTaskReminders(
             return
         }
 
-        const rows: NotificationRow[] = reminderTimes.map((time, i) => ({
-            task_id: taskId,
-            stage: 'reminder' as const,
-            stage_number: i + 1,
-            target_user_id: assigneeId,
-            target_role: 'assignee' as const,
-            channel: 'whatsapp' as const,
-            scheduled_at: time.toISOString(),
-            metadata: {
-                task_title: taskTitle,
-                owner_name: ownerName,
-                owner_id: ownerId,
-                deadline: deadline.toISOString(),
-            },
-        }))
+        const isTodo = ownerId === assigneeId
+
+        const rows: NotificationRow[] = reminderTimes.map((time, i) => {
+            const scheduledAt = isTodo
+                ? adjustToPersonalHours(time)
+                : adjustToBusinessHours(time)
+
+            return {
+                task_id: taskId,
+                stage: 'reminder' as const,
+                stage_number: i + 1,
+                target_user_id: assigneeId,
+                target_role: 'assignee' as const,
+                channel: 'whatsapp' as const,
+                scheduled_at: scheduledAt.toISOString(),
+                metadata: {
+                    task_title: taskTitle,
+                    owner_name: ownerName,
+                    owner_id: ownerId,
+                    deadline: deadline.toISOString(),
+                    is_todo: isTodo,
+                },
+            }
+        })
 
         const { error } = await sb
             .from('task_notifications')
@@ -253,15 +262,28 @@ export async function scheduleEscalations(
             3 * 24 * 60 * 60 * 1000,  // +3 days
         ]
 
+        const isTodo = ownerId === assigneeId
+
         const rows: NotificationRow[] = offsets.map((offset, i) => {
             const rawTime = new Date(now.getTime() + offset)
-            const scheduledAt = offset === 0 ? rawTime : adjustToBusinessHours(rawTime)
+
+            let scheduledAt: Date
+            if (offset === 0) {
+                // Immediate escalation just uses raw time regardless of hours
+                scheduledAt = rawTime
+            } else if (isTodo) {
+                scheduledAt = adjustToPersonalHours(rawTime)
+            } else {
+                scheduledAt = adjustToBusinessHours(rawTime)
+            }
+
             return {
                 task_id: taskId,
                 stage: 'escalation' as const,
                 stage_number: i + 1,
-                target_user_id: ownerId,
-                target_role: 'owner' as const,
+                // To-Dos go to the assignee. Regular Tasks go to the owner.
+                target_user_id: isTodo ? assigneeId : ownerId,
+                target_role: isTodo ? 'assignee' : 'owner',
                 channel: 'whatsapp' as const,
                 scheduled_at: scheduledAt.toISOString(),
                 metadata: {
@@ -269,6 +291,7 @@ export async function scheduleEscalations(
                     assignee_id: assigneeId,
                     assignee_name: assigneeName,
                     deadline: deadline.toISOString(),
+                    is_todo: isTodo,
                 },
             }
         })

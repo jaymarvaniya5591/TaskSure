@@ -11,7 +11,14 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendWhatsAppMessage, sendTaskAssignmentTemplate, sendTaskReminderTemplate, sendTaskOverdueOwnerTemplate } from '@/lib/whatsapp'
+import {
+    sendWhatsAppMessage,
+    sendTaskAssignmentTemplate,
+    sendTaskReminderTemplate,
+    sendTaskOverdueOwnerTemplate,
+    sendTodoReminderTemplate,
+    sendTodoOverdueTemplate
+} from '@/lib/whatsapp'
 import { makeAutomatedCall, buildAcceptanceCallScript, buildReminderCallScript, getUserLanguage } from './calling-service'
 import { scheduleReminderCallEscalation, scheduleEscalations } from './task-notification-scheduler'
 import { isWithinBusinessHours } from './business-hours'
@@ -225,10 +232,11 @@ async function processTaskReminder(
     supabase: SupabaseAdmin,
     notif: TaskNotification,
 ): Promise<void> {
-    const meta = notif.metadata
+    const meta = notif.metadata || {}
     const taskTitle = (meta.task_title as string) || 'a task'
     const ownerName = (meta.owner_name as string) || 'your manager'
     const deadline = (meta.deadline as string) || ''
+    const isTodo = meta.is_todo === true
 
     // Check task is still active (accepted status)
     const { data: task } = await supabase
@@ -266,10 +274,16 @@ async function processTaskReminder(
         return
     }
 
-    // Send reminder template with "Yes, on track" button
+    // Send reminder template
     const deadlineFormatted = deadline ? formatDate(deadline) : 'soon'
     try {
-        await sendTaskReminderTemplate(phone, taskTitle, deadlineFormatted, ownerName, notif.task_id)
+        if (isTodo) {
+            // To-Dos get a distinct message-only template
+            await sendTodoReminderTemplate(phone, taskTitle, deadlineFormatted, notif.task_id)
+        } else {
+            // Delegated tasks get a "Yes, on track" button template paired with call escalation
+            await sendTaskReminderTemplate(phone, taskTitle, deadlineFormatted, ownerName, notif.task_id)
+        }
         await markNotificationSent(supabase, notif.id)
     } catch (err) {
         const errMsg = err instanceof Error ? err.message : 'Unknown error'
@@ -305,6 +319,9 @@ async function checkReminderAcknowledgmentTimeouts(supabase: SupabaseAdmin): Pro
     for (const reminder of unackedReminders as TaskNotification[]) {
         // Check if acknowledgment was received (metadata.acknowledged = true)
         if (reminder.metadata?.acknowledged) continue
+
+        // Skip to-dos: they explicitly do NOT get call escalations
+        if (reminder.metadata?.is_todo === true) continue
 
         // Check task is still active
         const { data: task } = await supabase
@@ -351,9 +368,10 @@ async function processEscalation(
     supabase: SupabaseAdmin,
     notif: TaskNotification,
 ): Promise<void> {
-    const meta = notif.metadata
+    const meta = notif.metadata || {}
     const taskTitle = (meta.task_title as string) || 'a task'
     const assigneeName = (meta.assignee_name as string) || 'the assignee'
+    const isTodo = meta.is_todo === true
 
     // Check task is still overdue/active
     const { data: task } = await supabase
@@ -377,7 +395,11 @@ async function processEscalation(
     const phone = toIntlPhone(targetUser.phone_number)
 
     try {
-        await sendTaskOverdueOwnerTemplate(phone, taskTitle, assigneeName, notif.task_id)
+        if (isTodo) {
+            await sendTodoOverdueTemplate(phone, taskTitle, notif.task_id)
+        } else {
+            await sendTaskOverdueOwnerTemplate(phone, taskTitle, assigneeName, notif.task_id)
+        }
         await markNotificationSent(supabase, notif.id)
     } catch (err) {
         const errMsg = err instanceof Error ? err.message : 'Unknown error'

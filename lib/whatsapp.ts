@@ -385,6 +385,66 @@ export async function sendTaskOverdueOwnerTemplate(
     ])
 }
 
+/**
+ * To-Do Stage 2: Mid-to-do reminder
+ * Template: todo_reminder
+ * Body {{1}} = task title, {{2}} = deadline
+ * Quick Reply button payload = "task_mark_completed::{taskId}"
+ */
+export async function sendTodoReminderTemplate(
+    to: string,
+    taskTitle: string,
+    deadline: string,
+    taskId: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppTemplate(to, 'todo_reminder', 'en', [
+        {
+            type: 'body',
+            parameters: [
+                { type: 'text', text: taskTitle },
+                { type: 'text', text: deadline },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '0',
+            parameters: [
+                { type: 'payload', payload: `task_mark_completed::${taskId}` },
+            ],
+        },
+    ])
+}
+
+/**
+ * To-Do Stage 3: Deadline crossed notification
+ * Template: todo_overdue
+ * Body {{1}} = task title
+ * Quick Reply button payload = "task_mark_completed::{taskId}"
+ */
+export async function sendTodoOverdueTemplate(
+    to: string,
+    taskTitle: string,
+    taskId: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppTemplate(to, 'todo_overdue', 'en', [
+        {
+            type: 'body',
+            parameters: [
+                { type: 'text', text: taskTitle },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '0',
+            parameters: [
+                { type: 'payload', payload: `task_mark_completed::${taskId}` },
+            ],
+        },
+    ])
+}
+
 // ---------------------------------------------------------------------------
 // Media download (for voice notes, images, etc.)
 // ---------------------------------------------------------------------------
