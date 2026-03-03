@@ -104,6 +104,14 @@ async function handleAwaitingAssigneeName(
     const ctx = session.context_data
     const orgId = ctx.organisation_id || sender.organisation_id
 
+    // Guard: if the reply looks like a new task/command rather than just a name,
+    // abandon the session and let the normal AI pipeline handle it.
+    const looksLikeNewIntent = await isNewTaskIntent(userText)
+    if (looksLikeNewIntent) {
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
     // Fuzzy-match the reply as a person name
     const matches = await fuzzyMatchUser(supabase, orgId, userText.trim())
 
@@ -639,6 +647,47 @@ async function fetchOrgUsers(supabase: SupabaseAdmin, orgId: string): Promise<Or
 
     if (!allUsers || allUsers.length === 0) return []
     return allUsers as OrgUser[]
+}
+
+/**
+ * Determine if a message looks like a fully-formed new task/todo command
+ * (e.g. "Tell Ramesh to prepare the report") vs. a simple person name reply
+ * (e.g. "Ramesh", "Beta tester", "the new guy").
+ *
+ * Returns true if the message should be treated as a new intent, not a name.
+ */
+async function isNewTaskIntent(text: string): Promise<boolean> {
+    // Fast path: short inputs (≤4 words) are almost certainly just names
+    const wordCount = text.trim().split(/\s+/).length
+    if (wordCount <= 4) return false
+
+    try {
+        const { callGemini } = await import('@/lib/gemini')
+
+        const prompt = `You are an intent classifier for a WhatsApp task-management bot.
+The bot asked the user: "Who should do this task? Please reply with a name."
+
+Determine if the user's reply is PURELY providing a person's name, OR if it is a
+new task/command instruction that should be treated as a completely new request.
+
+A reply is a NAME if it:
+- Is just a person's name or role: "Ramesh", "Beta tester", "the intern", "john smith"
+- Has a small qualifier: "the new guy", "my colleague Priya"
+
+A reply is a NEW TASK INTENT if it:
+- Contains a subject + verb + action: "Tell Ramesh to send the report"
+- Describes something to be done by someone: "Ask John to prepare the slides by Friday"
+- Is clearly a new instruction, not just a name
+
+Return ONLY a JSON object: { "is_new_intent": true } or { "is_new_intent": false }`
+
+        const result = await callGemini(prompt, text)
+        const parsed = JSON.parse(result.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim())
+        return parsed.is_new_intent === true
+    } catch {
+        // On error, be conservative: treat as a name, let fuzzy match handle it
+        return false
+    }
 }
 
 /**

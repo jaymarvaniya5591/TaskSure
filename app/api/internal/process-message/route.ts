@@ -405,8 +405,20 @@ async function handleTaskCreate(
     const matches = await fuzzyMatchUser(supabase, sender.organisation_id, analysis.who.name)
 
     if (matches.length === 0) {
+        // Keep session alive so the user's next reply (a corrected name) is caught
+        await createSession(phone, 'awaiting_assignee_name', {
+            original_intent: 'task_create',
+            what: analysis.what,
+            when_date: analysis.when.date,
+            when_raw: analysis.when.raw,
+            sender_id: sender.id,
+            sender_name: sender.name,
+            organisation_id: sender.organisation_id,
+            original_message: analysis.what,
+        }, 10, supabase)
+
         await sendWhatsAppReply(phone,
-            `🔍 *Assignee Not Found*\n\n*No match found for:*\n${analysis.who.name}\n\nPlease check the name and try again, or use the full name.`)
+            `🔍 *Assignee Not Found*\n\n*No match found for:*\n${analysis.who.name}\n\nPlease try a different name or the full name.`)
         await markProcessed(supabase, messageId, 'task_create', `Assignee not found: ${analysis.who.name}`)
         return
     }
