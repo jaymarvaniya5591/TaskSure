@@ -19,8 +19,9 @@ export async function GET(request: NextRequest) {
     // or just play it once. Let's play it twice just in case.
 
     // We point <Play> to our streaming endpoint that generates the wav file dynamically.
+    // We add a dummy .wav at the end of the URL before the query params so Exotel recognizes it
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
-    const audioUrl = `${baseUrl}/api/internal/sarvam-audio?text=${encodeURIComponent(text || 'You have a pending task. Please check your WhatsApp messages.')}&language=${encodeURIComponent(language)}`
+    const audioUrl = `${baseUrl}/api/internal/sarvam-audio.wav?text=${encodeURIComponent(text || 'You have a pending task. Please check your WhatsApp messages.')}&language=${encodeURIComponent(language)}`
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
