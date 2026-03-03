@@ -29,7 +29,7 @@ export interface CallResult {
 
 export interface CallingProvider {
     name: string
-    makeCall(phone: string, audioUrl: string): Promise<CallResult>
+    makeCall(phone: string, text: string, language: string): Promise<CallResult>
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ export async function generateTTS(
                 inputs: [text],
                 target_language_code: language,
                 model: 'bulbul:v2',
-                speaker: 'meera',
+                speaker: 'anushka',
                 pitch: 0,
                 pace: 1.1,
                 loudness: 1.5,
@@ -171,7 +171,7 @@ export async function generateTTS(
 const exotelProvider: CallingProvider = {
     name: 'exotel',
 
-    async makeCall(phone: string, audioUrl: string): Promise<CallResult> {
+    async makeCall(phone: string, text: string, language: string): Promise<CallResult> {
         const apiKey = process.env.EXOTEL_API_KEY
         const apiToken = process.env.EXOTEL_API_TOKEN
         const accountSid = process.env.EXOTEL_ACCOUNT_SID || apiKey // Many times account SID is the API key, or separate
@@ -187,9 +187,9 @@ const exotelProvider: CallingProvider = {
         const to = phone.startsWith('+') ? phone.slice(1) : phone
         const from = callerId.startsWith('+') ? callerId.slice(1) : callerId
 
-        // Build the answer_url pointing to our Exotel answer endpoint
+        // Build the answer_url pointing to our Exotel answer endpoint, passing text and language
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
-        const answerUrl = `${baseUrl}/api/internal/exotel-answer?audio=${encodeURIComponent(audioUrl)}`
+        const answerUrl = `${baseUrl}/api/internal/exotel-answer?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
 
         const subdomain = process.env.EXOTEL_SUBDOMAIN || 'api.exotel.com'
         const apiUrl = `https://${subdomain}/v1/Accounts/${accountSid}/Calls/connect.json`
@@ -197,9 +197,8 @@ const exotelProvider: CallingProvider = {
         try {
             // Exotel uses x-www-form-urlencoded rather than JSON for its payloads
             const formParams = new URLSearchParams()
-            formParams.append('From', to) // Number to call
-            formParams.append('To', from) // ExoPhone to call FROM
-            formParams.append('CallerId', from) // Required: the ExoPhone
+            formParams.append('From', to) // The customer's number
+            formParams.append('CallerId', from) // Your assigned ExoPhone
             formParams.append('Url', answerUrl) // Webhook for ExoML
 
             const response = await fetch(apiUrl, {
@@ -267,25 +266,9 @@ export async function makeAutomatedCall(
 ): Promise<CallResult> {
     console.log(`[CallingService] Making automated call to ${phone} in ${language}`)
 
-    // Step 1: Generate TTS audio
-    const ttsResult = await generateTTS(message, language)
-    if (!ttsResult) {
-        return {
-            success: false,
-            status: 'error',
-            error: 'Failed to generate TTS audio',
-        }
-    }
-
-    // Step 2: We need a hosted URL for the audio. Store it temporarily.
-    // For now, we use a data URI approach or a temporary upload.
-    // TODO: Upload the audio to a temporary storage (e.g., Supabase Storage)
-    // and get a public URL. For now, we'll use a placeholder approach.
-    const audioUrl = `data:${ttsResult.mimeType};base64,${ttsResult.audioBase64}`
-
-    // Step 3: Make the call via the provider
+    // Step 1: Make the call via the provider, which will use the webhook to generate TTS
     const provider = getProvider()
-    const result = await provider.makeCall(phone, audioUrl)
+    const result = await provider.makeCall(phone, message, language)
 
     console.log(`[CallingService] Call result for ${phone}:`, result)
     return result

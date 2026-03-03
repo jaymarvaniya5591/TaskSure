@@ -10,23 +10,18 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 
 export async function GET(request: NextRequest) {
-    const audioUrl = request.nextUrl.searchParams.get('audio')
-
-    if (!audioUrl) {
-        // Fallback: just say a generic message using ExoML
-        const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say>You have a pending task. Please check your WhatsApp messages.</Say>
-</Response>`
-        return new NextResponse(xml, {
-            headers: { 'Content-Type': 'application/xml' },
-        })
-    }
+    const text = request.nextUrl.searchParams.get('text')
+    const language = request.nextUrl.searchParams.get('language') || 'en-IN'
 
     // Play the TTS audio twice. Exotel does not have a <Wait> verb exactly like this 
     // without it being inside a <Gather> or similar, but <Play> followed by <Play>
     // might just play them back-to-back. We can use a silent audio file for waiting,
     // or just play it once. Let's play it twice just in case.
+
+    // We point <Play> to our streaming endpoint that generates the wav file dynamically.
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
+    const audioUrl = `${baseUrl}/api/internal/sarvam-audio?text=${encodeURIComponent(text || 'You have a pending task. Please check your WhatsApp messages.')}&language=${encodeURIComponent(language)}`
+
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Play>${audioUrl}</Play>
