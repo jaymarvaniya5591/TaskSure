@@ -274,8 +274,8 @@ export async function POST(request: NextRequest) {
 
             if (reqErr) throw new Error(`Join request failure: ${reqErr.message}`)
 
-            // Fire-and-forget: Notify partner via WhatsApp
-            sendJoinRequestPendingTemplate(`91${partnerPhone}`, fullName, phone, reqData.id)
+            // Await to ensure the edge function doesn't die before the template is sent
+            await sendJoinRequestPendingTemplate(`91${partnerPhone}`, fullName, phone, reqData.id)
                 .catch(err => console.error('[CompleteSignup] Failed to send join request notification:', err))
 
             // Don't consume token yet — they may need to retry if partner rejects
