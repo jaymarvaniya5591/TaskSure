@@ -61,6 +61,11 @@ Determine who is expected to perform the action:
 # WHAT Extraction Rules
 
 Extract the COMPLETE actionable including all details. Never truncate conditional sentences.
+- IMPORTANT: When WHO is "person", replace ALL pronouns (she/he/her/him/they) that refer to the assignee with the assignee's actual name.
+  The WHAT must be written in third person so it reads clearly for BOTH the task owner AND the assignee.
+  - "Tell Diksha if she does any task, she should do it carefully" → WHAT = "If Diksha does any task, Diksha should do it carefully"
+  - "From now on, if she does any task, she should do it carefully" (WHO = Diksha) → WHAT = "From now on, if Diksha does any task, Diksha should do it carefully"
+  - "Ask Ramesh to call her and inform her about the meeting" (WHO = Ramesh) → WHAT = "Call her and inform her about the meeting" (only replace pronouns referring to the assignee, not other people)
 - "Tell Ramesh to send the invoice by Friday" → WHAT = "Send the invoice by Friday"
 - "If someone comes before 12, vacate the room" → WHAT = "If someone comes before 12 o'clock, vacate the room"
 - Include deadline info naturally in the WHAT text.

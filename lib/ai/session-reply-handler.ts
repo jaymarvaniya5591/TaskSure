@@ -449,6 +449,15 @@ async function handleAwaitingRejectReason(
         return { handled: false, fallThrough: true }
     }
 
+    // First, check if the message is actually a rejection reason or a new intent.
+    // If it looks like a new task/command, treat it as a new intent and fall through.
+    const looksLikeReason = await isRejectionReason(userText)
+    if (!looksLikeReason) {
+        // The user sent a different intent — resolve session and fall through.
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
     const { data: task, error: fetchError } = await supabase
         .from('tasks')
         .select('id, title, assigned_to, created_by, status')
@@ -754,5 +763,47 @@ Return ONLY a JSON object: { "date": "ISO 8601 string or null" }`
         return parsed.date || null
     } catch {
         return null
+    }
+}
+
+/**
+ * Determine if a message is genuinely a rejection reason (e.g. "I'm too busy",
+ * "Not my responsibility") vs. a new unrelated intent (e.g. "Tell Ramesh to
+ * send the report", "Show my tasks").
+ *
+ * Returns true only if the message's PRIMARY purpose is to explain why the
+ * user is rejecting the task.
+ */
+async function isRejectionReason(text: string): Promise<boolean> {
+    try {
+        const { callGemini } = await import('@/lib/gemini')
+
+        const prompt = `You are an intent classifier for a WhatsApp task-management bot.
+The bot asked the user: "Please reply with a brief reason for rejecting this task."
+
+Determine if the user's reply is PURELY providing a reason/explanation for rejection,
+OR if it is a new/unrelated message (like a new task, command, greeting, etc).
+
+A reply is a REJECTION REASON if it:
+- Explains why they can't do or don't want the task: "I'm too busy", "This isn't my job"
+- Provides any form of excuse, complaint, or rationale: "Don't have time", "Not my responsibility"
+- Is a short justification: "No", "Can't do it", "Wrong person"
+- Expresses refusal or objection about the task or the person who assigned it
+- Is a complaint about the task owner or assignment: "Diksha only gives order", "I don't report to him"
+
+A reply is NOT a rejection reason if it:
+- Describes a new task for someone: "Tell Ramesh to send the report"
+- Is a greeting or unrelated text: "Hello", "Good morning"
+- Asks the bot to do something: "Show my tasks", "Open dashboard"
+- Is clearly a new instruction unrelated to rejecting the current task
+
+Return ONLY a JSON object: { "is_reason": true } or { "is_reason": false }`
+
+        const result = await callGemini(prompt, text)
+        const parsed = JSON.parse(result.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim())
+        return parsed.is_reason === true
+    } catch {
+        // On error, be conservative: treat as a reason to avoid losing the rejection
+        return true
     }
 }
