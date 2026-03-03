@@ -165,67 +165,69 @@ export async function generateTTS(
 }
 
 // ---------------------------------------------------------------------------
-// Plivo Provider (Default)
+// Exotel Provider
 // ---------------------------------------------------------------------------
 
-const plivoProvider: CallingProvider = {
-    name: 'plivo',
+const exotelProvider: CallingProvider = {
+    name: 'exotel',
 
     async makeCall(phone: string, audioUrl: string): Promise<CallResult> {
-        const authId = process.env.PLIVO_AUTH_ID
-        const authToken = process.env.PLIVO_AUTH_TOKEN
-        const plivoPhone = process.env.PLIVO_PHONE_NUMBER
+        const apiKey = process.env.EXOTEL_API_KEY
+        const apiToken = process.env.EXOTEL_API_TOKEN
+        const accountSid = process.env.EXOTEL_ACCOUNT_SID || apiKey // Many times account SID is the API key, or separate
+        const callerId = process.env.EXOTEL_CALLER_ID
 
-        if (!authId || !authToken || !plivoPhone) {
-            console.error('[CallingService] Missing Plivo credentials (PLIVO_AUTH_ID, PLIVO_AUTH_TOKEN, PLIVO_PHONE_NUMBER)')
-            return { success: false, status: 'error', error: 'Missing Plivo configuration' }
+        if (!apiKey || !apiToken || !accountSid || !callerId) {
+            console.error('[CallingService] Missing Exotel credentials (EXOTEL_API_KEY, EXOTEL_API_TOKEN, EXOTEL_CALLER_ID)')
+            return { success: false, status: 'error', error: 'Missing Exotel configuration' }
         }
 
-        // Plivo expects E.164 format: +91XXXXXXXXXX
-        const to = phone.startsWith('+') ? phone : `+${phone}`
-        const from = plivoPhone.startsWith('+') ? plivoPhone : `+${plivoPhone}`
+        // Exotel typically prefers numbers without the leading + (e.g., 919876543210)
+        // or with no formatting. But we'll strip the leading + just to be safe.
+        const to = phone.startsWith('+') ? phone.slice(1) : phone
+        const from = callerId.startsWith('+') ? callerId.slice(1) : callerId
 
-        // Build the answer_url pointing to our Plivo answer endpoint
+        // Build the answer_url pointing to our Exotel answer endpoint
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
-        const answerUrl = `${baseUrl}/api/internal/plivo-answer?audio=${encodeURIComponent(audioUrl)}`
+        const answerUrl = `${baseUrl}/api/internal/exotel-answer?audio=${encodeURIComponent(audioUrl)}`
 
-        const apiUrl = `https://api.plivo.com/v1/Account/${authId}/Call/`
+        const subdomain = process.env.EXOTEL_SUBDOMAIN || 'api.exotel.com'
+        const apiUrl = `https://${subdomain}/v1/Accounts/${accountSid}/Calls/connect.json`
 
         try {
+            // Exotel uses x-www-form-urlencoded rather than JSON for its payloads
+            const formParams = new URLSearchParams()
+            formParams.append('From', to) // Number to call
+            formParams.append('To', from) // ExoPhone to call FROM
+            formParams.append('CallerId', from) // Required: the ExoPhone
+            formParams.append('Url', answerUrl) // Webhook for ExoML
+
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Basic ${Buffer.from(`${authId}:${authToken}`).toString('base64')}`,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': `Basic ${Buffer.from(`${apiKey}:${apiToken}`).toString('base64')}`,
                 },
-                body: JSON.stringify({
-                    from: from,
-                    to: to,
-                    answer_url: answerUrl,
-                    answer_method: 'GET',
-                    ring_timeout: 30,
-                    time_limit: 60,
-                    machine_detection: 'true',
-                }),
+                body: formParams,
             })
 
             if (!response.ok) {
                 const errorBody = await response.text()
-                console.error(`[CallingService] Plivo call failed (${response.status}):`, errorBody)
-                return { success: false, status: 'error', error: `Plivo ${response.status}: ${errorBody}` }
+                console.error(`[CallingService] Exotel call failed (${response.status}):`, errorBody)
+                return { success: false, status: 'error', error: `Exotel ${response.status}: ${errorBody}` }
             }
 
             const data = await response.json()
-            console.log(`[CallingService] Plivo call initiated:`, data)
+            console.log(`[CallingService] Exotel call initiated:`, data)
 
             return {
                 success: true,
-                callId: data.request_uuid || data.api_id,
+                callId: data?.Call?.Sid || '',
                 status: 'connected', // Will be updated by callback
             }
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : 'Unknown error'
-            console.error('[CallingService] Plivo call error:', errMsg)
+            console.error('[CallingService] Exotel call error:', errMsg)
             return { success: false, status: 'error', error: errMsg }
         }
     },
@@ -237,12 +239,10 @@ const plivoProvider: CallingProvider = {
 
 /**
  * Get the currently configured calling provider.
- * Defaults to Plivo. Change this to switch providers.
+ * Defaults to Exotel.
  */
 function getProvider(): CallingProvider {
-    // Future: read from env or config to switch providers
-    // const providerName = process.env.CALLING_PROVIDER || 'plivo'
-    return plivoProvider
+    return exotelProvider
 }
 
 // ---------------------------------------------------------------------------
