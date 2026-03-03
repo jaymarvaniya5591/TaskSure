@@ -241,13 +241,20 @@ export async function sendJoinRequestPendingTemplate(
 /**
  * Scenario 4: Requester → Join request approved (Quick Reply button)
  * Template: owner_join_request_approved
- * No body params. Quick Reply button triggers signin flow.
+ * Body {{1}} = owner name. Quick Reply button triggers signin flow.
  * Payload = "trigger_signin"
  */
 export async function sendJoinRequestApprovedTemplate(
-    to: string
+    to: string,
+    partnerName: string
 ): Promise<WhatsAppSendResult> {
     return sendWhatsAppTemplate(to, 'owner_join_request_approved', 'en', [
+        {
+            type: 'body',
+            parameters: [
+                { type: 'text', text: partnerName },
+            ],
+        },
         {
             type: 'button',
             sub_type: 'quick_reply',

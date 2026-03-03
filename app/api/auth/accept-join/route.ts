@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: partner } = await (supabase as any)
             .from('users')
-            .select('id, organisation_id')
+            .select('id, organisation_id, name')
             .eq('phone_number', joinReq.partner_phone)
             .single()
 
@@ -188,7 +188,8 @@ export async function POST(request: NextRequest) {
 
         // Send Scenario 4 template: Quick Reply button triggers signin flow
         const sendTo = `91${normalizedRequesterPhone}`
-        await sendJoinRequestApprovedTemplate(sendTo)
+        const partnerName = partner.name || 'a member'
+        await sendJoinRequestApprovedTemplate(sendTo, partnerName)
 
         return NextResponse.json({ status: 'accepted' })
     } catch (err) {
