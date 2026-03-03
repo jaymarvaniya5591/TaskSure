@@ -432,7 +432,12 @@ async function handleAwaitingAcceptDeadline(
 }
 
 /**
- * awaiting_reject_reason — user tapped Reject, any text is treated as the reason.
+ * awaiting_reject_reason — user tapped Reject, bot expects a reason.
+ * Mirrors the handleAwaitingAcceptDeadline flow exactly:
+ *   1. isRejectionReason guard (like isDeadlineResponse)
+ *   2. Fetch + validate task
+ *   3. Update DB
+ *   4. Resolve session + reply + notify
  */
 async function handleAwaitingRejectReason(
     supabase: SupabaseAdmin,
@@ -458,6 +463,7 @@ async function handleAwaitingRejectReason(
         return { handled: false, fallThrough: true }
     }
 
+    // Reason validated — reject the task
     const { data: task, error: fetchError } = await supabase
         .from('tasks')
         .select('id, title, assigned_to, created_by, status')
@@ -501,32 +507,25 @@ async function handleAwaitingRejectReason(
         return { handled: true, intent: 'task_reject' }
     }
 
-    // Store rejection comment
-    if (userText) {
-        await supabase.from('task_comments').insert({
-            task_id: taskId,
-            user_id: sender.id,
-            content: `Rejected: ${userText}`,
-        }).catch((err: unknown) => console.error('[SessionReply] Failed to store rejection comment:', err))
-    }
-
     await resolveSession(session.id, supabase)
 
-    // Resolve owner name
-    const { data: ownerData } = await supabase
-        .from('users')
-        .select('name')
-        .eq('id', task.created_by)
-        .single()
-
-    const ownerName = ownerData?.name || 'the task owner'
     const reasonStr = userText ? `\n\n*Reason:*\n${userText}` : ''
     await sendReply(session.phone,
-        `❌ *Task Declined*\n\n*Task:*\n"${task.title}"\n\n*Notified:*\n${ownerName}${reasonStr}`)
+        `❌ *Task Declined*\n\n*Task:*\n"${task.title}"${reasonStr}\n\n_The task owner has been notified._`)
 
     await markProcessed(supabase, messageId, 'task_reject', null)
 
-    // Notify owner
+    // Fire-and-forget: store rejection comment
+    if (userText) {
+        supabase.from('task_comments').insert({
+            task_id: taskId,
+            user_id: sender.id,
+            content: `Rejected: ${userText}`,
+        }).then(() => { /* ignore */ })
+            .catch((err: unknown) => console.error('[SessionReply] Failed to store rejection comment:', err))
+    }
+
+    // Notify task owner
     await notifyTaskRejected(supabase, {
         ownerId: task.created_by,
         assigneeId: sender.id,
