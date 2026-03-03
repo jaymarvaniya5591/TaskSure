@@ -458,16 +458,15 @@ export default function ProfilePage() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <h2 className="text-sm font-bold text-red-800 uppercase tracking-wider">Danger Zone</h2>
-                            <p className="text-sm text-red-600 mt-1 mb-4">
+                            <p className="text-sm text-red-600 mt-1 mb-3">
                                 Once you delete your account, there is no going back. Please be certain.
                             </p>
-
-                            {isDeletingAccount ? (
-                                <div className="bg-white rounded-xl border border-red-100 overflow-hidden">
-                                    <div className="p-4 space-y-3">
-                                        <p className="text-sm font-medium text-gray-700 leading-snug">
+                            <div className="mt-2">
+                                {isDeletingAccount ? (
+                                    <div className="space-y-3">
+                                        <p className="text-sm font-medium text-gray-800 leading-snug">
                                             Type your first name{" "}
-                                            <strong className="text-gray-900 border-b-2 border-red-300 px-0.5">
+                                            <strong className="text-gray-900 border-b-2 border-red-400 px-0.5">
                                                 {userNames?.first_name || profile.name.split(" ")[0]}
                                             </strong>{" "}
                                             to confirm.
@@ -476,26 +475,16 @@ export default function ProfilePage() {
                                             type="text"
                                             value={deleteConfirmName}
                                             onChange={(e) => setDeleteConfirmName(e.target.value)}
-                                            className={`${inputBase} border-red-200 focus:border-red-400 focus:ring-0`}
+                                            className={`${inputBase} border-red-200 focus:border-red-400`}
                                             placeholder="Confirm first name"
                                             autoComplete="off"
                                             autoCorrect="off"
                                             spellCheck={false}
                                         />
-                                        <div className="flex items-center gap-2 w-full">
+                                        <div className="flex items-center gap-2">
                                             <button
                                                 onClick={handleDeleteAccount}
-                                                disabled={
-                                                    isDeleting ||
-                                                    deleteConfirmName.trim().toLowerCase() !==
-                                                    (
-                                                        userNames?.first_name ||
-                                                        profile.name.split(" ")[0] ||
-                                                        ""
-                                                    )
-                                                        .trim()
-                                                        .toLowerCase()
-                                                }
+                                                disabled={isDeleting || deleteConfirmName.trim().toLowerCase() !== (userNames?.first_name || profile.name.split(" ")[0] || "").trim().toLowerCase()}
                                                 className={`${btnPrimary} flex-1 bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed`}
                                             >
                                                 {isDeleting ? (
@@ -508,26 +497,23 @@ export default function ProfilePage() {
                                                 )}
                                             </button>
                                             <button
-                                                onClick={() => {
-                                                    setIsDeletingAccount(false);
-                                                    setDeleteConfirmName("");
-                                                }}
+                                                onClick={() => { setIsDeletingAccount(false); setDeleteConfirmName(""); }}
                                                 disabled={isDeleting}
-                                                className="h-12 w-12 shrink-0 flex items-center justify-center rounded-xl border border-red-100 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                                className={`${btnCancel} hover:bg-red-100 hover:text-red-600`}
                                             >
                                                 <X className="w-5 h-5" />
                                             </button>
                                         </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={() => setIsDeletingAccount(true)}
-                                    className={`${btnPrimary} bg-red-100 text-red-700 hover:bg-red-200 border border-red-200/50`}
-                                >
-                                    Delete Account
-                                </button>
-                            )}
+                                ) : (
+                                    <button
+                                        onClick={() => setIsDeletingAccount(true)}
+                                        className={`${btnPrimary} bg-red-100 text-red-700 hover:bg-red-200 border border-red-200/50`}
+                                    >
+                                        Delete Account
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
