@@ -105,14 +105,43 @@ export async function POST(request: NextRequest) {
                     phone_confirm: true,
                     password: 'TestPassword123!',
                 })
-            if (createErr && !createErr.message.includes('already registered')) {
-                console.error('[AcceptJoin] Failed to create auth user:', createErr)
-                return NextResponse.json(
-                    { error: 'Failed to create account' },
-                    { status: 500 }
-                )
+
+            if (createErr) {
+                if (!createErr.message.includes('already registered') && !createErr.message.includes('already been registered')) {
+                    console.error('[AcceptJoin] Failed to create auth user:', createErr)
+                    return NextResponse.json(
+                        { error: 'Failed to create account' },
+                        { status: 500 }
+                    )
+                }
+
+                // FALLBACK: User exists in Auth but not in public.users table.
+                // Fetch their Auth ID securely via password sign in.
+                try {
+                    const { createClient } = await import('@supabase/supabase-js')
+                    const sessionClient = createClient(
+                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+                        { auth: { autoRefreshToken: false, persistSession: false } }
+                    )
+
+                    const { data: signInData } = await sessionClient.auth.signInWithPassword({
+                        email: testEmail,
+                        password: 'TestPassword123!',
+                    })
+
+                    if (signInData?.user) {
+                        authUserId = signInData.user.id
+                    } else {
+                        throw new Error('Fallback sign-in returned no user')
+                    }
+                } catch (fallbackErr) {
+                    console.error('[AcceptJoin] Fallback sign-in failed:', fallbackErr)
+                    return NextResponse.json({ error: 'Failed to resolve existing account' }, { status: 500 })
+                }
+            } else if (newUser?.user) {
+                authUserId = newUser.user.id
             }
-            if (newUser?.user) authUserId = newUser.user.id
         }
 
         if (!authUserId) {
