@@ -463,45 +463,61 @@ export default function ProfilePage() {
                             </p>
 
                             {isDeletingAccount ? (
-                                <div className="space-y-4 bg-white p-4 rounded-xl border border-red-100">
-                                    <p className="text-sm font-medium text-gray-700">
-                                        Type your first name <strong className="text-gray-900 border-b-2 border-red-200 px-1">{userNames?.first_name || profile.name.split(' ')[0]}</strong> to confirm.
-                                    </p>
-                                    <input
-                                        type="text"
-                                        value={deleteConfirmName}
-                                        onChange={(e) => setDeleteConfirmName(e.target.value)}
-                                        className={`${inputBase} border-red-200 focus:border-red-400 focus:ring-red-100`}
-                                        placeholder="Confirm first name"
-                                        autoComplete="off"
-                                        autoCorrect="off"
-                                        spellCheck={false}
-                                    />
-                                    <div className="flex items-center gap-2 pt-2">
-                                        <button
-                                            onClick={handleDeleteAccount}
-                                            disabled={isDeleting || deleteConfirmName.trim().toLowerCase() !== (userNames?.first_name || profile.name.split(' ')[0] || "").trim().toLowerCase()}
-                                            className={`${btnPrimary} flex-1 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed`}
-                                        >
-                                            {isDeleting ? (
-                                                <div className="flex items-center gap-2">
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                    Deleting...
-                                                </div>
-                                            ) : (
-                                                "Delete My Account"
-                                            )}
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setIsDeletingAccount(false);
-                                                setDeleteConfirmName("");
-                                            }}
-                                            disabled={isDeleting}
-                                            className={`${btnCancel} hover:bg-red-50 hover:text-red-600`}
-                                        >
-                                            <X className="w-5 h-5" />
-                                        </button>
+                                <div className="bg-white rounded-xl border border-red-100 overflow-hidden">
+                                    <div className="p-4 space-y-3">
+                                        <p className="text-sm font-medium text-gray-700 leading-snug">
+                                            Type your first name{" "}
+                                            <strong className="text-gray-900 border-b-2 border-red-300 px-0.5">
+                                                {userNames?.first_name || profile.name.split(" ")[0]}
+                                            </strong>{" "}
+                                            to confirm.
+                                        </p>
+                                        <input
+                                            type="text"
+                                            value={deleteConfirmName}
+                                            onChange={(e) => setDeleteConfirmName(e.target.value)}
+                                            className={`${inputBase} border-red-200 focus:border-red-400 focus:ring-0`}
+                                            placeholder="Confirm first name"
+                                            autoComplete="off"
+                                            autoCorrect="off"
+                                            spellCheck={false}
+                                        />
+                                        <div className="flex items-center gap-2 w-full">
+                                            <button
+                                                onClick={handleDeleteAccount}
+                                                disabled={
+                                                    isDeleting ||
+                                                    deleteConfirmName.trim().toLowerCase() !==
+                                                    (
+                                                        userNames?.first_name ||
+                                                        profile.name.split(" ")[0] ||
+                                                        ""
+                                                    )
+                                                        .trim()
+                                                        .toLowerCase()
+                                                }
+                                                className={`${btnPrimary} flex-1 bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            >
+                                                {isDeleting ? (
+                                                    <span className="flex items-center gap-2">
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                        Deleting...
+                                                    </span>
+                                                ) : (
+                                                    "Delete My Account"
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setIsDeletingAccount(false);
+                                                    setDeleteConfirmName("");
+                                                }}
+                                                disabled={isDeleting}
+                                                className="h-12 w-12 shrink-0 flex items-center justify-center rounded-xl border border-red-100 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                            >
+                                                <X className="w-5 h-5" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ) : (
