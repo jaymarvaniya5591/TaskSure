@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
             .eq('id', requestId)
 
         // Send Scenario 4 template: Quick Reply button triggers signin flow
-        const sendTo = joinReq.requester_phone.replace(/\+/g, '')
+        const sendTo = `91${normalizedRequesterPhone}`
         await sendJoinRequestApprovedTemplate(sendTo)
 
         return NextResponse.json({ status: 'accepted' })
