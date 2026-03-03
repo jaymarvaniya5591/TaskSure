@@ -53,17 +53,28 @@ export async function scheduleAcceptanceFollowups(
 
     try {
         const now = new Date()
-        const offsets = [
-            10 * 60 * 1000,       // +10 minutes
-            60 * 60 * 1000,       // +1 hour
-            3 * 60 * 60 * 1000,   // +3 hours
+
+        // Gaps between consecutive followups (not absolute offsets from now).
+        // Followup 1: now + 10 min
+        // Followup 2: followup1_adjusted + 50 min  (so the gap from raw F1→F2 is 1 hr)
+        // Followup 3: followup2_adjusted + 2 hr    (so the gap from raw F2→F3 is 2 hr)
+        //
+        // Each subsequent time is computed from the ADJUSTED time of the previous one,
+        // so a business-hours shift on followup 1 propagates forward to 2 and 3,
+        // preventing all three from landing at the same time.
+        const gaps = [
+            10 * 60 * 1000,       // +10 min from now
+            50 * 60 * 1000,       // +50 min from prev adjusted (total gap ~1 hr from F1)
+            2 * 60 * 60 * 1000,   // +2 hr from prev adjusted (total gap ~3 hr from F1)
         ]
 
         const rows: NotificationRow[] = []
+        let prevAdjusted = now // start from now; first gap +10 min gives F1
 
-        for (let i = 0; i < offsets.length; i++) {
-            const rawTime = new Date(now.getTime() + offsets[i])
+        for (let i = 0; i < gaps.length; i++) {
+            const rawTime = new Date(prevAdjusted.getTime() + gaps[i])
             const scheduledAt = adjustToBusinessHours(rawTime)
+            prevAdjusted = scheduledAt // next followup chains from this adjusted time
 
             // Assignee notification: call + send acceptance template
             rows.push({
@@ -77,7 +88,7 @@ export async function scheduleAcceptanceFollowups(
                 metadata: { task_title: taskTitle, owner_name: ownerName, owner_id: ownerId },
             })
 
-            // Owner notification: status update about the call
+            // Owner notification: status update about the call (same time as assignee notification)
             rows.push({
                 task_id: taskId,
                 stage: 'acceptance',
@@ -97,7 +108,11 @@ export async function scheduleAcceptanceFollowups(
         if (error) {
             console.error('[Scheduler] Failed to schedule acceptance followups:', error.message)
         } else {
-            console.log(`[Scheduler] Scheduled ${rows.length} acceptance followup notifications for task ${taskId}`)
+            const times = rows
+                .filter(r => r.target_role === 'assignee')
+                .map((r, i) => `  F${i + 1}: ${r.scheduled_at}`)
+                .join('\n')
+            console.log(`[Scheduler] Scheduled ${rows.length} acceptance followup notifications for task ${taskId}:\n${times}`)
         }
     } catch (err) {
         console.error('[Scheduler] Error scheduling acceptance followups:', err instanceof Error ? err.message : err)
