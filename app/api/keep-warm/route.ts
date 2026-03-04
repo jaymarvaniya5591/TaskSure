@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
@@ -11,6 +12,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * No auth required — it does nothing sensitive, just returns a timestamp.
  */
 export const preferredRegion = 'sin1'
+export const runtime = 'edge'
 
 export async function GET() {
     const supabase = createAdminClient()

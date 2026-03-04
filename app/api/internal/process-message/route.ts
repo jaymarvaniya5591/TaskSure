@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+export const runtime = 'edge'
+
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
 import { transcribeAudio } from '@/lib/sarvam'
