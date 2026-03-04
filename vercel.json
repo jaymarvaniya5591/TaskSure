@@ -1,11 +1,5 @@
 {
     "$schema": "https://openapi.vercel.sh/vercel.json",
-    "crons": [
-        {
-            "path": "/api/keep-warm",
-            "schedule": "*/5 * * * *"
-        }
-    ],
     "headers": [
         {
             "source": "/_next/static/(.*)",
