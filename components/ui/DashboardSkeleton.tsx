@@ -8,7 +8,6 @@
  */
 
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 
 // ─── Base shimmer bar ────────────────────────────────────────────────────────
 
@@ -109,16 +108,51 @@ export function SkeletonProfileSection() {
 
 export function DashboardShellSkeleton() {
     return (
-        <div className="flex flex-col items-center justify-center h-[60vh] animate-fade-in-up">
-            <div className="relative">
-                {/* Pulsing logo */}
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center animate-pulse relative overflow-hidden z-10 p-0">
-                    <Image src="/logo.png" alt="Boldo AI Logo" fill className="object-contain" />
+        <div className="min-h-screen bg-gray-50/50">
+            {/* Desktop sidebar skeleton — hidden on mobile */}
+            <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
+                <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white border-r border-gray-100 px-6 pb-4 pt-5">
+                    {/* Logo */}
+                    <div className="flex items-center gap-3 px-2 mb-4">
+                        <Shimmer className="h-9 w-9 rounded-xl" />
+                        <Shimmer className="h-5 w-24" />
+                    </div>
+                    {/* Nav items */}
+                    <div className="space-y-2">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
+                                <Shimmer className="h-5 w-5 rounded-md" />
+                                <Shimmer className="h-4 w-24" />
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                {/* Spinning ring around logo */}
-                <div className="absolute -inset-2 rounded-2xl border-2 border-amber-300/30 animate-spin" style={{ animationDuration: "3s" }} />
             </div>
-            <p className="mt-6 text-sm font-semibold text-gray-400 animate-pulse">Loading workspace...</p>
+
+            {/* Main content area */}
+            <div className="lg:pl-72 flex flex-col min-h-screen">
+                {/* Header skeleton */}
+                <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+                    <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
+                        {/* Mobile menu button */}
+                        <Shimmer className="h-8 w-8 rounded-lg lg:hidden" />
+                        {/* Search */}
+                        <Shimmer className="h-9 w-40 sm:w-64 rounded-xl" />
+                        {/* Right side icons */}
+                        <div className="flex items-center gap-2">
+                            <Shimmer className="h-8 w-8 rounded-lg" />
+                            <Shimmer className="h-8 w-8 rounded-lg" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Page content — DashboardHomeSkeleton inline */}
+                <main className="flex-1 py-8">
+                    <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+                        <DashboardHomeSkeleton />
+                    </div>
+                </main>
+            </div>
         </div>
     );
 }
