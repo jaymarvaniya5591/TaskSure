@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizePhone } from '@/lib/phone';
 
+export const preferredRegion = 'sin1';
+
 /**
  * POST /api/test-register — Creates a new test user (auth + public.users row)
  * Body: { phone: "9727711111", name: "Test User", company_name: "My Co", reporting_manager_id?: "uuid" }

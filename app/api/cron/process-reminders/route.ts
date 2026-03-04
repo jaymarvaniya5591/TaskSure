@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { processTaskNotifications } from '@/lib/notifications/task-notification-processor'
 
+export const preferredRegion = 'sin1';
+
 // ---------------------------------------------------------------------------
 // GET handler — Vercel Cron triggers this every 5 minutes
 //

@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
+export const preferredRegion = 'sin1';
+
 // POST /api/seed — Seeds test data into Supabase
 // This endpoint creates Supabase Auth users (with phone_confirm: true)
 // and inserts matching records into the users, organisations, tasks, and todos tables.

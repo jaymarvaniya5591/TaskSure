@@ -3,6 +3,8 @@ import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizePhone } from '@/lib/phone';
 
+export const preferredRegion = 'sin1';
+
 /**
  * GET /api/test-auth?phone=9876543210
  * 

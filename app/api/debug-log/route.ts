@@ -7,6 +7,8 @@
 
 import { NextResponse } from "next/server";
 
+export const preferredRegion = 'sin1';
+
 // In-memory ring buffer (survives within a single serverless invocation)
 // For cross-invocation persistence we'll also log to console
 const MAX_EVENTS = 200;

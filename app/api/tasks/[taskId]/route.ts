@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCurrentUser } from "@/lib/user";
+
+export const preferredRegion = 'sin1';
 import {
     notifyTaskAccepted,
     notifyTaskRejected,

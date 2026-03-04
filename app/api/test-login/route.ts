@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
+export const preferredRegion = 'sin1';
+
 // POST /api/test-login — Generates a valid session for test users
 // This bypasses OTP by creating a session via the admin API
 // Body: { phone: "+919876543210" }

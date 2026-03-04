@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const preferredRegion = 'sin1';
+
 /**
  * Exotel Answer URL Endpoint
  *

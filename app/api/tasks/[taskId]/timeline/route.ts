@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { resolveCurrentUser } from "@/lib/user";
 
+export const preferredRegion = 'sin1';
+
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ taskId: string }> }

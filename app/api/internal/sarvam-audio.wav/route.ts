@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateTTS } from '@/lib/notifications/calling-service'
 
+export const preferredRegion = 'sin1';
+
 /**
  * Sarvam Audio Streaming Endpoint
  *
