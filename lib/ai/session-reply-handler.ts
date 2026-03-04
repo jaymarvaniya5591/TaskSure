@@ -910,11 +910,13 @@ async function parseDateFromText(text: string): Promise<string | null> {
         const ist = new Date(now.getTime() + istOffset + now.getTimezoneOffset() * 60_000)
         const iso = ist.toISOString().split('T')[0]
         const dayName = ist.toLocaleDateString('en-IN', { weekday: 'long' })
+        const timeStr = ist.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 
-        const prompt = `You are a date parser. Today is ${dayName}, ${iso} (IST).
+        const prompt = `You are a date parser. Today is ${dayName}, ${iso}. Current time: ${timeStr} IST.
 Convert the user's text into an ISO 8601 datetime string in IST timezone (+05:30).
 If only a date/day is given (no time), default to 20:00:00+05:30 (08:00 PM IST, i.e. end of that day).
 If only a time is given (no date), assume today if the time hasn't passed, otherwise tomorrow.
+"in X minutes/hours" or "X mins from now" = add X minutes/hours to the CURRENT time shown above.
 "kal" = tomorrow, "parso" = day after tomorrow, "aaj" = today.
 "by Friday" = next Friday at 20:00:00+05:30.
 
