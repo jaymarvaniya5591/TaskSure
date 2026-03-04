@@ -41,7 +41,7 @@ export async function PATCH(
     // Fetch the task
     const { data: task, error: fetchError } = await supabase
         .from("tasks")
-        .select("id, title, assigned_to, created_by, status, organisation_id, deadline, committed_deadline")
+        .select("id, title, assigned_to, created_by, status, organisation_id, deadline, committed_deadline, parent_task_id")
         .eq("id", taskId)
         .single();
 
@@ -67,37 +67,40 @@ export async function PATCH(
                 return NextResponse.json({ error: "Committed deadline is required when accepting" }, { status: 400 });
             }
 
-            const { error } = await supabase
-                .from("tasks")
-                .update({
-                    status: "accepted",
-                    committed_deadline,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq("id", taskId);
-
-            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-            await supabase.from("audit_log").insert({
-                user_id: userId,
-                organisation_id: task.organisation_id,
-                action: "task.accepted",
-                entity_type: "task",
-                entity_id: taskId,
-                metadata: { committed_deadline }
-            });
-
-            // Notify all participants
+            // Run update, audit log, and notification in parallel
             const adminDb = createAdminClient();
-            await notifyTaskAccepted(adminDb, {
-                ownerId: task.created_by,
-                assigneeId: userId,
-                assigneeName: currentUser.name || 'The assignee',
-                taskTitle: task.title || 'Untitled task',
-                taskId: taskId,
-                committedDeadline: committed_deadline,
-                source: 'dashboard',
-            }).catch(err => console.error('[TaskPatch] Notification error (accept):', err));
+            const [updateResult] = await Promise.allSettled([
+                supabase
+                    .from("tasks")
+                    .update({
+                        status: "accepted",
+                        committed_deadline,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", taskId),
+                supabase.from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: task.organisation_id,
+                    action: "task.accepted",
+                    entity_type: "task",
+                    entity_id: taskId,
+                    metadata: { committed_deadline }
+                }),
+                notifyTaskAccepted(adminDb, {
+                    ownerId: task.created_by,
+                    assigneeId: userId,
+                    assigneeName: currentUser.name || 'The assignee',
+                    taskTitle: task.title || 'Untitled task',
+                    taskId: taskId,
+                    committedDeadline: committed_deadline,
+                    source: 'dashboard',
+                }).catch(err => console.error('[TaskPatch] Notification error (accept):', err)),
+            ]);
+
+            if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
+                const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
+                return NextResponse.json({ error: errMsg }, { status: 500 });
+            }
 
             return NextResponse.json({ success: true, status: "accepted" });
         }
@@ -111,46 +114,48 @@ export async function PATCH(
                 return NextResponse.json({ error: "Task can only be rejected when pending" }, { status: 400 });
             }
 
-            const { error } = await supabase
-                .from("tasks")
-                .update({
-                    status: "rejected",
-                    updated_at: new Date().toISOString(),
-                })
-                .eq("id", taskId);
-
-            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-            // Store rejection reason as a task comment
             const { reject_reason } = body;
-            if (reject_reason) {
-                await supabase.from("task_comments").insert({
-                    task_id: taskId,
-                    user_id: userId,
-                    content: `Rejected: ${reject_reason}`,
-                });
-            }
 
-            await supabase.from("audit_log").insert({
-                user_id: userId,
-                organisation_id: task.organisation_id,
-                action: "task.rejected",
-                entity_type: "task",
-                entity_id: taskId,
-                metadata: { reject_reason }
-            });
-
-            // Notify all participants
+            // Run update, comment, audit log, and notification in parallel
             const adminDb = createAdminClient();
-            await notifyTaskRejected(adminDb, {
-                ownerId: task.created_by,
-                assigneeId: userId,
-                assigneeName: currentUser.name || 'The assignee',
-                taskTitle: task.title || 'Untitled task',
-                taskId: taskId,
-                reason: reject_reason || null,
-                source: 'dashboard',
-            }).catch(err => console.error('[TaskPatch] Notification error (reject):', err));
+            const [updateResult] = await Promise.allSettled([
+                supabase
+                    .from("tasks")
+                    .update({
+                        status: "rejected",
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", taskId),
+                reject_reason
+                    ? supabase.from("task_comments").insert({
+                        task_id: taskId,
+                        user_id: userId,
+                        content: `Rejected: ${reject_reason}`,
+                    })
+                    : Promise.resolve(),
+                supabase.from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: task.organisation_id,
+                    action: "task.rejected",
+                    entity_type: "task",
+                    entity_id: taskId,
+                    metadata: { reject_reason }
+                }),
+                notifyTaskRejected(adminDb, {
+                    ownerId: task.created_by,
+                    assigneeId: userId,
+                    assigneeName: currentUser.name || 'The assignee',
+                    taskTitle: task.title || 'Untitled task',
+                    taskId: taskId,
+                    reason: reject_reason || null,
+                    source: 'dashboard',
+                }).catch(err => console.error('[TaskPatch] Notification error (reject):', err)),
+            ]);
+
+            if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
+                const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
+                return NextResponse.json({ error: errMsg }, { status: 500 });
+            }
 
             return NextResponse.json({ success: true, status: "rejected" });
         }
@@ -161,60 +166,54 @@ export async function PATCH(
                 return NextResponse.json({ error: "Only the owner (creator) can complete a task" }, { status: 403 });
             }
 
-            // Fetch the full task to check if it's a subtask and get the title
-            const { data: fullTask } = await supabase
-                .from("tasks")
-                .select("title, parent_task_id")
-                .eq("id", taskId)
-                .single();
-
+            // parent_task_id is already in the initial fetch — no 2nd query needed
             const isTodo = task.created_by === task.assigned_to;
-            const isSubtask = !!fullTask?.parent_task_id;
+            const isSubtask = !!task.parent_task_id;
 
-            // Notify all participants BEFORE updating status
+            // Run notification, update, and audit logs in parallel
             const adminDb = createAdminClient();
-            await notifyTaskCompleted(adminDb, {
-                ownerId: userId,
-                ownerName: currentUser.name || 'The task owner',
-                assigneeId: task.assigned_to,
-                taskTitle: fullTask?.title || task.title || 'Untitled task',
-                taskId: taskId,
-                source: 'dashboard',
-            }).catch(err => console.error('[TaskPatch] Notification error (complete):', err));
-
-            // Now update the task status
-            const { error } = await supabase
-                .from("tasks")
-                .update({
-                    status: "completed",
-                    updated_at: new Date().toISOString(),
-                })
-                .eq("id", taskId);
-
-            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-            await supabase.from("audit_log").insert({
-                user_id: userId,
-                organisation_id: task.organisation_id,
-                action: isSubtask ? "subtask.completed" : isTodo ? "todo.completed" : "task.completed",
-                entity_type: "task",
-                entity_id: taskId
-            });
-
-            // If this is a subtask, also log to the parent task so the branch
-            // merges visually in the parent's timeline.
-            if (isSubtask && fullTask?.parent_task_id) {
-                await supabase.from("audit_log").insert({
+            const [updateResult] = await Promise.allSettled([
+                supabase
+                    .from("tasks")
+                    .update({
+                        status: "completed",
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", taskId),
+                supabase.from("audit_log").insert({
                     user_id: userId,
                     organisation_id: task.organisation_id,
-                    action: "subtask.completed",
+                    action: isSubtask ? "subtask.completed" : isTodo ? "todo.completed" : "task.completed",
                     entity_type: "task",
-                    entity_id: fullTask.parent_task_id,
-                    metadata: {
-                        subtask_id: taskId,
-                        subtask_title: fullTask.title,
-                    }
-                });
+                    entity_id: taskId
+                }),
+                // If subtask, also log to the parent task timeline
+                isSubtask && task.parent_task_id
+                    ? supabase.from("audit_log").insert({
+                        user_id: userId,
+                        organisation_id: task.organisation_id,
+                        action: "subtask.completed",
+                        entity_type: "task",
+                        entity_id: task.parent_task_id,
+                        metadata: {
+                            subtask_id: taskId,
+                            subtask_title: task.title,
+                        }
+                    })
+                    : Promise.resolve(),
+                notifyTaskCompleted(adminDb, {
+                    ownerId: userId,
+                    ownerName: currentUser.name || 'The task owner',
+                    assigneeId: task.assigned_to,
+                    taskTitle: task.title || 'Untitled task',
+                    taskId: taskId,
+                    source: 'dashboard',
+                }).catch(err => console.error('[TaskPatch] Notification error (complete):', err)),
+            ]);
+
+            if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
+                const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
+                return NextResponse.json({ error: errMsg }, { status: 500 });
             }
 
             return NextResponse.json({ success: true, status: "completed" });
@@ -241,34 +240,37 @@ export async function PATCH(
             }
             updateData.deadline = new_deadline;
 
-            const { error } = await supabase
-                .from("tasks")
-                .update(updateData)
-                .eq("id", taskId);
-
-            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-            await supabase.from("audit_log").insert({
-                user_id: userId,
-                organisation_id: task.organisation_id,
-                action: "task.deadline_edited",
-                entity_type: "task",
-                entity_id: taskId,
-                metadata: { old_deadline: task.deadline, new_deadline }
-            });
-
-            // Notify all participants
+            // Run update, audit log, and notification in parallel
             const adminDb = createAdminClient();
-            await notifyDeadlineEdited(adminDb, {
-                ownerId: task.created_by,
-                assigneeId: task.assigned_to,
-                actorId: userId,
-                actorName: currentUser.name || 'A team member',
-                taskTitle: task.title || 'Untitled task',
-                taskId: taskId,
-                newDeadline: new_deadline,
-                source: 'dashboard',
-            }).catch(err => console.error('[TaskPatch] Notification error (edit_deadline):', err));
+            const [updateResult] = await Promise.allSettled([
+                supabase
+                    .from("tasks")
+                    .update(updateData)
+                    .eq("id", taskId),
+                supabase.from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: task.organisation_id,
+                    action: "task.deadline_edited",
+                    entity_type: "task",
+                    entity_id: taskId,
+                    metadata: { old_deadline: task.deadline, new_deadline }
+                }),
+                notifyDeadlineEdited(adminDb, {
+                    ownerId: task.created_by,
+                    assigneeId: task.assigned_to,
+                    actorId: userId,
+                    actorName: currentUser.name || 'A team member',
+                    taskTitle: task.title || 'Untitled task',
+                    taskId: taskId,
+                    newDeadline: new_deadline,
+                    source: 'dashboard',
+                }).catch(err => console.error('[TaskPatch] Notification error (edit_deadline):', err)),
+            ]);
+
+            if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
+                const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
+                return NextResponse.json({ error: errMsg }, { status: 500 });
+            }
 
             return NextResponse.json({ success: true, deadline: new_deadline });
         }
@@ -303,39 +305,42 @@ export async function PATCH(
                 }
             }
 
-            const { error } = await supabase
-                .from("tasks")
-                .update(updateData)
-                .eq("id", taskId);
-
-            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-            await supabase.from("audit_log").insert({
-                user_id: userId,
-                organisation_id: task.organisation_id,
-                action: "task.reassigned",
-                entity_type: "task",
-                entity_id: taskId,
-                metadata: {
-                    old_assigned_to: task.assigned_to,
-                    new_assigned_to,
-                    old_name: old_assigned_name,
-                    new_name: new_assigned_name
-                }
-            });
-
-            // Notify all participants
+            // Run update, audit log, and notification in parallel
             const adminDb = createAdminClient();
-            await notifyAssigneeChanged(adminDb, {
-                ownerId: userId,
-                ownerName: currentUser.name || 'The task owner',
-                oldAssigneeId: task.assigned_to,
-                newAssigneeId: new_assigned_to,
-                newAssigneeName: new_assigned_name || 'the new assignee',
-                taskTitle: task.title || 'Untitled task',
-                taskId: taskId,
-                source: 'dashboard',
-            }).catch(err => console.error('[TaskPatch] Notification error (edit_persons):', err));
+            const [updateResult] = await Promise.allSettled([
+                supabase
+                    .from("tasks")
+                    .update(updateData)
+                    .eq("id", taskId),
+                supabase.from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: task.organisation_id,
+                    action: "task.reassigned",
+                    entity_type: "task",
+                    entity_id: taskId,
+                    metadata: {
+                        old_assigned_to: task.assigned_to,
+                        new_assigned_to,
+                        old_name: old_assigned_name,
+                        new_name: new_assigned_name
+                    }
+                }),
+                notifyAssigneeChanged(adminDb, {
+                    ownerId: userId,
+                    ownerName: currentUser.name || 'The task owner',
+                    oldAssigneeId: task.assigned_to,
+                    newAssigneeId: new_assigned_to,
+                    newAssigneeName: new_assigned_name || 'the new assignee',
+                    taskTitle: task.title || 'Untitled task',
+                    taskId: taskId,
+                    source: 'dashboard',
+                }).catch(err => console.error('[TaskPatch] Notification error (edit_persons):', err)),
+            ]);
+
+            if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
+                const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
+                return NextResponse.json({ error: errMsg }, { status: 500 });
+            }
 
             return NextResponse.json({ success: true, assigned_to: new_assigned_to });
         }
@@ -346,9 +351,9 @@ export async function PATCH(
                 return NextResponse.json({ error: "Only the owner can delete a task" }, { status: 403 });
             }
 
-            // Notify all participants BEFORE cancelling
+            // Notify fire-and-forget — deletion is inherently destructive, don't block on it
             const adminDb = createAdminClient();
-            await notifyTaskCancelled(adminDb, {
+            notifyTaskCancelled(adminDb, {
                 ownerId: userId,
                 ownerName: currentUser.name || 'The task owner',
                 assigneeId: task.assigned_to,
@@ -382,26 +387,29 @@ export async function PATCH(
                 }
             };
 
-            await cancelSubtasks(taskId);
+            // Run subtask cancellation and audit log in parallel
+            const [, cancelResult] = await Promise.allSettled([
+                cancelSubtasks(taskId),
+                supabase
+                    .from("tasks")
+                    .update({
+                        status: "cancelled",
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", taskId),
+                supabase.from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: task.organisation_id,
+                    action: "task.deleted",
+                    entity_type: "task",
+                    entity_id: taskId
+                }),
+            ]);
 
-            // Cancel the task itself
-            const { error } = await supabase
-                .from("tasks")
-                .update({
-                    status: "cancelled",
-                    updated_at: new Date().toISOString(),
-                })
-                .eq("id", taskId);
-
-            if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-            await supabase.from("audit_log").insert({
-                user_id: userId,
-                organisation_id: task.organisation_id,
-                action: "task.deleted",
-                entity_type: "task",
-                entity_id: taskId
-            });
+            if (cancelResult.status === 'rejected' || (cancelResult.status === 'fulfilled' && cancelResult.value?.error)) {
+                const errMsg = cancelResult.status === 'rejected' ? cancelResult.reason : cancelResult.value?.error?.message;
+                return NextResponse.json({ error: errMsg }, { status: 500 });
+            }
 
             return NextResponse.json({ success: true, status: "cancelled" });
         }
