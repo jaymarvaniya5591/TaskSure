@@ -573,6 +573,33 @@ async function handleTodoCreate(
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'todo_create', null)
+
+    // Schedule deadline approaching notification for the to-do
+    if (deadline) {
+        // Need to look up the to-do ID we just created
+        const { data: createdTodo } = await supabase
+            .from('tasks')
+            .select('id')
+            .eq('created_by', sender.id)
+            .eq('assigned_to', sender.id)
+            .eq('title', analysis.what)
+            .eq('status', 'accepted')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+
+        if (createdTodo) {
+            await notifyTaskCreated(supabase, {
+                ownerName: sender.name,
+                ownerId: sender.id,
+                assigneeId: sender.id,
+                taskTitle: analysis.what,
+                taskId: createdTodo.id,
+                committedDeadline: deadline,
+                source: 'whatsapp',
+            }).catch(err => console.error('[ProcessMessage] Notification error (todo_create):', err))
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

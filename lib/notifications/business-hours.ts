@@ -3,7 +3,7 @@
  * notifications to valid business hours.
  *
  * Rules:
- *   - Business hours: 9:00 AM – 8:00 PM IST (UTC+5:30)
+ *   - Business hours: 9:00 AM – 9:00 PM IST (UTC+5:30)
  *   - No Sundays
  *   - If a scheduled time falls outside these windows, it is shifted
  *     to the next valid slot (9 AM next business day).
@@ -13,11 +13,7 @@ const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000 // UTC+5:30
 
 // Business hours in IST (24h format)
 const BIZ_START_HOUR = 9  // 9:00 AM IST
-const BIZ_END_HOUR = 20   // 8:00 PM IST
-
-// Personal hours for To-Dos in IST (24h format)
-const PERSONAL_START_HOUR = 6  // 6:00 AM IST
-const PERSONAL_END_HOUR = 22   // 10:00 PM IST
+const BIZ_END_HOUR = 21   // 9:00 PM IST
 
 /**
  * Convert a UTC Date to IST hours/minutes for comparison.
@@ -55,7 +51,7 @@ function addDays(date: Date, days: number): Date {
  * Adjust a scheduled datetime to fall within business hours.
  *
  * - If before 9 AM IST → shift to 9 AM same day
- * - If after 8 PM IST → shift to 9 AM next business day
+ * - If after 9 PM IST → shift to 9 AM next business day
  * - If Sunday → shift to 9 AM Monday
  *
  * @param date The original scheduled datetime (UTC)
@@ -110,35 +106,21 @@ export function adjustAllToBusinessHours(dates: Date[]): Date[] {
 }
 
 /**
- * Adjust a scheduled datetime to fall within personal hours (for To-Dos).
- *
- * - If before 6 AM IST → shift to 6 AM same day
- * - If after 10 PM IST → shift to 6 AM next day
- * - Runs 7 days a week (includes Sunday)
- *
- * @param date The original scheduled datetime (UTC)
- * @returns Adjusted datetime guaranteed to be within personal hours
+ * Set a date to 8:00 AM IST on the same calendar day.
+ * Used for Task Stage 2 reminders which are always at a fixed time.
  */
-export function adjustToPersonalHours(date: Date): Date {
-    let adjusted = new Date(date.getTime())
-
-    const istHour = getISTHours(adjusted)
-
-    if (istHour < PERSONAL_START_HOUR) {
-        // Before personal hours → shift to 6 AM same day
-        adjusted = setISTHour(adjusted, PERSONAL_START_HOUR)
-    } else if (istHour >= PERSONAL_END_HOUR) {
-        // After personal hours → shift to 6 AM next day
-        adjusted = setISTHour(addDays(adjusted, 1), PERSONAL_START_HOUR)
-    }
-
-    return adjusted
+export function setToFixed8AM(date: Date): Date {
+    return setISTHour(date, 8)
 }
 
 /**
- * Check if a given datetime is within personal hours.
+ * Get the IST calendar date components for a Date object.
  */
-export function isWithinPersonalHours(date: Date): boolean {
-    const istHour = getISTHours(date)
-    return istHour >= PERSONAL_START_HOUR && istHour < PERSONAL_END_HOUR
+export function getISTDate(date: Date): { year: number; month: number; day: number } {
+    const istTime = new Date(date.getTime() + IST_OFFSET_MS)
+    return {
+        year: istTime.getUTCFullYear(),
+        month: istTime.getUTCMonth(),
+        day: istTime.getUTCDate(),
+    }
 }

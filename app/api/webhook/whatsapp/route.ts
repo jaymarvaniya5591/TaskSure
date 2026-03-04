@@ -363,10 +363,10 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         continue
                     }
 
-                    // Stage 2 payload: assignee taps "Yes, on track" on reminder
-                    if (buttonPayload.startsWith('task_on_track::')) {
-                        const taskId = buttonPayload.replace('task_on_track::', '')
-                        console.log(`[Webhook] Quick Reply: task_on_track ${taskId} from ${senderPhone10}`)
+                    // Stage 2 payload: assignee taps "Going Well" on progress check
+                    if (buttonPayload.startsWith('task_going_well::')) {
+                        const taskId = buttonPayload.replace('task_going_well::', '')
+                        console.log(`[Webhook] Quick Reply: task_going_well ${taskId} from ${senderPhone10}`)
 
                         // Mark the reminder notification as acknowledged
                         try {
@@ -405,6 +405,48 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         }
 
                         await sendWhatsAppMessage(rawSenderPhone, '👍 *Noted!*\n\nThings are on track.\n_Keep it up!_')
+                        continue
+                    }
+
+                    // Stage 2/3a payload: assignee taps "Edit Deadline" on task reminder or deadline approaching
+                    if (buttonPayload.startsWith('task_edit_deadline_prompt::')) {
+                        const taskId = buttonPayload.replace('task_edit_deadline_prompt::', '')
+                        console.log(`[Webhook] Quick Reply: task_edit_deadline_prompt ${taskId} from ${senderPhone10}`)
+
+                        try {
+                            await createSession(senderPhone10, 'awaiting_edit_deadline', {
+                                task_id: taskId,
+                                original_intent: 'edit_deadline',
+                            }, 10, supabase)
+                        } catch (err) {
+                            console.error('[Webhook] Failed to create edit deadline session:', err)
+                        }
+
+                        await sendWhatsAppMessage(
+                            rawSenderPhone,
+                            '📅 *New Deadline?*\n\nPlease reply with a new date.\n\n*Examples:*\n"tomorrow", "Friday", "March 10"'
+                        )
+                        continue
+                    }
+
+                    // To-Do payload: owner taps "Edit Deadline" on to-do deadline approaching
+                    if (buttonPayload.startsWith('todo_edit_deadline_prompt::')) {
+                        const taskId = buttonPayload.replace('todo_edit_deadline_prompt::', '')
+                        console.log(`[Webhook] Quick Reply: todo_edit_deadline_prompt ${taskId} from ${senderPhone10}`)
+
+                        try {
+                            await createSession(senderPhone10, 'awaiting_edit_deadline', {
+                                task_id: taskId,
+                                original_intent: 'edit_deadline',
+                            }, 10, supabase)
+                        } catch (err) {
+                            console.error('[Webhook] Failed to create edit deadline session:', err)
+                        }
+
+                        await sendWhatsAppMessage(
+                            rawSenderPhone,
+                            '📅 *New Deadline?*\n\nPlease reply with a new date.\n\n*Examples:*\n"tomorrow", "Friday", "March 10"'
+                        )
                         continue
                     }
 

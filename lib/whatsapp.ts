@@ -307,19 +307,20 @@ export async function sendTaskAssignmentTemplate(
 }
 
 /**
- * Stage 2: Mid-task reminder with "Yes, on track" button
- * Template: task_reminder_check
+ * Stage 2: Mid-task progress check with "Going Well" + "Edit Deadline" buttons
+ * Template: task_progress_check
  * Body {{1}} = task title, {{2}} = deadline, {{3}} = owner name
- * Quick Reply button payload = "task_on_track::{taskId}"
+ * Quick Reply button 0 payload = "task_going_well::{taskId}"
+ * Quick Reply button 1 payload = "task_edit_deadline_prompt::{taskId}"
  */
-export async function sendTaskReminderTemplate(
+export async function sendTaskProgressCheckTemplate(
     to: string,
     taskTitle: string,
     deadline: string,
     ownerName: string,
     taskId: string
 ): Promise<WhatsAppSendResult> {
-    return sendWhatsAppTemplate(to, 'task_reminder_check', 'en', [
+    return sendWhatsAppTemplate(to, 'task_progress_check', 'en', [
         {
             type: 'body',
             parameters: [
@@ -333,14 +334,91 @@ export async function sendTaskReminderTemplate(
             sub_type: 'quick_reply',
             index: '0',
             parameters: [
-                { type: 'payload', payload: `task_on_track::${taskId}` },
+                { type: 'payload', payload: `task_going_well::${taskId}` },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '1',
+            parameters: [
+                { type: 'payload', payload: `task_edit_deadline_prompt::${taskId}` },
             ],
         },
     ])
 }
 
 /**
- * Stage 3: Deadline crossed notification to owner
+ * Stage 3a: Deadline approaching notification (Tasks → assignee)
+ * Template: task_deadline_approaching
+ * Body {{1}} = task title, {{2}} = owner name
+ * Quick Reply button 0 payload = "task_edit_deadline_prompt::{taskId}"
+ */
+export async function sendTaskDeadlineApproachingTemplate(
+    to: string,
+    taskTitle: string,
+    ownerName: string,
+    taskId: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppTemplate(to, 'task_deadline_approaching', 'en', [
+        {
+            type: 'body',
+            parameters: [
+                { type: 'text', text: taskTitle },
+                { type: 'text', text: ownerName },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '0',
+            parameters: [
+                { type: 'payload', payload: `task_edit_deadline_prompt::${taskId}` },
+            ],
+        },
+    ])
+}
+
+/**
+ * Stage 3a: Deadline approaching notification (To-Dos → owner)
+ * Template: todo_deadline_approaching
+ * Body {{1}} = task title
+ * Quick Reply button 0 payload = "task_mark_completed::{taskId}"
+ * Quick Reply button 1 payload = "todo_edit_deadline_prompt::{taskId}"
+ */
+export async function sendTodoDeadlineApproachingTemplate(
+    to: string,
+    taskTitle: string,
+    taskId: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppTemplate(to, 'todo_deadline_approaching', 'en', [
+        {
+            type: 'body',
+            parameters: [
+                { type: 'text', text: taskTitle },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '0',
+            parameters: [
+                { type: 'payload', payload: `task_mark_completed::${taskId}` },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '1',
+            parameters: [
+                { type: 'payload', payload: `todo_edit_deadline_prompt::${taskId}` },
+            ],
+        },
+    ])
+}
+
+/**
+ * Stage 3b: Deadline crossed notification to owner (Tasks)
  * Template: task_overdue_owner
  * Body {{1}} = task title, {{2}} = assignee name
  * Quick Reply button 1 payload = "task_mark_completed::{taskId}"
@@ -374,37 +452,6 @@ export async function sendTaskOverdueOwnerTemplate(
             index: '1',
             parameters: [
                 { type: 'payload', payload: `task_notify_assignee::${taskId}` },
-            ],
-        },
-    ])
-}
-
-/**
- * To-Do Stage 2: Mid-to-do reminder
- * Template: todo_reminder
- * Body {{1}} = task title, {{2}} = deadline
- * Quick Reply button payload = "task_mark_completed::{taskId}"
- */
-export async function sendTodoReminderTemplate(
-    to: string,
-    taskTitle: string,
-    deadline: string,
-    taskId: string
-): Promise<WhatsAppSendResult> {
-    return sendWhatsAppTemplate(to, 'todo_reminder', 'en', [
-        {
-            type: 'body',
-            parameters: [
-                { type: 'text', text: taskTitle },
-                { type: 'text', text: deadline },
-            ],
-        },
-        {
-            type: 'button',
-            sub_type: 'quick_reply',
-            index: '0',
-            parameters: [
-                { type: 'payload', payload: `task_mark_completed::${taskId}` },
             ],
         },
     ])

@@ -31,6 +31,7 @@ export type SessionType =
     | 'awaiting_todo_deadline'
     | 'awaiting_accept_deadline'
     | 'awaiting_reject_reason'
+    | 'awaiting_edit_deadline'
 
 export interface ConversationSession {
     id: string
@@ -202,6 +203,9 @@ export function buildIntentChangeAcknowledgment(session: ConversationSession): s
 
         case 'awaiting_reject_reason':
             return '↩️ *Task NOT Rejected*\n\nI was waiting for a rejection reason.\n\n⚠️ The task has *not* been rejected.\n\nYou can reject it from the dashboard.\n\n_Processing your new message now..._'
+
+        case 'awaiting_edit_deadline':
+            return '↩️ *Deadline NOT Changed*\n\nI was waiting for a new deadline date.\n\n⚠️ The deadline has *not* been updated.\n\nYou can edit it by tapping "Edit Deadline" again.\n\n_Processing your new message now..._'
 
         default:
             return '↩️ *Flow Interrupted*\n\nI was in the middle of something.\nI\'ll process your new message instead.'

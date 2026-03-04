@@ -94,8 +94,20 @@ export async function POST(request: NextRequest) {
                 assigneeId: assigned_to,
                 taskTitle: title,
                 taskId: data.id,
+                committedDeadline: deadline || null,
                 source: 'dashboard',
             }).catch(err => console.error('[TasksRoute] Notification error (task_create):', err));
+        } else if (isSelfAssigned && deadline) {
+            // For to-dos: schedule deadline approaching notification
+            await notifyTaskCreated(adminSupabase, {
+                ownerName: currentUser.name || currentUser.id,
+                ownerId: currentUser.id,
+                assigneeId: currentUser.id,
+                taskTitle: title,
+                taskId: data.id,
+                committedDeadline: deadline,
+                source: 'dashboard',
+            }).catch(err => console.error('[TasksRoute] Notification error (todo_create):', err));
         }
 
         if (isSubtask && parent_task_id) {

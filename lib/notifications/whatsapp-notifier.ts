@@ -27,6 +27,7 @@ import { sendWhatsAppMessage, sendTaskAssignmentTemplate } from '@/lib/whatsapp'
 import {
     scheduleAcceptanceFollowups,
     scheduleTaskReminders,
+    scheduleDeadlineApproaching,
     cancelPendingNotifications,
 } from './task-notification-scheduler'
 
@@ -436,10 +437,27 @@ export async function notifyTaskCreated(
         assigneeId: string
         taskTitle: string
         taskId: string
+        committedDeadline?: string | null
         source: 'whatsapp' | 'dashboard'
     },
 ): Promise<void> {
-    if (opts.ownerId === opts.assigneeId) return // Skip todos
+    const isTodo = opts.ownerId === opts.assigneeId
+
+    if (isTodo) {
+        // To-dos: only schedule deadline approaching (no acceptance followups)
+        if (opts.committedDeadline) {
+            scheduleDeadlineApproaching(
+                opts.taskId,
+                opts.assigneeId,
+                opts.ownerId,
+                new Date(opts.committedDeadline),
+                opts.taskTitle,
+                opts.ownerName,
+                supabase,
+            ).catch(err => console.error('[Notifier] Failed to schedule todo deadline approaching:', err))
+        }
+        return
+    }
 
     // Look up assignee name for richer messages
     const assignee = await lookupUser(supabase, opts.assigneeId)
@@ -486,19 +504,46 @@ export async function notifyTaskAccepted(
     cancelPendingNotifications(opts.taskId, 'acceptance', supabase)
         .catch(err => console.error('[Notifier] Failed to cancel acceptance followups:', err))
 
-    // Fire-and-forget: Schedule mid-task reminders (Stage 2) if there's a deadline
+    // Fire-and-forget: Schedule mid-task reminders (Stage 2) and deadline approaching (Stage 3a) if there's a deadline
     if (opts.committedDeadline) {
         const owner = await lookupUser(supabase, opts.ownerId)
+
+        // Fetch task creation date so reminders span from creation to deadline
+        let createdAt = new Date()
+        try {
+            const { data: taskData } = await supabase
+                .from('tasks')
+                .select('created_at')
+                .eq('id', opts.taskId)
+                .single()
+            if (taskData?.created_at) {
+                createdAt = new Date(taskData.created_at)
+            }
+        } catch {
+            // fallback to now
+        }
+
         scheduleTaskReminders(
             opts.taskId,
             opts.assigneeId,
             opts.ownerId,
-            new Date(), // accepted now
+            createdAt,
             new Date(opts.committedDeadline),
             opts.taskTitle,
             owner?.name || 'your manager',
             supabase,
         ).catch(err => console.error('[Notifier] Failed to schedule task reminders:', err))
+
+        // Schedule deadline approaching notification (30 min before)
+        scheduleDeadlineApproaching(
+            opts.taskId,
+            opts.assigneeId,
+            opts.ownerId,
+            new Date(opts.committedDeadline),
+            opts.taskTitle,
+            owner?.name || 'your manager',
+            supabase,
+        ).catch(err => console.error('[Notifier] Failed to schedule deadline approaching:', err))
     }
 
     return notifyTaskEvent(supabase, {

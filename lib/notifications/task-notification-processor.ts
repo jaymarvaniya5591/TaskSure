@@ -4,9 +4,11 @@
  *
  * Called by the cron job every 5 minutes. Handles:
  *   - Stage 1 (acceptance): Make call + send template to assignee, status to owner
- *   - Stage 2 (reminder): Send template with "on track" button, check for ack timeout
- *   - Stage 3 (escalation): Send overdue template to owner
+ *   - Stage 2 (reminder): Send "Going Well / Edit Deadline" template, check ack timeouts
+ *   - Stage 3a (deadline_approaching): Send deadline warning to assignee/owner
+ *   - Stage 3b (escalation): Send overdue template to owner
  *
+ * Also detects overdue tasks and approaching deadlines.
  * All operations are idempotent and never throw.
  */
 
@@ -14,13 +16,20 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import {
     sendWhatsAppMessage,
     sendTaskAssignmentTemplate,
-    sendTaskReminderTemplate,
+    sendTaskProgressCheckTemplate,
     sendTaskOverdueOwnerTemplate,
-    sendTodoReminderTemplate,
+    sendTaskDeadlineApproachingTemplate,
+    sendTodoDeadlineApproachingTemplate,
     sendTodoOverdueTemplate
 } from '@/lib/whatsapp'
 import { makeAutomatedCall, buildAcceptanceCallScript, buildReminderCallScript, getUserLanguage } from './calling-service'
-import { scheduleReminderCallEscalation, scheduleEscalations } from './task-notification-scheduler'
+import {
+    scheduleReminderCallEscalation,
+    scheduleOwnerNoReplyNotification,
+    scheduleEscalations,
+    scheduleDeadlineApproaching,
+    cancelPendingNotifications,
+} from './task-notification-scheduler'
 import { isWithinBusinessHours } from './business-hours'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,12 +42,13 @@ type SupabaseAdmin = any
 interface TaskNotification {
     id: string
     task_id: string
-    stage: 'acceptance' | 'reminder' | 'escalation'
+    stage: 'acceptance' | 'reminder' | 'escalation' | 'deadline_approaching'
     stage_number: number
     target_user_id: string
     target_role: 'assignee' | 'owner'
     channel: 'whatsapp' | 'call' | 'both'
     scheduled_at: string
+    sent_at?: string
     status: string
     metadata: Record<string, unknown>
 }
@@ -225,7 +235,7 @@ async function processAcceptanceFollowup(
 }
 
 // ---------------------------------------------------------------------------
-// Stage 2: Reminder Processing
+// Stage 2: Reminder Processing (Tasks only)
 // ---------------------------------------------------------------------------
 
 async function processTaskReminder(
@@ -236,7 +246,6 @@ async function processTaskReminder(
     const taskTitle = (meta.task_title as string) || 'a task'
     const ownerName = (meta.owner_name as string) || 'your manager'
     const deadline = (meta.deadline as string) || ''
-    const isTodo = meta.is_todo === true
 
     // Check task is still active (accepted status)
     const { data: task } = await supabase
@@ -274,16 +283,23 @@ async function processTaskReminder(
         return
     }
 
-    // Send reminder template
+    // Check if this is an owner no-reply notification
+    if (meta.is_owner_no_reply === true) {
+        const assigneeName = (meta.assignee_name as string) || 'the assignee'
+        const message = `⚠️ *No Response to Reminder*\n\n*Task:*\n"${taskTitle}"\n\n*Assignee:*\n${assigneeName}\n\nThe assignee didn't respond to the task progress check.\n\n_You may want to check in with them directly._`
+        try {
+            await sendWhatsAppMessage(phone, message)
+        } catch (err) {
+            console.error(`[Processor] Failed to send owner no-reply message:`, err)
+        }
+        await markNotificationSent(supabase, notif.id)
+        return
+    }
+
+    // Send progress check template with "Going Well" + "Edit Deadline" buttons
     const deadlineFormatted = deadline ? formatDate(deadline) : 'soon'
     try {
-        if (isTodo) {
-            // To-Dos get a distinct message-only template
-            await sendTodoReminderTemplate(phone, taskTitle, deadlineFormatted, notif.task_id)
-        } else {
-            // Delegated tasks get a "Yes, on track" button template paired with call escalation
-            await sendTaskReminderTemplate(phone, taskTitle, deadlineFormatted, ownerName, notif.task_id)
-        }
+        await sendTaskProgressCheckTemplate(phone, taskTitle, deadlineFormatted, ownerName, notif.task_id)
         await markNotificationSent(supabase, notif.id)
     } catch (err) {
         const errMsg = err instanceof Error ? err.message : 'Unknown error'
@@ -296,19 +312,24 @@ async function processTaskReminder(
 // ---------------------------------------------------------------------------
 
 /**
- * Check for sent Stage 2 reminders where the "Yes, on track" button
- * was NOT clicked within 1 hour. Schedule a call escalation for those.
+ * Check for sent Stage 2 reminders where neither "Going Well" nor "Edit Deadline"
+ * was clicked.
+ *
+ * At 1hr: schedule call to assignee
+ * At 2hr: schedule owner notification
  */
 async function checkReminderAcknowledgmentTimeouts(supabase: SupabaseAdmin): Promise<number> {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
 
     // Find sent WhatsApp reminders that were sent >1hr ago and don't have
     // a corresponding call escalation already scheduled
     const { data: unackedReminders, error } = await supabase
         .from('task_notifications')
-        .select('id, task_id, target_user_id, stage_number, metadata')
+        .select('id, task_id, target_user_id, stage_number, metadata, sent_at')
         .eq('stage', 'reminder')
         .eq('channel', 'whatsapp')
+        .eq('target_role', 'assignee')
         .eq('status', 'sent')
         .lt('sent_at', oneHourAgo)
 
@@ -320,8 +341,8 @@ async function checkReminderAcknowledgmentTimeouts(supabase: SupabaseAdmin): Pro
         // Check if acknowledgment was received (metadata.acknowledged = true)
         if (reminder.metadata?.acknowledged) continue
 
-        // Skip to-dos: they explicitly do NOT get call escalations
-        if (reminder.metadata?.is_todo === true) continue
+        // Skip owner no-reply notifications and call escalations
+        if (reminder.metadata?.is_owner_no_reply === true) continue
 
         // Check task is still active
         const { data: task } = await supabase
@@ -332,8 +353,12 @@ async function checkReminderAcknowledgmentTimeouts(supabase: SupabaseAdmin): Pro
 
         if (!task || !['accepted'].includes(task.status)) continue
 
+        const meta = reminder.metadata || {}
+        const sentAt = reminder.sent_at ? new Date(reminder.sent_at).getTime() : 0
+
+        // --- 1-hour mark: Schedule call escalation ---
         // Check if a call escalation already exists for this reminder
-        const { data: existing } = await supabase
+        const { data: existingCall } = await supabase
             .from('task_notifications')
             .select('id')
             .eq('task_id', reminder.task_id)
@@ -342,26 +367,106 @@ async function checkReminderAcknowledgmentTimeouts(supabase: SupabaseAdmin): Pro
             .eq('channel', 'call')
             .limit(1)
 
-        if (existing && existing.length > 0) continue
+        if (!existingCall || existingCall.length === 0) {
+            await scheduleReminderCallEscalation(
+                reminder.task_id,
+                reminder.target_user_id,
+                reminder.stage_number,
+                (meta.task_title as string) || 'a task',
+                (meta.owner_name as string) || 'your manager',
+                supabase,
+            )
+            escalatedCount++
+        }
 
-        // Schedule call escalation
-        const meta = reminder.metadata || {}
-        await scheduleReminderCallEscalation(
-            reminder.task_id,
-            reminder.target_user_id,
-            reminder.stage_number,
-            (meta.task_title as string) || 'a task',
-            (meta.owner_name as string) || 'your manager',
-            supabase,
-        )
-        escalatedCount++
+        // --- 2-hour mark: Schedule owner notification ---
+        if (sentAt > 0 && sentAt < new Date(twoHoursAgo).getTime()) {
+            // Check if owner no-reply notification already exists
+            const { data: existingOwnerNotify } = await supabase
+                .from('task_notifications')
+                .select('id')
+                .eq('task_id', reminder.task_id)
+                .eq('stage', 'reminder')
+                .eq('stage_number', reminder.stage_number)
+                .eq('target_role', 'owner')
+                .limit(1)
+
+            if (!existingOwnerNotify || existingOwnerNotify.length === 0) {
+                const ownerId = meta.owner_id as string
+                if (ownerId) {
+                    // Look up assignee name for the owner message
+                    const assignee = await lookupUser(supabase, reminder.target_user_id)
+                    await scheduleOwnerNoReplyNotification(
+                        reminder.task_id,
+                        ownerId,
+                        reminder.stage_number,
+                        (meta.task_title as string) || 'a task',
+                        assignee?.name || 'the assignee',
+                        supabase,
+                    )
+                    escalatedCount++
+                }
+            }
+        }
     }
 
     return escalatedCount
 }
 
 // ---------------------------------------------------------------------------
-// Stage 3: Escalation Processing
+// Stage 3a: Deadline Approaching Processing
+// ---------------------------------------------------------------------------
+
+async function processDeadlineApproaching(
+    supabase: SupabaseAdmin,
+    notif: TaskNotification,
+): Promise<void> {
+    const meta = notif.metadata || {}
+    const taskTitle = (meta.task_title as string) || 'a task'
+    const deadline = (meta.deadline as string) || ''
+    const isTodo = meta.is_todo === true
+
+    // Check task is still active
+    const { data: task } = await supabase
+        .from('tasks')
+        .select('status')
+        .eq('id', notif.task_id)
+        .single()
+
+    if (!task || ['completed', 'cancelled'].includes(task.status)) {
+        console.log(`[Processor] Task ${notif.task_id} is ${task?.status}, skipping deadline approaching`)
+        await markNotificationSent(supabase, notif.id)
+        return
+    }
+
+    const targetUser = await lookupUser(supabase, notif.target_user_id)
+    if (!targetUser?.phone_number) {
+        await markNotificationFailed(supabase, notif.id, 'Target user has no phone number')
+        return
+    }
+
+    const phone = toIntlPhone(targetUser.phone_number)
+
+    // Look up owner name for task deadline approaching template
+    const ownerName = (meta.owner_name as string) || 'your manager'
+
+    try {
+        if (isTodo) {
+            // To-do: owner gets "Mark Completed" + "Edit Deadline" (only taskTitle)
+            await sendTodoDeadlineApproachingTemplate(phone, taskTitle, notif.task_id)
+        } else {
+            // Task: assignee gets "Edit Deadline" (taskTitle + ownerName)
+            await sendTaskDeadlineApproachingTemplate(phone, taskTitle, ownerName, notif.task_id)
+        }
+        await markNotificationSent(supabase, notif.id)
+    } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error'
+        await markNotificationFailed(supabase, notif.id, errMsg)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Stage 3b: Escalation Processing
 // ---------------------------------------------------------------------------
 
 async function processEscalation(
@@ -445,7 +550,6 @@ async function detectOverdueTasks(supabase: SupabaseAdmin): Promise<number> {
                 .limit(1)
 
             if (existingEsc && existingEsc.length > 0) {
-                // Escalations already exist, skip
                 continue
             }
 
@@ -463,9 +567,9 @@ async function detectOverdueTasks(supabase: SupabaseAdmin): Promise<number> {
                 supabase,
             )
 
-            // Cancel any remaining reminder notifications
-            const { cancelPendingNotifications } = await import('./task-notification-scheduler')
+            // Cancel any remaining reminder/deadline_approaching notifications
             await cancelPendingNotifications(task.id, 'reminder', supabase)
+            await cancelPendingNotifications(task.id, 'deadline_approaching', supabase)
 
             count++
         } catch (err) {
@@ -524,6 +628,9 @@ export async function processTaskNotifications(
                         case 'reminder':
                             await processTaskReminder(sb, notif)
                             break
+                        case 'deadline_approaching':
+                            await processDeadlineApproaching(sb, notif)
+                            break
                         case 'escalation':
                             await processEscalation(sb, notif)
                             break
@@ -546,7 +653,7 @@ export async function processTaskNotifications(
         // 2. Detect overdue tasks and schedule escalations
         stats.overdue = await detectOverdueTasks(sb)
 
-        // 3. Check for unacknowledged reminders (Stage 2 → call escalation)
+        // 3. Check for unacknowledged reminders (Stage 2 → call + owner notification)
         stats.reminderEscalations = await checkReminderAcknowledgmentTimeouts(sb)
 
     } catch (err) {

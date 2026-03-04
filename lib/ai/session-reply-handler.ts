@@ -80,6 +80,9 @@ export async function handleSessionReply(
         case 'awaiting_reject_reason':
             return handleAwaitingRejectReason(supabase, session, userText, sender, messageId)
 
+        case 'awaiting_edit_deadline':
+            return handleAwaitingEditDeadline(supabase, session, userText, sender, messageId)
+
         default:
             console.warn(`[SessionReply] Unknown session type: ${session.session_type}`)
             return { handled: false, fallThrough: true }
@@ -429,6 +432,151 @@ async function handleAwaitingAcceptDeadline(
     }).catch((err: unknown) => console.error('[SessionReply] Notification error (task_accept):', err))
 
     return { handled: true, intent: 'task_accept' }
+}
+
+/**
+ * awaiting_edit_deadline — user tapped "Edit Deadline", bot needs a new date.
+ * Mirrors handleAwaitingAcceptDeadline:
+ *   1. ​isDeadlineResponse guard
+ *   2. parseDateFromText
+ *   3. Update committed_deadline
+ *   4. Resolve session + reply + acknowledge reminder
+ */
+async function handleAwaitingEditDeadline(
+    supabase: SupabaseAdmin,
+    session: ConversationSession,
+    userText: string,
+    sender: SenderUser,
+    messageId: string,
+): Promise<SessionResult> {
+    const ctx = session.context_data
+    const taskId = ctx.task_id
+
+    if (!taskId) {
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
+    // Check if the message is a date response or a new intent
+    const looksLikeDeadline = await isDeadlineResponse(userText)
+    if (!looksLikeDeadline) {
+        // Not a date — resolve session and fall through
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
+    // Try to parse a date
+    const deadline = await parseDateFromText(userText)
+
+    if (!deadline) {
+        // Couldn't parse — resolve session and fall through
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
+    // Date parsed — update the task deadline
+    const { data: task, error: fetchError } = await supabase
+        .from('tasks')
+        .select('id, title, assigned_to, created_by, status, committed_deadline')
+        .eq('id', taskId)
+        .single()
+
+    if (fetchError || !task) {
+        await resolveSession(session.id, supabase)
+        await sendReply(session.phone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n\n_It may have been deleted._')
+        await markProcessed(supabase, messageId, 'edit_deadline', 'Task not found')
+        return { handled: true, intent: 'edit_deadline' }
+    }
+
+    if (['completed', 'cancelled'].includes(task.status)) {
+        await resolveSession(session.id, supabase)
+        await sendReply(session.phone, 'ℹ️ *Cannot Edit*\n\nThis task is already completed or cancelled.')
+        await markProcessed(supabase, messageId, 'edit_deadline', `Task status is ${task.status}`)
+        return { handled: true, intent: 'edit_deadline' }
+    }
+
+    // Update the deadline
+    const { error } = await supabase
+        .from('tasks')
+        .update({
+            committed_deadline: deadline,
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', taskId)
+
+    if (error) {
+        await resolveSession(session.id, supabase)
+        await sendReply(session.phone, '❌ *Error*\n\nSomething went wrong while updating the deadline.\n\nPlease try again.')
+        await markProcessed(supabase, messageId, 'edit_deadline', `Deadline update failed: ${error.message}`)
+        return { handled: true, intent: 'edit_deadline' }
+    }
+
+    await resolveSession(session.id, supabase)
+
+    const d = new Date(deadline)
+    const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+    const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
+    await sendReply(session.phone,
+        `✅ *Deadline Updated!* 📅\n\n*Task:*\n"${task.title}"\n\n*New Deadline:*\n${dateStr} at ${timeStr}`)
+
+    await markProcessed(supabase, messageId, 'edit_deadline', null)
+
+    // Mark the latest reminder as acknowledged (if applicable)
+    try {
+        const { data: reminderNotifs } = await supabase
+            .from('task_notifications')
+            .select('id, metadata')
+            .eq('task_id', taskId)
+            .in('stage', ['reminder', 'deadline_approaching'])
+            .eq('channel', 'whatsapp')
+            .eq('status', 'sent')
+            .order('sent_at', { ascending: false })
+            .limit(1)
+
+        if (reminderNotifs && reminderNotifs.length > 0) {
+            const notif = reminderNotifs[0]
+            const updatedMetadata = { ...(notif.metadata || {}), acknowledged: true, acknowledged_at: new Date().toISOString() }
+            await supabase
+                .from('task_notifications')
+                .update({ metadata: updatedMetadata, updated_at: new Date().toISOString() })
+                .eq('id', notif.id)
+        }
+
+        // Cancel any pending call escalation for this task's reminders
+        await supabase
+            .from('task_notifications')
+            .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .eq('task_id', taskId)
+            .eq('stage', 'reminder')
+            .eq('channel', 'call')
+            .eq('status', 'pending')
+    } catch (err) {
+        console.error('[SessionReply] Error acknowledging reminder after deadline edit:', err)
+    }
+
+    // Notify owner about deadline change (if the editor is the assignee, not the owner)
+    if (task.assigned_to === sender.id && task.created_by !== sender.id) {
+        try {
+            const owner = await supabase
+                .from('users')
+                .select('phone_number, name')
+                .eq('id', task.created_by)
+                .single()
+
+            if (owner?.data?.phone_number) {
+                const ownerPhone = owner.data.phone_number.startsWith('91') ? owner.data.phone_number : `91${owner.data.phone_number}`
+                const { sendWhatsAppMessage: sendMsg } = await import('@/lib/whatsapp')
+                await sendMsg(
+                    ownerPhone,
+                    `📅 *Deadline Updated*\n\n*Task:*\n"${task.title}"\n\n*Updated by:*\n${sender.name}\n\n*New Deadline:*\n${dateStr} at ${timeStr}`
+                )
+            }
+        } catch (err) {
+            console.error('[SessionReply] Error notifying owner about deadline change:', err)
+        }
+    }
+
+    return { handled: true, intent: 'edit_deadline' }
 }
 
 /**
