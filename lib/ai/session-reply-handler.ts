@@ -294,7 +294,7 @@ async function handleAwaitingTodoDeadline(
         normalizedDeadline = `${normalizedDeadline}T20:00:00+05:30`
     }
 
-    const { error: todoError } = await supabase
+    const { data: createdTodo, error: todoError } = await supabase
         .from('tasks')
         .insert({
             title: ctx.what,
@@ -307,6 +307,8 @@ async function handleAwaitingTodoDeadline(
             status: 'accepted',
             source: 'whatsapp',
         })
+        .select('id')
+        .single()
 
     if (todoError) {
         console.error('[SessionReply] Todo insert failed:', todoError.message)
@@ -322,6 +324,19 @@ async function handleAwaitingTodoDeadline(
         `✅ *To-Do Created!*\n\n*To-do:*\n"${ctx.what}"\n\n*Deadline:*\n${dateStr} at ${timeStr}`)
 
     await markProcessed(supabase, messageId, 'todo_create', null)
+
+    if (createdTodo) {
+        await notifyTaskCreated(supabase, {
+            ownerName: sender.name,
+            ownerId: sender.id,
+            assigneeId: sender.id,
+            taskTitle: ctx.what || 'Untitled to-do',
+            taskId: createdTodo.id,
+            committedDeadline: normalizedDeadline,
+            source: 'whatsapp',
+        }).catch(err => console.error('[SessionReply] Notification error (todo_create):', err))
+    }
+
     return { handled: true, intent: 'todo_create' }
 }
 

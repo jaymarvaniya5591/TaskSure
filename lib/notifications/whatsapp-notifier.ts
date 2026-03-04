@@ -446,7 +446,7 @@ export async function notifyTaskCreated(
     if (isTodo) {
         // To-dos: only schedule deadline approaching (no acceptance followups)
         if (opts.committedDeadline) {
-            scheduleDeadlineApproaching(
+            await scheduleDeadlineApproaching(
                 opts.taskId,
                 opts.assigneeId,
                 opts.ownerId,
@@ -463,7 +463,7 @@ export async function notifyTaskCreated(
     const assignee = await lookupUser(supabase, opts.assigneeId)
 
     // Fire-and-forget: Schedule acceptance followup notifications (Stage 1)
-    scheduleAcceptanceFollowups(
+    await scheduleAcceptanceFollowups(
         opts.taskId,
         opts.assigneeId,
         opts.ownerId,
@@ -501,7 +501,7 @@ export async function notifyTaskAccepted(
     if (opts.ownerId === opts.assigneeId) return
 
     // Fire-and-forget: Cancel acceptance followups (Stage 1) now that task is accepted
-    cancelPendingNotifications(opts.taskId, 'acceptance', supabase)
+    await cancelPendingNotifications(opts.taskId, 'acceptance', supabase)
         .catch(err => console.error('[Notifier] Failed to cancel acceptance followups:', err))
 
     // Fire-and-forget: Schedule mid-task reminders (Stage 2) and deadline approaching (Stage 3a) if there's a deadline
@@ -523,7 +523,7 @@ export async function notifyTaskAccepted(
             // fallback to now
         }
 
-        scheduleTaskReminders(
+        await scheduleTaskReminders(
             opts.taskId,
             opts.assigneeId,
             opts.ownerId,
@@ -535,7 +535,7 @@ export async function notifyTaskAccepted(
         ).catch(err => console.error('[Notifier] Failed to schedule task reminders:', err))
 
         // Schedule deadline approaching notification (30 min before)
-        scheduleDeadlineApproaching(
+        await scheduleDeadlineApproaching(
             opts.taskId,
             opts.assigneeId,
             opts.ownerId,
@@ -575,7 +575,7 @@ export async function notifyTaskRejected(
     if (opts.ownerId === opts.assigneeId) return
 
     // Fire-and-forget: Cancel all pending notifications for this task
-    cancelPendingNotifications(opts.taskId, undefined, supabase)
+    await cancelPendingNotifications(opts.taskId, undefined, supabase)
         .catch(err => console.error('[Notifier] Failed to cancel notifications on reject:', err))
 
     return notifyTaskEvent(supabase, {
@@ -605,7 +605,7 @@ export async function notifyTaskCompleted(
 ): Promise<void> {
 
     // Fire-and-forget: Cancel all pending notifications for this task
-    cancelPendingNotifications(opts.taskId, undefined, supabase)
+    await cancelPendingNotifications(opts.taskId, undefined, supabase)
         .catch(err => console.error('[Notifier] Failed to cancel notifications on complete:', err))
 
     // Look up assignee name for richer messages
@@ -699,7 +699,7 @@ export async function notifyTaskCancelled(
 ): Promise<void> {
 
     // Fire-and-forget: Cancel all pending notifications for this task
-    cancelPendingNotifications(opts.taskId, undefined, supabase)
+    await cancelPendingNotifications(opts.taskId, undefined, supabase)
         .catch(err => console.error('[Notifier] Failed to cancel notifications on cancel:', err))
 
     // Look up assignee name
