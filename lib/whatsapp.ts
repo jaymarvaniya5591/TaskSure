@@ -268,9 +268,8 @@ export async function sendJoinRequestApprovedTemplate(
 
 /**
  * Scenario 5: Owner assigns task to employee (Quick Reply buttons)
- * Template: task_assignment
- * Header text (with 1 variable): {{1}} = owner name
- * Body text (with 1 variable): {{1}} = task title
+ * Template: task_acceptance_v2
+ * Body text: {{1}} = task title, {{2}} = owner name
  * Quick Reply button 1 payload = "task_accept_prompt::{taskId}"
  * Quick Reply button 2 payload = "task_reject_prompt::{taskId}"
  */
@@ -280,17 +279,12 @@ export async function sendTaskAssignmentTemplate(
     taskTitle: string,
     taskId: string
 ): Promise<WhatsAppSendResult> {
-    return sendWhatsAppTemplate(to, 'task_acceptance', 'en', [
-        {
-            type: 'header',
-            parameters: [
-                { type: 'text', text: ownerName },
-            ]
-        },
+    return sendWhatsAppTemplate(to, 'task_acceptance_v2', 'en', [
         {
             type: 'body',
             parameters: [
                 { type: 'text', text: taskTitle },
+                { type: 'text', text: ownerName },
             ],
         },
         {
