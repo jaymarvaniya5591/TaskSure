@@ -103,6 +103,9 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
 }
 
+// Pin middleware to Singapore (same region as Supabase ap-southeast-1)
+export const preferredRegion = 'sin1'
+
 export const config = {
     matcher: [
         /*
