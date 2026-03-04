@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+// Removed unused NextResponse import
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
