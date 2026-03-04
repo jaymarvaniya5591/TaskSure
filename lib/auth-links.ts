@@ -8,8 +8,6 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizePhone } from '@/lib/phone'
-import crypto from 'crypto'
-
 // ─── Configuration ──────────────────────────────────────────────────────────
 
 const TOKEN_EXPIRY_MINUTES = 15
@@ -17,7 +15,10 @@ const TOKEN_EXPIRY_MINUTES = 15
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function generateSecureToken(): string {
-    return crypto.randomUUID() + '-' + crypto.randomBytes(16).toString('hex')
+    const array = new Uint8Array(16)
+    crypto.getRandomValues(array)
+    const hex = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('')
+    return crypto.randomUUID() + '-' + hex
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
