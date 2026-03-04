@@ -3,13 +3,13 @@ export function getDefaultDeadlineString(): string {
     const dd = String(now.getDate()).padStart(2, '0');
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const yy = String(now.getFullYear()).slice(-2);
-    // User requested default: today's date, 11:59 pm
-    return `${dd}-${mm}-${yy} 11:59 PM`;
+    // User requested default: today's date, 08:00 pm
+    return `${dd}-${mm}-${yy} 08:00 PM`;
 }
 
 export function getTodayMidnightISO(): string {
     const d = new Date();
-    d.setHours(23, 59, 0, 0);
+    d.setHours(20, 0, 0, 0);
     return d.toISOString();
 }
 
@@ -45,7 +45,7 @@ export function parseCustomDateToISO(dateStr: string): string | null {
     const match = trimmed.match(regex);
 
     if (!match) {
-        throw new Error("Please use format: DD-MM-YY HH:MM AM/PM (e.g. 21-02-26 11:59 PM)");
+        throw new Error("Please use format: DD-MM-YY HH:MM AM/PM (e.g. 21-02-26 08:00 PM)");
     }
 
     const [, d, m, y, h, min, ampm] = match;

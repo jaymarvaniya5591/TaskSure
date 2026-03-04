@@ -537,9 +537,9 @@ async function handleTodoCreate(
         return
     }
 
-    // ── Default time to 11:59 PM IST if only date/day is given (no time component) ──
+    // ── Default time to 08:00 PM IST if only date/day is given (no time component) ──
     if (deadline && !deadline.includes('T')) {
-        deadline = `${deadline}T23:59:00+05:30`
+        deadline = `${deadline}T20:00:00+05:30`
     }
 
     // ── Create the to-do ──

@@ -288,7 +288,7 @@ async function handleAwaitingTodoDeadline(
 
     let normalizedDeadline = deadline
     if (!normalizedDeadline.includes('T')) {
-        normalizedDeadline = `${normalizedDeadline}T23:59:00+05:30`
+        normalizedDeadline = `${normalizedDeadline}T20:00:00+05:30`
     }
 
     const { error: todoError } = await supabase
@@ -750,10 +750,10 @@ async function parseDateFromText(text: string): Promise<string | null> {
 
         const prompt = `You are a date parser. Today is ${dayName}, ${iso} (IST).
 Convert the user's text into an ISO 8601 datetime string in IST timezone (+05:30).
-If only a date/day is given (no time), default to 23:59:00+05:30 (11:59 PM IST, i.e. end of that day).
+If only a date/day is given (no time), default to 20:00:00+05:30 (08:00 PM IST, i.e. end of that day).
 If only a time is given (no date), assume today if the time hasn't passed, otherwise tomorrow.
 "kal" = tomorrow, "parso" = day after tomorrow, "aaj" = today.
-"by Friday" = next Friday at 23:59:00+05:30.
+"by Friday" = next Friday at 20:00:00+05:30.
 
 Return ONLY a JSON object: { "date": "ISO 8601 string or null" }`
 
