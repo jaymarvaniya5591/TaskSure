@@ -195,39 +195,48 @@ export default function TesterLoginPage() {
                         </div>
 
                         {/* Registration fields — shown when phone not found */}
-                        {showRegister && (
-                            <div className="animate-fade-in-up space-y-4 p-5 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/50">
-                                <p className="text-sm font-bold text-amber-700">
-                                    📋 This number isn&apos;t registered. Fill in the details below:
-                                </p>
+                        {/* CLS fix: use grid with row transition instead of conditional mount */}
+                        <div
+                            className="grid transition-all duration-300 ease-out"
+                            style={{ gridTemplateRows: showRegister ? '1fr' : '0fr' }}
+                        >
+                            <div className="overflow-hidden">
+                                <div className="space-y-4 p-5 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/50">
+                                    <p className="text-sm font-bold text-amber-700">
+                                        📋 This number isn&apos;t registered. Fill in the details below:
+                                    </p>
 
-                                <Input
-                                    name="tester-name"
-                                    placeholder="Full Name"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    disabled={loading}
-                                />
+                                    <Input
+                                        name="tester-name"
+                                        placeholder="Full Name"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        disabled={loading}
+                                    />
 
-                                <Input
-                                    name="tester-company"
-                                    placeholder="Company Name"
-                                    value={companyName}
-                                    onChange={(e) => setCompanyName(e.target.value)}
-                                    disabled={loading}
-                                />
+                                    <Input
+                                        name="tester-company"
+                                        placeholder="Company Name"
+                                        value={companyName}
+                                        onChange={(e) => setCompanyName(e.target.value)}
+                                        disabled={loading}
+                                    />
 
-                                <Input
-                                    name="tester-manager"
-                                    placeholder="Reporting Manager ID (optional)"
-                                    value={reportingManagerId}
-                                    onChange={(e) => setReportingManagerId(e.target.value)}
-                                    disabled={loading}
-                                />
+                                    <Input
+                                        name="tester-manager"
+                                        placeholder="Reporting Manager ID (optional)"
+                                        value={reportingManagerId}
+                                        onChange={(e) => setReportingManagerId(e.target.value)}
+                                        disabled={loading}
+                                    />
+                                </div>
                             </div>
-                        )}
+                        </div>
 
-                        {error && <p className="text-sm font-medium text-red-500">{error}</p>}
+                        {/* CLS fix: reserve space for error message to prevent layout shift */}
+                        <p className={`text-sm font-medium text-red-500 min-h-[1.25rem] transition-opacity duration-200 ${error ? 'opacity-100' : 'opacity-0'}`}>
+                            {error || '\u00A0'}
+                        </p>
 
                         <Button
                             type="submit"

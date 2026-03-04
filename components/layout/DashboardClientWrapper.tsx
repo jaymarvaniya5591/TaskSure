@@ -2,90 +2,84 @@
 
 import { useCallback, useMemo, useEffect, useRef } from "react";
 import { useDashboardData } from "@/lib/hooks/useDashboardData";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { UserProvider } from "@/lib/user-context";
 import { SidebarProvider } from "@/components/layout/SidebarProvider";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { getUsersAtOrBelowRank } from "@/lib/hierarchy";
 import { useQueryClient } from "@tanstack/react-query";
-import { type Task } from "@/lib/types";
-import { seedTimelineCache, type SeqNode } from "@/lib/timeline-utils";
 import { debugLog, debugTestSupabaseConnectivity } from "@/lib/debug-logger";
+import { DashboardShellSkeleton } from "@/components/ui/DashboardSkeleton";
 
-interface DashboardInitialData {
-    tasks: Task[];
-    orgUsers: Array<{
-        id: string;
-        name: string;
-        phone_number: string;
-        role: string;
-        reporting_manager_id: string | null;
-        avatar_url: string | null;
-    }>;
-    allOrgTasks: Task[];
-    timelines?: [string, SeqNode][];
-}
-
+/**
+ * DashboardClientWrapper — The client-side shell for all dashboard pages.
+ *
+ * PERFORMANCE (v3 — Static Shell + CSR):
+ * This component now owns auth resolution AND data fetching entirely
+ * on the client side. The server layout is a static shell that renders
+ * instantly from CDN, and this component hydrates with:
+ *   1. useAuth() — reads session from cookie (no network call)
+ *   2. useDashboardData() — fetches tasks/org data via Supabase client
+ *
+ * This eliminates TTFB as a bottleneck (~50ms instead of ~7s).
+ */
 export function DashboardClientWrapper({
     children,
-    userId,
-    userName,
-    orgId,
-    userPhoneNumber,
-    reportingManagerId,
-    initialData,
 }: {
     children: React.ReactNode;
-    userId: string;
-    userName: string;
-    orgId: string;
-    userPhoneNumber: string;
-    reportingManagerId: string | null;
-    initialData?: DashboardInitialData;
 }) {
-    // Use React Query with server-prefetched initialData.
-    // On first render, data is available immediately (no loading state).
-    // React Query will NOT refetch because staleTime is Infinity.
-    const { data, isLoading, isError } = useDashboardData(userId, orgId, initialData);
+    const { user: authUser, isLoading: authLoading } = useAuth();
     const queryClient = useQueryClient();
+
+    // Only start data fetching once auth is resolved
+    const userId = authUser?.userId ?? "";
+    const orgId = authUser?.orgId ?? "";
+
+    const { data, isLoading: dataLoading, isError } = useDashboardData(
+        userId,
+        orgId,
+        // No server-prefetched initialData in CSR mode
+    );
+
+    const isLoading = authLoading || dataLoading;
 
     const refreshData = useCallback(async () => {
         debugLog("REFRESH_DATA_START", "invalidating dashboard query");
-        // Await only the main dashboard data refresh
         await queryClient.invalidateQueries({ queryKey: ["dashboard", userId, orgId] });
         debugLog("REFRESH_DATA_DASHBOARD_DONE", "dashboard query refreshed");
-        // Fire-and-forget: timeline caches refresh lazily in the background
-        // so they don't block the refresh button from completing
         queryClient.invalidateQueries({ queryKey: ["task-sequential-timeline"] });
         debugLog("REFRESH_DATA_TIMELINES_FIRED", "timeline invalidation dispatched (fire-and-forget)");
     }, [queryClient, userId, orgId]);
 
-    // Seed per-task timeline caches ONCE from server-prefetched data
-    const hasSeededRef = useRef(false);
+    // TEMP DEBUG: Test Supabase connectivity from this device on mount
+    const hasLoggedRef = useRef(false);
     useEffect(() => {
-        if (!hasSeededRef.current && initialData?.timelines) {
-            const timelineMap = new Map<string, SeqNode>(initialData.timelines);
-            seedTimelineCache(queryClient, timelineMap);
-            hasSeededRef.current = true;
+        if (!hasLoggedRef.current && userId) {
+            debugLog("DASHBOARD_MOUNT", `userId=${userId} orgId=${orgId}`);
+            debugTestSupabaseConnectivity();
+            hasLoggedRef.current = true;
         }
-        // TEMP DEBUG: Test Supabase connectivity from this device on mount
-        debugLog("DASHBOARD_MOUNT", `userId=${userId} orgId=${orgId}`);
-        debugTestSupabaseConnectivity();
-    }, [initialData?.timelines, queryClient, userId, orgId]);
+    }, [userId, orgId]);
 
     const userContextValue = useMemo(() => ({
         userId,
-        userName,
+        userName: authUser?.userName ?? "User",
         orgId,
-        userPhoneNumber,
-        reportingManagerId,
+        userPhoneNumber: authUser?.userPhoneNumber ?? "",
+        reportingManagerId: authUser?.reportingManagerId ?? null,
         orgUsers: data ? getUsersAtOrBelowRank(data.orgUsers, userId) : [],
         allOrgUsers: data ? data.orgUsers : [],
         tasks: data ? data.tasks : [],
         allOrgTasks: data ? data.allOrgTasks : [],
         isLoading,
         refreshData,
-    }), [userId, userName, orgId, userPhoneNumber, reportingManagerId, data, isLoading, refreshData]);
+    }), [userId, authUser, orgId, data, isLoading, refreshData]);
+
+    // Show skeleton while auth is resolving or data is loading for the first time
+    if (authLoading || (!data && dataLoading)) {
+        return <DashboardShellSkeleton />;
+    }
 
     return (
         <SidebarProvider>

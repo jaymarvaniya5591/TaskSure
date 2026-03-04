@@ -170,7 +170,7 @@ export function DashboardHomeSkeleton() {
 
 export function AllTasksSkeleton() {
     return (
-        <div className="max-w-3xl animate-fade-in-up">
+        <div className="max-w-3xl animate-fade-in-up min-h-[calc(100vh-12rem)]">
             <div className="mb-6">
                 <Shimmer className="h-8 w-40 mb-4" />
                 <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
