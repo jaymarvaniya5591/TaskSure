@@ -76,8 +76,8 @@ Extract the COMPLETE actionable including all details. Never truncate conditiona
 Extract any time references:
 - Convert relative dates to ISO 8601 (IST timezone, +05:30).
 - "kal" = tomorrow, "parso" = day after tomorrow, "aaj" = today.
-- "by Friday" → next Friday at 18:00:00+05:30.
-- If only a date/day is mentioned (no time), default to 06:00:00+05:30 (6 AM IST).
+- "by Friday" → next Friday at 20:00:00+05:30.
+- If only a date/day is mentioned (no time), default to 20:00:00+05:30 (8 PM IST).
 - If only a time is mentioned (no date), assume today if the time hasn't passed, otherwise tomorrow.
 - If multiple dates appear, use the MOST RELEVANT one as the deadline (usually the last date mentioned as a deadline).
 - Set "raw" to the original time reference from the user's text.

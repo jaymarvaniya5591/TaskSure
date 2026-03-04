@@ -27,7 +27,6 @@ import {
     scheduleReminderCallEscalation,
     scheduleOwnerNoReplyNotification,
     scheduleEscalations,
-    scheduleDeadlineApproaching,
     cancelPendingNotifications,
 } from './task-notification-scheduler'
 import { isWithinBusinessHours } from './business-hours'
@@ -423,7 +422,6 @@ async function processDeadlineApproaching(
 ): Promise<void> {
     const meta = notif.metadata || {}
     const taskTitle = (meta.task_title as string) || 'a task'
-    const deadline = (meta.deadline as string) || ''
     const isTodo = meta.is_todo === true
 
     // Check task is still active

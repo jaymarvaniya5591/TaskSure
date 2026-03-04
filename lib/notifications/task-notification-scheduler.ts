@@ -141,8 +141,6 @@ function computeReminderDays(createdAt: Date, deadline: Date): Date[] {
     const eligibleDays: Date[] = []
     const oneDayMs = 24 * 60 * 60 * 1000
 
-    // Start from the day AFTER creation
-    const startDate = new Date(createdAt.getTime())
     // Set to start of the next IST day
     const createdDayStart = new Date(Date.UTC(createdIST.year, createdIST.month, createdIST.day) - (5.5 * 60 * 60 * 1000))
     let currentDay = new Date(createdDayStart.getTime() + oneDayMs)
