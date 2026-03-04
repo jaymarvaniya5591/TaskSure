@@ -1,5 +1,5 @@
 /**
- * Gemini 2.5 Flash API helper.
+ * Gemini 3.1 Flash Lite Preview API helper.
  * Calls Google's Generative Language REST API via fetch — no SDK required.
  * Server-side only — never import on the client.
  *
@@ -8,7 +8,7 @@
  * - Retry logic for transient failures (429, 500, 502, 503)
  */
 
-const GEMINI_MODEL = 'gemini-2.5-flash'
+const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview'
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 const MAX_RETRIES = 2
