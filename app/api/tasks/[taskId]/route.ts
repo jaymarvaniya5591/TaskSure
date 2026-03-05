@@ -74,6 +74,11 @@ export async function PATCH(
                 return NextResponse.json({ error: "Committed deadline is required when accepting" }, { status: 400 });
             }
 
+            // Reject past deadlines
+            if (new Date(committed_deadline).getTime() < Date.now()) {
+                return NextResponse.json({ error: "Deadline cannot be in the past" }, { status: 400 });
+            }
+
             // Run update, audit log, and notification in parallel
             const adminDb = createAdminClient();
             const [updateResult] = await Promise.allSettled([
@@ -235,6 +240,11 @@ export async function PATCH(
             const { new_deadline } = body;
             if (!new_deadline) {
                 return NextResponse.json({ error: "new_deadline is required" }, { status: 400 });
+            }
+
+            // Reject past deadlines
+            if (new Date(new_deadline).getTime() < Date.now()) {
+                return NextResponse.json({ error: "Deadline cannot be in the past" }, { status: 400 });
             }
 
             const updateData: Record<string, string> = {

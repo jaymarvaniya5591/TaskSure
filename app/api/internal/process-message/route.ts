@@ -551,6 +551,22 @@ async function handleTodoCreate(
         deadline = `${deadline}T20:00:00+05:30`
     }
 
+    // ── Reject past deadlines — ask for a future date via session ──
+    if (new Date(deadline).getTime() < Date.now()) {
+        await createSession(phone, 'awaiting_todo_deadline', {
+            original_intent: 'todo_create',
+            what: analysis.what,
+            sender_id: sender.id,
+            sender_name: sender.name,
+            organisation_id: sender.organisation_id,
+        }, 10, supabase)
+
+        await sendWhatsAppReply(phone,
+            `⏰ *Deadline Already Passed*\n\nThe date you entered is in the past.\n\nPlease enter a *future* date and time.\n\n*Examples:*\n"tomorrow 3pm", "Friday", "March 10"`)
+        await markProcessed(supabase, messageId, 'todo_create', 'Deadline in the past — awaiting new deadline')
+        return
+    }
+
     // ── Create the to-do ──
     const { error: todoError } = await supabase
         .from('tasks')

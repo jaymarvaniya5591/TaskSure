@@ -34,6 +34,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "User has no organisation" }, { status: 400 });
         }
 
+        // Reject past deadlines
+        if (deadline && new Date(deadline).getTime() < Date.now()) {
+            return NextResponse.json({ error: "Deadline cannot be in the past" }, { status: 400 });
+        }
+
         // Determine initial status: if self-assigned (todo), auto-accept
         const isSelfAssigned = assigned_to === currentUser.id;
 

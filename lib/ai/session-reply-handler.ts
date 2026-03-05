@@ -306,13 +306,21 @@ async function handleAwaitingTodoDeadline(
         return { handled: true, intent: 'todo_create' }
     }
 
-    // Create the to-do
-    await resolveSession(session.id, supabase)
-
     let normalizedDeadline = deadline
     if (!normalizedDeadline.includes('T')) {
         normalizedDeadline = `${normalizedDeadline}T20:00:00+05:30`
     }
+
+    // Reject past deadlines — keep session alive for retry
+    const deadlineDate = new Date(normalizedDeadline)
+    if (deadlineDate.getTime() < Date.now()) {
+        await sendReply(session.phone,
+            `⏰ *Deadline Already Passed*\n\nThe date you entered is in the past.\n\nPlease enter a *future* date and time.\n\n*Examples:*\n"tomorrow 3pm", "Friday", "March 10"`)
+        return { handled: true, intent: 'todo_create' }
+    }
+
+    // Create the to-do
+    await resolveSession(session.id, supabase)
 
     const { data: createdTodo, error: todoError } = await supabase
         .from('tasks')
@@ -517,6 +525,14 @@ async function handleAwaitingEditDeadline(
         // Couldn't parse — resolve session and fall through
         await resolveSession(session.id, supabase)
         return { handled: false, fallThrough: true }
+    }
+
+    // Reject past deadlines — keep session alive for retry
+    const deadlineDate = new Date(deadline)
+    if (deadlineDate.getTime() < Date.now()) {
+        await sendReply(session.phone,
+            `⏰ *Deadline Already Passed*\n\nThe date you entered is in the past.\n\nPlease enter a *future* date and time.\n\n*Examples:*\n"tomorrow 3pm", "Friday", "March 10"`)
+        return { handled: true, intent: 'edit_deadline' }
     }
 
     // Date parsed — update the task deadline
