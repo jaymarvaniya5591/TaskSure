@@ -1,19 +1,16 @@
 "use client";
 
 /**
- * /auth/callback — Magic link token exchange with INSTANT visual feedback.
+ * /auth/callback — Instant skeleton + background auth processing.
  *
- * PERFORMANCE:
- *   By NOT using `useSearchParams` or `export const dynamic`, Next.js
- *   compiles this as a 100% pure static HTML file at build time.
- *   This ensures there are no "Bailout to client side rendering" markers,
- *   and the inline HTML skeleton is fully formed in the initial HTML payload.
+ * TWO ENTRY POINTS:
+ *   1. ?verify_token=xxx — Redirected here instantly by /api/auth/verify-link.
+ *      Shows skeleton immediately, calls the API back via fetch() for processing.
+ *   2. ?token_hash=xxx — Legacy Supabase magic link flow (fallback).
+ *      Shows skeleton immediately, exchanges token client-side.
  *
- * FLOW:
- *   1. HTML arrives from CDN (< 200ms) → inline skeleton + "Signing you in..." visible IMMEDIATELY.
- *   2. JS loads in background (~1-2s on mobile)
- *   3. React hydrates → useEffect reads window.location.search and exchanges token.
- *   4. On success → hard redirect to /home.
+ * The skeleton is baked into the static HTML at build time (no JS needed to render).
+ * Auth processing happens in background JS while the user sees the skeleton.
  */
 
 import { useEffect, useState } from "react";
@@ -152,49 +149,85 @@ export default function AuthCallbackPage() {
     const [message, setMessage] = useState("Signing you in securely...");
 
     useEffect(() => {
-        // Read URL parameters directly from window to avoid Next.js SSR bailouts
         const params = new URLSearchParams(window.location.search);
-        const tokenHash = params.get("token_hash");
-        const type = params.get("type");
-        const next = params.get("next") || "/home";
 
-        if (!tokenHash) {
-            setMessage("Missing authentication token");
-            setTimeout(() => router.push("/login?error=missing_token"), 2000);
+        // ─── Flow 1: verify_token (from /api/auth/verify-link instant redirect) ───
+        const verifyToken = params.get("verify_token");
+        if (verifyToken) {
+            handleVerifyToken(verifyToken);
             return;
         }
 
-        const exchangeToken = async () => {
-            try {
-                const { data, error: verifyErr } = await supabase.auth.verifyOtp({
-                    type: (type as "magiclink") || "magiclink",
-                    token_hash: tokenHash,
-                });
+        // ─── Flow 2: token_hash (legacy Supabase magic link fallback) ───
+        const tokenHash = params.get("token_hash");
+        if (tokenHash) {
+            handleMagicLink(tokenHash, params.get("type"), params.get("next") || "/home");
+            return;
+        }
 
-                if (verifyErr) {
-                    console.error("[AuthCallback] Token exchange failed:", verifyErr);
-                    setMessage("Link expired. Redirecting to login...");
-                    setTimeout(() => router.push("/login?error=auth_failed"), 2000);
-                    return;
-                }
+        // No valid params
+        setMessage("Missing authentication token");
+        setTimeout(() => router.push("/login?error=missing_token"), 2000);
+    }, []);
 
-                if (data.session) {
-                    setMessage("You're in! Loading your workspace...");
-                    // Hard navigate to destroy any stale state
-                    window.location.href = next;
-                } else {
-                    setMessage("Session failed. Redirecting...");
-                    setTimeout(() => router.push("/login?error=auth_failed"), 2000);
-                }
-            } catch (err) {
-                console.error("[AuthCallback] Error:", err);
+    /** Call /api/auth/verify-link with _api=1 to process in the background */
+    async function handleVerifyToken(token: string) {
+        try {
+            const res = await fetch(`/api/auth/verify-link?token=${encodeURIComponent(token)}&_api=1`, {
+                credentials: 'include', // Send/receive cookies
+            });
+
+            if (!res.ok) {
+                setMessage("Authentication failed. Redirecting...");
+                setTimeout(() => router.push("/login?error=auth_failed"), 2000);
+                return;
+            }
+
+            const data = await res.json();
+
+            if (data.redirect) {
+                setMessage("You're in! Loading your workspace...");
+                // Use hard navigation to pick up new cookies
+                window.location.href = data.redirect;
+            } else {
                 setMessage("Something went wrong. Redirecting...");
                 setTimeout(() => router.push("/login?error=auth_failed"), 2000);
             }
-        };
+        } catch (err) {
+            console.error("[AuthCallback] verify-link API error:", err);
+            setMessage("Connection error. Redirecting...");
+            setTimeout(() => router.push("/login?error=auth_failed"), 2000);
+        }
+    }
 
-        exchangeToken();
-    }, [supabase, router]);
+    /** Exchange a Supabase magic link token hash */
+    async function handleMagicLink(tokenHash: string, type: string | null, next: string) {
+        try {
+            const { data, error: verifyErr } = await supabase.auth.verifyOtp({
+                type: (type as "magiclink") || "magiclink",
+                token_hash: tokenHash,
+            });
+
+            if (verifyErr) {
+                console.error("[AuthCallback] Magic link exchange failed:", verifyErr);
+                setMessage("Link expired. Redirecting to login...");
+                setTimeout(() => router.push("/login?error=auth_failed"), 2000);
+                return;
+            }
+
+            if (data.session) {
+                setMessage("You're in! Loading your workspace...");
+                window.location.href = next;
+            } else {
+                setMessage("Session failed. Redirecting...");
+                setTimeout(() => router.push("/login?error=auth_failed"), 2000);
+            }
+        } catch (err) {
+            console.error("[AuthCallback] Error:", err);
+            setMessage("Something went wrong. Redirecting...");
+            setTimeout(() => router.push("/login?error=auth_failed"), 2000);
+        }
+    }
 
     return <InlineSkeleton message={message} />;
 }
