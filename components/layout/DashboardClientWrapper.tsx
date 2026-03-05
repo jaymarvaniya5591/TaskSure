@@ -15,14 +15,13 @@ import { DashboardShellSkeleton } from "@/components/ui/DashboardSkeleton";
 /**
  * DashboardClientWrapper — The client-side shell for all dashboard pages.
  *
- * PERFORMANCE (v3 — Static Shell + CSR):
- * This component now owns auth resolution AND data fetching entirely
- * on the client side. The server layout is a static shell that renders
- * instantly from CDN, and this component hydrates with:
- *   1. useAuth() — reads session from cookie (no network call)
- *   2. useDashboardData() — fetches tasks/org data via Supabase client
+ * PERFORMANCE (v4 — Waterfall Elimination):
+ *   useAuth() only calls getSession() (~5ms, no network).
+ *   useDashboardData() fetches profile + tasks + org in two parallel phases.
+ *   This eliminates the auth→profile→data waterfall.
  *
- * This eliminates TTFB as a bottleneck (~50ms instead of ~7s).
+ * OLD: getSession(5ms) → profile(500ms) → THEN 4 data queries(500ms) = ~1s serial
+ * NEW: getSession(5ms) → profile + 2 task queries(500ms) → 2 org queries(500ms) = ~500ms
  */
 export function DashboardClientWrapper({
     children,
@@ -32,25 +31,24 @@ export function DashboardClientWrapper({
     const { user: authUser, isLoading: authLoading } = useAuth();
     const queryClient = useQueryClient();
 
-    // Only start data fetching once auth is resolved
+    // Only start data fetching once auth is resolved (just need userId)
     const userId = authUser?.userId ?? "";
-    const orgId = authUser?.orgId ?? "";
 
-    const { data, isLoading: dataLoading, isError } = useDashboardData(
-        userId,
-        orgId,
-        // No server-prefetched initialData in CSR mode
-    );
+    const { data, isLoading: dataLoading, isError } = useDashboardData(userId);
 
     const isLoading = authLoading || dataLoading;
 
+    // Extract profile data from dashboard query result
+    const profile = data?.profile;
+    const orgId = profile?.organisation_id ?? "";
+
     const refreshData = useCallback(async () => {
         debugLog("REFRESH_DATA_START", "invalidating dashboard query");
-        await queryClient.invalidateQueries({ queryKey: ["dashboard", userId, orgId] });
+        await queryClient.invalidateQueries({ queryKey: ["dashboard", userId] });
         debugLog("REFRESH_DATA_DASHBOARD_DONE", "dashboard query refreshed");
         queryClient.invalidateQueries({ queryKey: ["task-sequential-timeline"] });
         debugLog("REFRESH_DATA_TIMELINES_FIRED", "timeline invalidation dispatched (fire-and-forget)");
-    }, [queryClient, userId, orgId]);
+    }, [queryClient, userId]);
 
     // TEMP DEBUG: Test Supabase connectivity from this device on mount
     const hasLoggedRef = useRef(false);
@@ -64,17 +62,17 @@ export function DashboardClientWrapper({
 
     const userContextValue = useMemo(() => ({
         userId,
-        userName: authUser?.userName ?? "User",
+        userName: profile?.name ?? "User",
         orgId,
-        userPhoneNumber: authUser?.userPhoneNumber ?? "",
-        reportingManagerId: authUser?.reportingManagerId ?? null,
+        userPhoneNumber: profile?.phone_number ?? "",
+        reportingManagerId: profile?.reporting_manager_id ?? null,
         orgUsers: data ? getUsersAtOrBelowRank(data.orgUsers, userId) : [],
         allOrgUsers: data ? data.orgUsers : [],
         tasks: data ? data.tasks : [],
         allOrgTasks: data ? data.allOrgTasks : [],
         isLoading,
         refreshData,
-    }), [userId, authUser, orgId, data, isLoading, refreshData]);
+    }), [userId, profile, orgId, data, isLoading, refreshData]);
 
     // Show skeleton while auth is resolving or data is loading for the first time
     if (authLoading || (!data && dataLoading)) {
