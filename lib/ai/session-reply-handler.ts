@@ -177,6 +177,26 @@ async function handleAwaitingAssigneeSelection(
         return await createTaskWithAssignee(supabase, session.phone, sender, selected, ctx, messageId)
     }
 
+    // Try to match by phone number (e.g., "9035451160" or "919035451160")
+    const digitsOnly = trimmed.replace(/\D/g, '')
+    if (digitsOnly.length >= 10) {
+        const normalizedInput = digitsOnly.length > 10 && digitsOnly.startsWith('91')
+            ? digitsOnly.slice(2)
+            : digitsOnly.slice(-10)
+        const phoneMatch = candidates.find(c => {
+            if (!c.phone_number) return false
+            const candidateDigits = c.phone_number.replace(/\D/g, '')
+            const normalizedCandidate = candidateDigits.length > 10 && candidateDigits.startsWith('91')
+                ? candidateDigits.slice(2)
+                : candidateDigits.slice(-10)
+            return normalizedInput === normalizedCandidate
+        })
+        if (phoneMatch) {
+            await resolveSession(session.id, supabase)
+            return await createTaskWithAssignee(supabase, session.phone, sender, phoneMatch, ctx, messageId)
+        }
+    }
+
     // Try to match by name against the candidates
     const lowerReply = trimmed.toLowerCase()
     const nameMatch = candidates.find(c =>
@@ -405,6 +425,16 @@ async function handleAwaitingAcceptDeadline(
         await resolveSession(session.id, supabase)
         await sendReply(session.phone, 'ℹ️ *Already Handled*\n\nThis task has already been accepted/rejected\nor is no longer pending.')
         await markProcessed(supabase, messageId, 'task_accept', `Task status is ${task.status}`)
+        return { handled: true, intent: 'task_accept' }
+    }
+
+    // Validate that the deadline is in the future
+    const parsedDeadline = new Date(deadline)
+    if (parsedDeadline.getTime() <= Date.now()) {
+        // Deadline is in the past — ask for a future date, keep session alive
+        await sendReply(session.phone,
+            '⏰ *Deadline Already Passed*\n\nThe date you entered is in the past.\n\nPlease reply with a *future* date.\n\n*Examples:*\n"tomorrow", "Friday 3pm", "March 10"')
+        await markProcessed(supabase, messageId, 'task_accept', null)
         return { handled: true, intent: 'task_accept' }
     }
 

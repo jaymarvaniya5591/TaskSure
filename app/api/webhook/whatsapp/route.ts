@@ -459,6 +459,24 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         console.log(`[Webhook] Quick Reply: task_mark_completed ${taskId} from ${senderPhone10}`)
 
                         try {
+                            // Fetch task details before updating so we can notify the other party
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: task } = await (supabase as any)
+                                .from('tasks')
+                                .select('title, assigned_to, created_by, status')
+                                .eq('id', taskId)
+                                .single()
+
+                            if (!task) {
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n\n_It may have been deleted._')
+                                continue
+                            }
+
+                            if (['completed', 'cancelled'].includes(task.status)) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'ℹ️ *Already Handled*\n\nThis task is already completed or cancelled.')
+                                continue
+                            }
+
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const { error: updateError } = await (supabase as any)
                                 .from('tasks')
@@ -478,6 +496,38 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                     .eq('status', 'pending')
 
                                 await sendWhatsAppMessage(rawSenderPhone, '🎊 *Task Completed!*\n\nThe task has been marked as completed.')
+
+                                // Notify the other party about the completion
+                                try {
+                                    // Determine who to notify: if completer is the owner, notify assignee; if completer is assignee, notify owner
+                                    const user = await getCachedUser(senderPhone10, supabase)
+                                    const isOwner = user && user.id === task.created_by
+                                    const otherUserId = isOwner ? task.assigned_to : task.created_by
+
+                                    // Skip notification if assignee == owner (self-todo)
+                                    if (task.assigned_to !== task.created_by) {
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                        const { data: otherUser } = await (supabase as any)
+                                            .from('users')
+                                            .select('phone_number, name')
+                                            .eq('id', otherUserId)
+                                            .single()
+
+                                        if (otherUser?.phone_number) {
+                                            const otherPhone = otherUser.phone_number.startsWith('91')
+                                                ? otherUser.phone_number
+                                                : `91${otherUser.phone_number}`
+                                            const completerName = user?.name || 'Someone'
+                                            const roleLabel = isOwner ? 'Task owner' : 'Assignee'
+                                            await sendWhatsAppMessage(
+                                                otherPhone,
+                                                `✅ *Task Completed!*\n\n*Task:*\n"${task.title}"\n\n*Completed by:*\n${completerName} (${roleLabel})`
+                                            )
+                                        }
+                                    }
+                                } catch (notifyErr) {
+                                    console.error('[Webhook] Error notifying other party about completion:', notifyErr)
+                                }
                             }
                         } catch (err) {
                             console.error('[Webhook] Error marking task completed:', err)
@@ -496,12 +546,18 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const { data: task } = await (supabase as any)
                                 .from('tasks')
-                                .select('title, assigned_to, created_by')
+                                .select('title, assigned_to, created_by, status')
                                 .eq('id', taskId)
                                 .single()
 
                             if (!task) {
                                 await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n\n_It may have been deleted._')
+                                continue
+                            }
+
+                            // Check if task is already completed or cancelled
+                            if (['completed', 'cancelled'].includes(task.status)) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'ℹ️ *Task Already Handled*\n\nThis task is already ' + task.status + '.\n\n_No notification was sent._')
                                 continue
                             }
 
