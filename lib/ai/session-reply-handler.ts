@@ -744,6 +744,18 @@ async function createTaskWithAssignee(
     ctx: SessionContextData,
     messageId: string,
 ): Promise<SessionResult> {
+    // Self-assignment check: if sender is assigning to themselves, treat as to-do (needs deadline)
+    if (sender.id === assignee.id) {
+        // Redirect to the todo flow — ask for a deadline first
+        ctx.original_intent = 'todo_create'
+        ctx.who_name = null  // Mark as self-todo
+        await createSession(phone, 'awaiting_todo_deadline', ctx, 10, supabase)
+        await sendReply(phone,
+            `📝 *Self To-Do Detected*\n\n*To-do:*\n"${ctx.what}"\n\nSince this is for yourself, please set a deadline.\n\n*Examples:*\n"tomorrow 3pm", "Friday", "March 10"`)
+        await markProcessed(supabase, messageId, 'todo_create', null)
+        return { handled: true, intent: 'todo_create' }
+    }
+
     const { data: newTask, error: taskError } = await supabase
         .from('tasks')
         .insert({
