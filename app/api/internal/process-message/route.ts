@@ -457,6 +457,11 @@ async function handleTaskCreate(
     // ── Single match — create the task ──
     const assignee = matches[0]
 
+    // ── Self-assignment check: if assignee is the sender, treat as to-do ──
+    if (assignee.id === sender.id) {
+        return handleTodoCreate(supabase, messageId, phone, sender, analysis)
+    }
+
     const { data: newTask, error: taskError } = await supabase
         .from('tasks')
         .insert({
