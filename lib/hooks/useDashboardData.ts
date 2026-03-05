@@ -162,7 +162,6 @@ export function useDashboardData(
                 allOrgTasks,
             };
         },
-        staleTime: Infinity,
         enabled: Boolean(userId),
         ...(serverInitialData ? {
             initialData: {
