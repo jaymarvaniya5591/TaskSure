@@ -185,5 +185,5 @@ export async function generateDirectSession(
  */
 export function buildAuthUrl(token: string): string {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
-    return `${baseUrl}/api/auth/verify-link?token=${encodeURIComponent(token)}`
+    return `${baseUrl}/auth/callback?verify_token=${encodeURIComponent(token)}`
 }

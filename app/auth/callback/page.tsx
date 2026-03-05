@@ -3,141 +3,105 @@
 /**
  * /auth/callback — Instant skeleton + background auth processing.
  *
- * TWO ENTRY POINTS:
- *   1. ?verify_token=xxx — Redirected here instantly by /api/auth/verify-link.
- *      Shows skeleton immediately, calls the API back via fetch() for processing.
- *   2. ?token_hash=xxx — Legacy Supabase magic link flow (fallback).
- *      Shows skeleton immediately, exchanges token client-side.
+ * ENTRY POINTS:
+ *   1. ?verify_token=xxx — From WhatsApp sign-in link (direct, no API hop).
+ *      Shows skeleton immediately, calls API via fetch() for session creation.
+ *   2. ?token_hash=xxx — Legacy Supabase magic link fallback.
  *
- * The skeleton is baked into the static HTML at build time (no JS needed to render).
- * Auth processing happens in background JS while the user sees the skeleton.
+ * The skeleton is baked into static HTML at build time — visible before JS loads.
+ * Auth processing happens in background JS while user sees the skeleton.
+ *
+ * PERFORMANCE: WhatsApp links now point directly here (not to /api/auth/verify-link),
+ * eliminating one full network round trip. CDN → HTML in < 200ms.
  */
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-/** Inline skeleton that matches the dashboard layout — renders before JS */
-function InlineSkeleton({ message }: { message: string }) {
+/**
+ * Auth skeleton — matches the project's design language:
+ * dotted background, black text, bold typography, clean minimalism.
+ * Uses ONLY inline styles — renders before any CSS/JS loads.
+ */
+function AuthSkeleton({ message }: { message: string }) {
     return (
         <div style={{
             position: 'fixed',
             inset: 0,
-            background: '#f9fafb',
+            background: '#fdfdfd',
+            backgroundImage: 'radial-gradient(circle, #b0b0bc 1.2px, transparent 1.2px)',
+            backgroundSize: '18px 18px',
             display: 'flex',
             flexDirection: 'column' as const,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             zIndex: 9999,
         }}>
             <style dangerouslySetInnerHTML={{
                 __html: `
-                @keyframes cb-shimmer {
-                    0% { opacity: 0.5; }
-                    50% { opacity: 0.8; }
-                    100% { opacity: 0.5; }
-                }
-                @keyframes cb-spin {
+                @keyframes auth-spin {
                     to { transform: rotate(360deg); }
                 }
-                .cb-bar {
-                    background: #e5e7eb;
-                    border-radius: 8px;
-                    animation: cb-shimmer 1.5s ease-in-out infinite;
+                @keyframes auth-fade-in {
+                    from { opacity: 0; transform: translateY(8px); }
+                    to { opacity: 1; transform: translateY(0); }
                 }
             `}} />
-            {/* Header */}
+
+            {/* Main card */}
             <div style={{
-                height: 64,
-                background: 'rgba(255,255,255,0.9)',
-                borderBottom: '1px solid #f3f4f6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0 16px',
-                flexShrink: 0,
+                background: 'rgba(255, 255, 255, 0.85)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                borderRadius: 24,
+                padding: '48px 40px',
+                maxWidth: 380,
+                width: '90%',
+                textAlign: 'center' as const,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04)',
+                border: '1px solid rgba(0,0,0,0.06)',
+                animation: 'auth-fade-in 0.3s ease-out',
             }}>
-                <div className="cb-bar" style={{ width: 32, height: 32 }} />
-                <div className="cb-bar" style={{ width: 160, height: 36 }} />
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <div className="cb-bar" style={{ width: 32, height: 32 }} />
-                    <div className="cb-bar" style={{ width: 32, height: 32 }} />
-                </div>
-            </div>
-            {/* Content area */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', padding: '32px 16px' }}>
-                {/* Signing in message */}
+                {/* Logo / Brand */}
                 <div style={{
-                    display: 'flex',
-                    flexDirection: 'column' as const,
-                    alignItems: 'center',
-                    gap: 16,
+                    fontSize: 28,
+                    fontWeight: 800,
+                    color: '#000',
+                    letterSpacing: '-0.5px',
                     marginBottom: 32,
                 }}>
-                    <div style={{
-                        width: 40,
-                        height: 40,
-                        border: '4px solid #e5e7eb',
-                        borderTopColor: '#eab308',
-                        borderRadius: '50%',
-                        animation: 'cb-spin 0.8s linear infinite',
-                    }} />
-                    <p style={{
-                        color: '#6b7280',
-                        fontSize: 16,
-                        fontWeight: 500,
-                        margin: 0,
-                    }}>{message}</p>
+                    Boldo
                 </div>
-                {/* Dashboard preview skeleton */}
-                <div style={{ width: '100%', maxWidth: 768 }}>
-                    {/* Calendar strip */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(7, 1fr)',
-                        gap: 6,
-                        marginBottom: 24,
-                        background: 'rgba(255,255,255,0.7)',
-                        borderRadius: 16,
-                        padding: 8,
-                        border: '1px solid rgba(255,255,255,0.5)',
-                    }}>
-                        {Array.from({ length: 7 }).map((_, i) => (
-                            <div key={i} style={{
-                                display: 'flex',
-                                flexDirection: 'column' as const,
-                                alignItems: 'center',
-                                gap: 6,
-                                padding: '8px 4px',
-                            }}>
-                                <div className="cb-bar" style={{ width: 28, height: 12 }} />
-                                <div className="cb-bar" style={{ width: 24, height: 24, borderRadius: 8 }} />
-                            </div>
-                        ))}
-                    </div>
-                    {/* Task cards */}
-                    <div style={{
-                        background: 'rgba(255,255,255,0.7)',
-                        borderRadius: 16,
-                        padding: 16,
-                        border: '1px solid rgba(255,255,255,0.5)',
-                    }}>
-                        {Array.from({ length: 3 }).map((_, i) => (
-                            <div key={i} style={{
-                                borderRadius: 16,
-                                border: '1px solid #f3f4f6',
-                                background: 'white',
-                                padding: 16,
-                                marginBottom: i < 2 ? 12 : 0,
-                            }}>
-                                <div className="cb-bar" style={{ width: '75%', height: 16, marginBottom: 10 }} />
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <div className="cb-bar" style={{ width: 80, height: 12 }} />
-                                    <div className="cb-bar" style={{ width: 64, height: 12 }} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+
+                {/* Spinner */}
+                <div style={{
+                    width: 44,
+                    height: 44,
+                    border: '4px solid #e5e7eb',
+                    borderTopColor: '#000',
+                    borderRadius: '50%',
+                    animation: 'auth-spin 0.7s linear infinite',
+                    margin: '0 auto 24px',
+                }} />
+
+                {/* Status message */}
+                <p style={{
+                    color: '#000',
+                    fontSize: 18,
+                    fontWeight: 600,
+                    margin: '0 0 8px',
+                    letterSpacing: '-0.3px',
+                }}>{message}</p>
+
+                <p style={{
+                    color: '#6b7280',
+                    fontSize: 14,
+                    fontWeight: 400,
+                    margin: 0,
+                    lineHeight: 1.4,
+                }}>This will only take a moment</p>
             </div>
         </div>
     );
@@ -146,12 +110,12 @@ function InlineSkeleton({ message }: { message: string }) {
 export default function AuthCallbackPage() {
     const router = useRouter();
     const supabase = createClient();
-    const [message, setMessage] = useState("Signing you in securely...");
+    const [message, setMessage] = useState("Signing you in...");
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
 
-        // ─── Flow 1: verify_token (from /api/auth/verify-link instant redirect) ───
+        // ─── Flow 1: verify_token (WhatsApp sign-in link, direct) ───
         const verifyToken = params.get("verify_token");
         if (verifyToken) {
             handleVerifyToken(verifyToken);
@@ -166,19 +130,19 @@ export default function AuthCallbackPage() {
         }
 
         // No valid params
-        setMessage("Missing authentication token");
+        setMessage("Missing token");
         setTimeout(() => router.push("/login?error=missing_token"), 2000);
     }, []);
 
-    /** Call /api/auth/verify-link with _api=1 to process in the background */
+    /** Call /api/auth/verify-link with _api=1 for server-side auth processing */
     async function handleVerifyToken(token: string) {
         try {
             const res = await fetch(`/api/auth/verify-link?token=${encodeURIComponent(token)}&_api=1`, {
-                credentials: 'include', // Send/receive cookies
+                credentials: 'include',
             });
 
             if (!res.ok) {
-                setMessage("Authentication failed. Redirecting...");
+                setMessage("Authentication failed");
                 setTimeout(() => router.push("/login?error=auth_failed"), 2000);
                 return;
             }
@@ -186,16 +150,15 @@ export default function AuthCallbackPage() {
             const data = await res.json();
 
             if (data.redirect) {
-                setMessage("You're in! Loading your workspace...");
-                // Use hard navigation to pick up new cookies
+                setMessage("You're in!");
                 window.location.href = data.redirect;
             } else {
-                setMessage("Something went wrong. Redirecting...");
+                setMessage("Something went wrong");
                 setTimeout(() => router.push("/login?error=auth_failed"), 2000);
             }
         } catch (err) {
             console.error("[AuthCallback] verify-link API error:", err);
-            setMessage("Connection error. Redirecting...");
+            setMessage("Connection error");
             setTimeout(() => router.push("/login?error=auth_failed"), 2000);
         }
     }
@@ -209,25 +172,25 @@ export default function AuthCallbackPage() {
             });
 
             if (verifyErr) {
-                console.error("[AuthCallback] Magic link exchange failed:", verifyErr);
-                setMessage("Link expired. Redirecting to login...");
+                console.error("[AuthCallback] Magic link failed:", verifyErr);
+                setMessage("Link expired");
                 setTimeout(() => router.push("/login?error=auth_failed"), 2000);
                 return;
             }
 
             if (data.session) {
-                setMessage("You're in! Loading your workspace...");
+                setMessage("You're in!");
                 window.location.href = next;
             } else {
-                setMessage("Session failed. Redirecting...");
+                setMessage("Session failed");
                 setTimeout(() => router.push("/login?error=auth_failed"), 2000);
             }
         } catch (err) {
             console.error("[AuthCallback] Error:", err);
-            setMessage("Something went wrong. Redirecting...");
+            setMessage("Something went wrong");
             setTimeout(() => router.push("/login?error=auth_failed"), 2000);
         }
     }
 
-    return <InlineSkeleton message={message} />;
+    return <AuthSkeleton message={message} />;
 }
