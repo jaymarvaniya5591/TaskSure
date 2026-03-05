@@ -329,13 +329,21 @@ async function handleAwaitingTodoDeadline(
 ): Promise<SessionResult> {
     const ctx = session.context_data
 
+    // First, check if the message is actually a deadline response or a new intent.
+    const looksLikeDeadline = await isDeadlineResponse(userText)
+    if (!looksLikeDeadline) {
+        // The user sent a different intent — resolve session and fall through.
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
     // Parse date from the user's reply
     const deadline = await parseDateFromText(userText)
 
     if (!deadline) {
-        await sendReply(session.phone,
-            `⏰ *Date Unclear*\n\nI couldn't detect a date in your reply.\n\n*Try something like:*\n"tomorrow", "Friday 3pm", or "March 10"`)
-        return { handled: true, intent: 'todo_create' }
+        // Not a date — resolve session and fall through to normal pipeline.
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
     }
 
     let normalizedDeadline = deadline
