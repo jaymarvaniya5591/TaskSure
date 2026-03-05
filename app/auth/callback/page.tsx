@@ -132,6 +132,7 @@ export default function AuthCallbackPage() {
         // No valid params
         setMessage("Missing token");
         setTimeout(() => router.push("/login?error=missing_token"), 2000);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     /** Call /api/auth/verify-link with _api=1 for server-side auth processing */

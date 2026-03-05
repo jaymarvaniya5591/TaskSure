@@ -9,7 +9,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { getUsersAtOrBelowRank } from "@/lib/hierarchy";
 import { useQueryClient } from "@tanstack/react-query";
-import { debugLog, debugTestSupabaseConnectivity } from "@/lib/debug-logger";
+import { debugLog } from "@/lib/debug-logger";
 import { DashboardShellSkeleton } from "@/components/ui/DashboardSkeleton";
 
 /**
@@ -56,12 +56,11 @@ export function DashboardClientWrapper({
         document.documentElement.classList.add('hydrated');
     }, []);
 
-    // TEMP DEBUG: Test Supabase connectivity from this device on mount
+    // TEMP DEBUG: Log mount event
     const hasLoggedRef = useRef(false);
     useEffect(() => {
         if (!hasLoggedRef.current && userId) {
             debugLog("DASHBOARD_MOUNT", `userId=${userId} orgId=${orgId}`);
-            debugTestSupabaseConnectivity();
             hasLoggedRef.current = true;
         }
     }, [userId, orgId]);

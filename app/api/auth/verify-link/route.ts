@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuthToken, consumeAuthToken, findAuthUserIdByPhone, generateDirectSession } from '@/lib/auth-links'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerClient } from '@supabase/ssr'
+import { waitUntil } from '@vercel/functions'
 
 /**
  * GET /api/auth/verify-link?token=xxx
@@ -128,19 +129,29 @@ export async function GET(request: NextRequest) {
             const testEmail = `test_${phone}@boldo.test`
 
             const t5 = Date.now()
-            await supabase.auth.admin.updateUserById(authUserId, {
+            const updatePromise = supabase.auth.admin.updateUserById(authUserId, {
                 email: testEmail,
                 email_confirm: true,
                 phone_confirm: true,
-            })
-            const t6 = Date.now()
-            console.log(`[VerifyLink] updateUserById: ${t6 - t5}ms`)
+            }).then(() => {
+                const t6 = Date.now()
+                console.log(`[VerifyLink] updateUserById: ${t6 - t5}ms`)
+            }).catch(e => console.error('[VerifyLink] updateUserById failed:', e));
+
+            waitUntil(updatePromise);
 
             // Generate session directly via password — no magic link round trip
             const t7 = Date.now()
-            const session = await generateDirectSession(phone)
+            let session = await generateDirectSession(phone)
             const t8 = Date.now()
-            console.log(`[VerifyLink] generateDirectSession: ${t8 - t7}ms`)
+            console.log(`[VerifyLink] generateDirectSession (1st try): ${t8 - t7}ms`)
+
+            if (!session) {
+                console.log('[VerifyLink] 1st session attempt failed, waiting for user update and retrying...');
+                await updatePromise;
+                session = await generateDirectSession(phone);
+                console.log(`[VerifyLink] generateDirectSession (retried): ${Date.now() - t8}ms`);
+            }
 
             if (!session) {
                 console.error('[VerifyLink] Direct session failed, falling back to magic link')

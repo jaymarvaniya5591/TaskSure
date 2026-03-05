@@ -8,6 +8,8 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizePhone } from '@/lib/phone'
+import { createClient } from '@supabase/supabase-js'
+
 // ─── Configuration ──────────────────────────────────────────────────────────
 
 const TOKEN_EXPIRY_MINUTES = 15
@@ -151,7 +153,6 @@ export async function findAuthUserIdByPhone(phone: string): Promise<string | nul
 export async function generateDirectSession(
     phone: string
 ): Promise<{ access_token: string; refresh_token: string } | null> {
-    const { createClient } = await import('@supabase/supabase-js')
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
