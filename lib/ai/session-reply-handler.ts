@@ -139,7 +139,7 @@ async function handleAwaitingAssigneeName(
         await resolveSession(session.id, supabase)
 
         await sendReply(session.phone,
-            `👥 *Multiple Matches Found*\n\n*Searched for:*\n${userText.trim()}\n\n${nameList}\n\nPlease reply with the number or the full name to continue.`)
+            `👥 *Multiple Matches Found*\n\n*Searched for:*\n${userText.trim()}\n\n${nameList}\n\nReply with the *option number* to select.\n\n_Don't see the right person? Type their full name or phone number._`)
 
         return { handled: true, intent: 'task_create' }
     }
@@ -209,35 +209,67 @@ async function handleAwaitingAssigneeSelection(
         return await createTaskWithAssignee(supabase, session.phone, sender, nameMatch, ctx, messageId)
     }
 
-    // Try phonetic match against just the candidates
+    // --- Full org-wide search (user may be looking for someone not in the original list) ---
     const orgId = ctx.organisation_id || sender.organisation_id
-    const allUsers = await fetchOrgUsers(supabase, orgId)
-    const phoneticMatches = findPhoneticMatches(trimmed, allUsers, 0.7)
 
-    if (phoneticMatches.length === 1) {
-        // Check if this single match is one of our candidates
-        const matchedUser = phoneticMatches[0].user
-        const candidateMatch = candidates.find(c => c.id === matchedUser.id)
-        if (candidateMatch) {
+    // First try: phone number search across all org users
+    if (digitsOnly.length >= 10) {
+        const allUsers = await fetchOrgUsers(supabase, orgId)
+        const normalizedInput = digitsOnly.length > 10 && digitsOnly.startsWith('91')
+            ? digitsOnly.slice(2)
+            : digitsOnly.slice(-10)
+        const orgPhoneMatch = allUsers.find(u => {
+            if (!u.phone_number) return false
+            const uDigits = u.phone_number.replace(/\D/g, '')
+            const normalizedU = uDigits.length > 10 && uDigits.startsWith('91')
+                ? uDigits.slice(2)
+                : uDigits.slice(-10)
+            return normalizedInput === normalizedU
+        })
+        if (orgPhoneMatch) {
             await resolveSession(session.id, supabase)
-            return await createTaskWithAssignee(supabase, session.phone, sender, candidateMatch, ctx, messageId)
+            return await createTaskWithAssignee(
+                supabase, session.phone, sender,
+                { id: orgPhoneMatch.id, name: orgPhoneMatch.name, phone_number: orgPhoneMatch.phone_number },
+                ctx, messageId,
+            )
         }
-        // Match found but not in candidates — still use it (user might have clarified with a different name)
-        await resolveSession(session.id, supabase)
-        return await createTaskWithAssignee(
-            supabase, session.phone, sender,
-            { id: matchedUser.id, name: matchedUser.name, phone_number: matchedUser.phone_number },
-            ctx, messageId,
-        )
     }
 
-    // Could not match — let the user try again, keep session alive
+    // Second try: full org-wide fuzzy/phonetic name match
+    const orgMatches = await fuzzyMatchUser(supabase, orgId, trimmed)
+
+    if (orgMatches.length === 1) {
+        // Single match in the org — create the task
+        await resolveSession(session.id, supabase)
+        return await createTaskWithAssignee(supabase, session.phone, sender, orgMatches[0], ctx, messageId)
+    }
+
+    if (orgMatches.length > 1) {
+        // Multiple new matches — update session with fresh candidates and show new list
+        const newNameList = orgMatches
+            .map((u, i) => `${i + 1}. ${u.name}${u.phone_number ? ` (${u.phone_number})` : ''}`)
+            .join('\n')
+
+        await resolveSession(session.id, supabase)
+        await createSession(session.phone, 'awaiting_assignee_selection', {
+            ...ctx,
+            candidates: orgMatches.map(u => ({ id: u.id, name: u.name, phone_number: u.phone_number })),
+        }, 10, supabase)
+
+        await sendReply(session.phone,
+            `👥 *Multiple Matches Found*\n\n*Searched for:*\n${trimmed}\n\n${newNameList}\n\nReply with the *option number* to select.\n\n_Don't see the right person? Type their full name or phone number._`)
+
+        return { handled: true, intent: 'task_create' }
+    }
+
+    // No match at all — keep session alive so user can retry
     const nameList = candidates
-        .map((c, i) => `${i + 1}. ${c.name}`)
+        .map((c, i) => `${i + 1}. ${c.name}${c.phone_number ? ` (${c.phone_number})` : ''}`)
         .join('\n')
 
     await sendReply(session.phone,
-        `❌ *Invalid Selection*\n\n*Couldn't match:*\n"${trimmed}"\n\nPlease reply with the number:\n\n${nameList}`)
+        `🔍 *Not Found*\n\nNo match found for "${trimmed}"\n\nYou can:\n• Reply with an *option number* from the list above\n• Type the person's *full name*\n• Type their *phone number*\n\n${nameList}\n\n_Or say "cancel" to start over._`)
 
     return { handled: true, intent: 'task_create' }
 }

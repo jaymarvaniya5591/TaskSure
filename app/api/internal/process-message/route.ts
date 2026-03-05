@@ -447,7 +447,7 @@ async function handleTaskCreate(
 
         const clarifyMsg =
             `👥 *Multiple Matches Found*\n\n*Searched for:*\n${analysis.who.name}\n\n` +
-            `${nameList}\n\nPlease reply with the number or the full name to continue.`
+            `${nameList}\n\nReply with the *option number* to select.\n\n_Don't see the right person? Type their full name or phone number._`
 
         await sendWhatsAppReply(phone, clarifyMsg)
         await markProcessed(supabase, messageId, 'task_create', 'Awaiting assignee selection via session')
