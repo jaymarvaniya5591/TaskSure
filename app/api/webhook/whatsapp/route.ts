@@ -327,8 +327,25 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         const taskId = buttonPayload.replace('task_accept_prompt::', '')
                         console.log(`[Webhook] Quick Reply: task_accept_prompt ${taskId} from ${senderPhone10}`)
 
-                        // Create a conversation session so the next message is routed as deadline input
                         try {
+                            // Check task status before creating session
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: task } = await (supabase as any)
+                                .from('tasks')
+                                .select('status')
+                                .eq('id', taskId)
+                                .single()
+
+                            if (!task) {
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n\n_It may have been deleted._')
+                                continue
+                            }
+
+                            if (task.status !== 'pending') {
+                                await sendWhatsAppMessage(rawSenderPhone, 'ℹ️ *Already Handled*\n\nThis task has already been ' + (task.status === 'accepted' ? 'accepted' : task.status === 'cancelled' ? 'rejected' : task.status) + '.\n\n_No further action is needed._')
+                                continue
+                            }
+
                             await createSession(senderPhone10, 'awaiting_accept_deadline', {
                                 task_id: taskId,
                                 original_intent: 'task_accept',
@@ -349,8 +366,25 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         const taskId = buttonPayload.replace('task_reject_prompt::', '')
                         console.log(`[Webhook] Quick Reply: task_reject_prompt ${taskId} from ${senderPhone10}`)
 
-                        // Create a conversation session so the next message is routed as rejection reason
                         try {
+                            // Check task status before creating session
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: task } = await (supabase as any)
+                                .from('tasks')
+                                .select('status')
+                                .eq('id', taskId)
+                                .single()
+
+                            if (!task) {
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n\n_It may have been deleted._')
+                                continue
+                            }
+
+                            if (task.status !== 'pending') {
+                                await sendWhatsAppMessage(rawSenderPhone, 'ℹ️ *Already Handled*\n\nThis task has already been ' + (task.status === 'accepted' ? 'accepted' : task.status === 'cancelled' ? 'rejected' : task.status) + '.\n\n_No further action is needed._')
+                                continue
+                            }
+
                             await createSession(senderPhone10, 'awaiting_reject_reason', {
                                 task_id: taskId,
                                 original_intent: 'task_reject',
@@ -373,6 +407,24 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                         // Mark the reminder notification as acknowledged
                         try {
+                            // Check task status first
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: taskCheck } = await (supabase as any)
+                                .from('tasks')
+                                .select('status')
+                                .eq('id', taskId)
+                                .single()
+
+                            if (!taskCheck) {
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n\n_It may have been deleted._')
+                                continue
+                            }
+
+                            if (['completed', 'cancelled'].includes(taskCheck.status)) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'ℹ️ *Task Already ' + (taskCheck.status === 'completed' ? 'Completed' : 'Cancelled') + '*\n\nThis task is already ' + taskCheck.status + '.\n\n_No further action is needed._')
+                                continue
+                            }
+
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const { data: reminderNotifs } = await (supabase as any)
                                 .from('task_notifications')
@@ -417,6 +469,24 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         console.log(`[Webhook] Quick Reply: task_edit_deadline_prompt ${taskId} from ${senderPhone10}`)
 
                         try {
+                            // Check task status before creating session
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: task } = await (supabase as any)
+                                .from('tasks')
+                                .select('status')
+                                .eq('id', taskId)
+                                .single()
+
+                            if (!task) {
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n\n_It may have been deleted._')
+                                continue
+                            }
+
+                            if (['completed', 'cancelled'].includes(task.status)) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'ℹ️ *Cannot Edit*\n\nThis task is already ' + task.status + '.\n\n_The deadline cannot be changed._')
+                                continue
+                            }
+
                             await createSession(senderPhone10, 'awaiting_edit_deadline', {
                                 task_id: taskId,
                                 original_intent: 'edit_deadline',
@@ -438,6 +508,24 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         console.log(`[Webhook] Quick Reply: todo_edit_deadline_prompt ${taskId} from ${senderPhone10}`)
 
                         try {
+                            // Check task status before creating session
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: task } = await (supabase as any)
+                                .from('tasks')
+                                .select('status')
+                                .eq('id', taskId)
+                                .single()
+
+                            if (!task) {
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n\n_It may have been deleted._')
+                                continue
+                            }
+
+                            if (['completed', 'cancelled'].includes(task.status)) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'ℹ️ *Cannot Edit*\n\nThis to-do is already ' + task.status + '.\n\n_The deadline cannot be changed._')
+                                continue
+                            }
+
                             await createSession(senderPhone10, 'awaiting_edit_deadline', {
                                 task_id: taskId,
                                 original_intent: 'edit_deadline',
