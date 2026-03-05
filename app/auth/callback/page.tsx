@@ -4,22 +4,21 @@
  * /auth/callback — Magic link token exchange with INSTANT visual feedback.
  *
  * PERFORMANCE:
- *   The inline HTML skeleton below is embedded in the static HTML served from CDN.
- *   It renders in < 200ms — BEFORE any JavaScript downloads or executes.
- *   The token exchange happens in the background via JS (useEffect).
+ *   By NOT using `useSearchParams` or `export const dynamic`, Next.js
+ *   compiles this as a 100% pure static HTML file at build time.
+ *   This ensures there are no "Bailout to client side rendering" markers,
+ *   and the inline HTML skeleton is fully formed in the initial HTML payload.
  *
  * FLOW:
- *   1. HTML arrives from CDN (< 200ms) → inline skeleton + "Signing you in..." visible
+ *   1. HTML arrives from CDN (< 200ms) → inline skeleton + "Signing you in..." visible IMMEDIATELY.
  *   2. JS loads in background (~1-2s on mobile)
- *   3. React hydrates → useEffect exchanges token with Supabase
- *   4. On success → redirect to /home (which has the same skeleton)
- *   5. Transition is seamless — same skeleton on both pages
+ *   3. React hydrates → useEffect reads window.location.search and exchanges token.
+ *   4. On success → hard redirect to /home.
  */
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Suspense } from "react";
 
 /** Inline skeleton that matches the dashboard layout — renders before JS */
 function InlineSkeleton({ message }: { message: string }) {
@@ -31,6 +30,7 @@ function InlineSkeleton({ message }: { message: string }) {
             display: 'flex',
             flexDirection: 'column' as const,
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            zIndex: 9999,
         }}>
             <style dangerouslySetInnerHTML={{
                 __html: `
@@ -146,16 +146,17 @@ function InlineSkeleton({ message }: { message: string }) {
     );
 }
 
-function CallbackContent() {
+export default function AuthCallbackPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const supabase = createClient();
     const [message, setMessage] = useState("Signing you in securely...");
 
     useEffect(() => {
-        const tokenHash = searchParams.get("token_hash");
-        const type = searchParams.get("type");
-        const next = searchParams.get("next") || "/home";
+        // Read URL parameters directly from window to avoid Next.js SSR bailouts
+        const params = new URLSearchParams(window.location.search);
+        const tokenHash = params.get("token_hash");
+        const type = params.get("type");
+        const next = params.get("next") || "/home";
 
         if (!tokenHash) {
             setMessage("Missing authentication token");
@@ -193,15 +194,7 @@ function CallbackContent() {
         };
 
         exchangeToken();
-    }, [searchParams, supabase, router]);
+    }, [supabase, router]);
 
     return <InlineSkeleton message={message} />;
-}
-
-export default function AuthCallbackPage() {
-    return (
-        <Suspense fallback={<InlineSkeleton message="Signing you in securely..." />}>
-            <CallbackContent />
-        </Suspense>
-    );
 }
