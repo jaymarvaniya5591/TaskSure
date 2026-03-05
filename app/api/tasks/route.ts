@@ -10,14 +10,18 @@ import { notifyTaskCreated, notifySubtaskCreated } from '@/lib/notifications/wha
 
 export async function POST(request: NextRequest) {
     const supabase = await createClient();
-    const currentUser = await resolveCurrentUser(supabase);
+
+    // PERF: Run auth and body parse in parallel
+    const [currentUser, body] = await Promise.all([
+        resolveCurrentUser(supabase),
+        request.json(),
+    ]);
 
     if (!currentUser) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     try {
-        const body = await request.json();
         const { assigned_to, title, description, deadline, parent_task_id } = body;
 
         if (!assigned_to || !title) {
@@ -53,7 +57,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        // --- Audit Log ---
+        // --- Audit Log (fire-and-forget — don't block response) ---
         const isSubtask = !!parent_task_id;
         const auditAction = isSubtask
             ? "subtask.created"
@@ -61,19 +65,18 @@ export async function POST(request: NextRequest) {
                 ? "todo.created"
                 : "task.created";
 
-        await supabase.from("audit_log").insert({
+        // Fire-and-forget: audit log + subtask parent log
+        supabase.from("audit_log").insert({
             user_id: currentUser.id,
             organisation_id: organisationId,
             action: auditAction,
             entity_type: "task",
             entity_id: data.id,
             metadata: { title, assigned_to, parent_task_id }
-        });
+        }).then(null, err => console.error('[TasksRoute] Audit log error:', err));
 
-        // If this is a subtask, also log to the parent task so it appears
-        // in the parent's timeline as a branch-start event.
         if (isSubtask) {
-            await supabase.from("audit_log").insert({
+            supabase.from("audit_log").insert({
                 user_id: currentUser.id,
                 organisation_id: organisationId,
                 action: "subtask.created",
@@ -84,7 +87,7 @@ export async function POST(request: NextRequest) {
                     subtask_title: title,
                     assigned_to,
                 }
-            });
+            }).then(null, err => console.error('[TasksRoute] Subtask audit log error:', err));
         }
 
         // --- Notifications (fire-and-forget via admin client) ---

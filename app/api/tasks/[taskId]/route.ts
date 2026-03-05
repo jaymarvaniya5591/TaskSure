@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = 'edge';
+export const preferredRegion = 'sin1';
+
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCurrentUser } from "@/lib/user";
-
-export const preferredRegion = 'sin1';
 import {
     notifyTaskAccepted,
     notifyTaskRejected,
@@ -31,21 +32,25 @@ export async function PATCH(
 ) {
     const { taskId } = await params;
     const supabase = await createClient();
-    const currentUser = await resolveCurrentUser(supabase);
+
+    // PERF: Run auth resolution, task fetch, and body parse in PARALLEL
+    // This cuts setup from 3 sequential network calls to 2 round-trips.
+    const [currentUser, taskResult, body] = await Promise.all([
+        resolveCurrentUser(supabase),
+        supabase
+            .from("tasks")
+            .select("id, title, assigned_to, created_by, status, organisation_id, deadline, committed_deadline, parent_task_id")
+            .eq("id", taskId)
+            .single(),
+        request.json(),
+    ]);
 
     if (!currentUser) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const { data: task, error: fetchError } = taskResult;
     const { action } = body;
-
-    // Fetch the task
-    const { data: task, error: fetchError } = await supabase
-        .from("tasks")
-        .select("id, title, assigned_to, created_by, status, organisation_id, deadline, committed_deadline, parent_task_id")
-        .eq("id", taskId)
-        .single();
 
     if (fetchError || !task) {
         return NextResponse.json({ error: "Task not found" }, { status: 404 });

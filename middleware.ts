@@ -1,16 +1,20 @@
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
- * Middleware — Lightweight route guard with ZERO network calls.
+ * Middleware — Session-aware route guard using getSession().
  *
- * PERFORMANCE: This middleware does NOT call supabase.auth.getUser().
- * That was a 2-5s network call to Supabase that blocked static page delivery.
+ * PERFORMANCE: Uses getSession() NOT getUser().
+ *   - getSession() reads from cookies only — no external network call (~1ms)
+ *   - Also handles token refresh if the access token expired (uses refresh token)
+ *   - Writes refreshed cookies back to the response
  *
- * Instead, we check if the Supabase auth cookie EXISTS (synchronous, ~1ms).
- * Real session validation happens client-side via useAuth.ts hook.
+ * The old middleware used getUser() which made a 2-5s network call to
+ * Supabase Auth API on EVERY request, blocking static page delivery.
  *
- * Tradeoff: Users with expired cookies briefly see the skeleton before
- * useAuth.ts redirects them to /login (~500ms). Affects <1% of users.
+ * getUser() validates the token server-side (secure but slow).
+ * getSession() reads the JWT from cookies (fast, handles refresh).
+ * Real validation happens client-side in useAuth.ts.
  */
 
 // Routes that require authentication
@@ -31,35 +35,78 @@ const protectedRoutes = [
 // Routes that authenticated users should NOT see
 const authRoutes = ['/login', '/signup']
 
-export function middleware(request: NextRequest) {
-    const { pathname } = request.nextUrl
+// Routes accessible by everyone
+const openRoutes = ['/signup/complete', '/auth/callback', '/join-request']
 
-    // Check for Supabase auth cookie — NO network call, just cookie inspection
-    const hasAuthCookie = request.cookies.getAll().some(
-        (cookie) => cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')
+export async function middleware(request: NextRequest) {
+    let supabaseResponse = NextResponse.next({ request })
+
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() {
+                    return request.cookies.getAll()
+                },
+                setAll(cookiesToSet) {
+                    // Forward cookies to the request (for downstream server components)
+                    cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+                    supabaseResponse = NextResponse.next({ request })
+                    // Write refreshed cookies to the response (sent back to browser)
+                    cookiesToSet.forEach(({ name, value, options }) =>
+                        supabaseResponse.cookies.set(name, value, options)
+                    )
+                },
+            },
+        }
     )
 
-    // Protected route + no cookie → redirect to login
+    // getSession() reads JWT from cookies — NO network call.
+    // If the access token is expired, it uses the refresh token to get a new one.
+    // This is fast (~1-5ms) unlike getUser() which validates server-side (2-5s).
+    const { data: { session } } = await supabase.auth.getSession()
+
+    const { pathname } = request.nextUrl
+
+    // Allow open routes for everyone
+    const isOpenRoute = openRoutes.some(
+        (route) => pathname === route || pathname.startsWith(route + '/')
+    )
+    if (isOpenRoute) {
+        return supabaseResponse
+    }
+
+    // Protected route + no session → redirect to login
     const isProtectedRoute = protectedRoutes.some(
         (route) => pathname === route || pathname.startsWith(route + '/')
     )
 
-    if (isProtectedRoute && !hasAuthCookie) {
+    if (isProtectedRoute && !session) {
         const url = request.nextUrl.clone()
         url.pathname = '/login'
-        return NextResponse.redirect(url)
+        const redirectResponse = NextResponse.redirect(url)
+        // Carry over any cookie updates from the session refresh attempt
+        supabaseResponse.cookies.getAll().forEach((cookie) => {
+            redirectResponse.cookies.set(cookie.name, cookie.value)
+        })
+        return redirectResponse
     }
 
-    // Auth route + has cookie → redirect to home (already logged in)
+    // Auth route + has session → redirect to home
     const isAuthRoute = authRoutes.some((route) => pathname === route)
 
-    if (hasAuthCookie && (isAuthRoute || pathname === '/')) {
+    if (session && (isAuthRoute || pathname === '/')) {
         const url = request.nextUrl.clone()
         url.pathname = '/home'
-        return NextResponse.redirect(url)
+        const redirectResponse = NextResponse.redirect(url)
+        supabaseResponse.cookies.getAll().forEach((cookie) => {
+            redirectResponse.cookies.set(cookie.name, cookie.value)
+        })
+        return redirectResponse
     }
 
-    return NextResponse.next()
+    return supabaseResponse
 }
 
 // Pin middleware to Singapore (same region as Supabase ap-southeast-1)
