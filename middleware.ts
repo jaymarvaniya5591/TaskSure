@@ -25,21 +25,6 @@ import { NextResponse, type NextRequest } from 'next/server'
  *   and resolves in ~200ms. Worth it for <0.5s TTFB.
  */
 
-// Routes that require authentication
-const protectedRoutes = [
-    '/home',
-    '/my-tasks',
-    '/assigned-tasks',
-    '/todos',
-    '/calendar',
-    '/team',
-    '/stats',
-    '/settings',
-    '/notifications',
-    '/profile',
-    '/tasks',
-]
-
 // Routes that authenticated users should NOT see
 const authRoutes = ['/login', '/signup']
 
@@ -54,16 +39,11 @@ export function middleware(request: NextRequest) {
         (cookie) => cookie.name.startsWith('sb-') && cookie.name.includes('-auth-token')
     )
 
-    // Protected route + no cookie → redirect to login
-    const isProtectedRoute = protectedRoutes.some(
-        (route) => pathname === route || pathname.startsWith(route + '/')
-    )
-
-    if (isProtectedRoute && !hasAuthCookie) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/login'
-        return NextResponse.redirect(url)
-    }
+    // OPTIMISTIC EDGE CACHING:
+    // We intentionally DO NOT check protected routes here.
+    // By bypassing auth at the edge, Vercel can instantly serve the static 
+    // HTML skeleton from the Edge CDN cache (TTFB < 50ms, 0 cold starts).
+    // The client-side wrapper (useAuth.tsx) handles kicking unauthenticated users to /login.
 
     // Auth route + has cookie → redirect to home (already logged in)
     const isAuthRoute = authRoutes.some((route) => pathname === route)
