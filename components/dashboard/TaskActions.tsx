@@ -163,39 +163,109 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
 
     // ── Action handlers ─────────────────────────────────────────────────────
 
+    const queryKey = ["dashboard", currentUserId, orgId];
+
     const actionMutation = useMutation({
-        mutationFn: async ({ url, method, body }: { url: string; method: string; body: unknown }) => {
+        mutationFn: async ({ url, method, body }: { url: string; method: string; body: Record<string, unknown> }) => {
             const res = await fetch(url, {
                 method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
             });
             if (!res.ok) {
-                // Extract actual error message from the response body
                 let errorMsg = "Failed to perform action";
                 try {
                     const errBody = await res.json();
                     if (errBody?.error) errorMsg = errBody.error;
-                } catch { /* response wasn't JSON, use default */ }
+                } catch { /* ignore */ }
                 throw new Error(errorMsg);
             }
             return res.json();
         },
-        onSuccess: () => {
-            setModal(null);
-            setLoading(false);
-            if (currentUserId && orgId) {
-                queryClient.invalidateQueries({ queryKey: ["dashboard", currentUserId, orgId] });
+        onMutate: async (variables) => {
+            // 1. Cancel any outgoing refetches so they don't overwrite our optimistic update
+            await queryClient.cancelQueries({ queryKey });
+
+            // 2. Snapshot the previous value
+            const previousDashboardData = queryClient.getQueryData(queryKey);
+
+            // 3. Optimistically update to the new value
+            if (currentUserId && orgId && variables.body && typeof variables.body === "object" && "action" in variables.body) {
+                setModal(null); // Instantly close the modal to make UI feel snappy
+
+                queryClient.setQueryData(queryKey, (oldData: { tasks?: Task[] } | undefined) => {
+                    if (!oldData || !oldData.tasks) return oldData;
+
+                    const newTasks = oldData.tasks.map((t: Task) => {
+                        if (t.id === task.id) {
+                            const body = variables.body as {
+                                action?: string;
+                                committed_deadline?: string | null;
+                                new_deadline?: string | null;
+                                new_assigned_to?: string | null;
+                                new_assigned_name?: string | null;
+                            };
+                            // Apply optimistic changes based on the action
+                            switch (body.action) {
+                                case "complete":
+                                    return { ...t, status: "completed" };
+                                case "accept":
+                                    return { ...t, status: "accepted", committed_deadline: body.committed_deadline };
+                                case "reject":
+                                    return { ...t, status: "rejected" };
+                                case "edit_deadline":
+                                    // if it was a pending task, it remains pending, if accepted remains accepted
+                                    return { ...t, committed_deadline: body.new_deadline, deadline: body.new_deadline } as unknown as Task;
+                                case "edit_persons":
+                                    // Complex to mock full orgUser resolution, just update the flat fields
+                                    return {
+                                        ...t,
+                                        assigned_to: body.new_assigned_to,
+                                        // Need to mock the expanded object if that's how the UI reads it
+                                        assignee_name: body.new_assigned_name || t.assigned_to
+                                    } as unknown as Task;
+                                case "delete":
+                                    // We will filter it out below
+                                    return { ...t, _markedForOptimisticDeletion: true } as unknown as Task;
+                                default:
+                                    return t;
+                            }
+                        }
+                        return t;
+                    }).filter((t: Task & { _markedForOptimisticDeletion?: boolean }) => !t._markedForOptimisticDeletion);
+
+                    return {
+                        ...oldData,
+                        tasks: newTasks,
+                    };
+                });
             }
-            // Smart invalidation: only invalidate the acted-on task and its ancestor chain
-            invalidateTaskTimelineChain(queryClient, task.id, allOrgTasks);
-            router.refresh();
+
+            // Return a context object with the snapshotted value
+            return { previousDashboardData };
         },
-        onError: (err) => {
+        onError: (err, newTodo, context) => {
             setLoading(false);
             console.error("Action error:", err);
             alert(err instanceof Error ? err.message : "Failed to perform action");
-        }
+
+            // Rollback to the previous value if mutation fails
+            if (context?.previousDashboardData && currentUserId && orgId) {
+                queryClient.setQueryData(queryKey, context.previousDashboardData);
+            }
+        },
+        onSettled: () => {
+            setLoading(false);
+            // Always refetch after error or success to ensure data consistency
+            if (currentUserId && orgId) {
+                queryClient.invalidateQueries({ queryKey });
+            }
+            invalidateTaskTimelineChain(queryClient, task.id, allOrgTasks);
+
+            // Only refresh the router (Next.js server components) as a secondary background sync
+            // React Query already optimistically updated the client components
+            router.refresh();
+        },
     });
 
     async function handleAccept(deadline: string) {
