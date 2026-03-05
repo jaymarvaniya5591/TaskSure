@@ -461,7 +461,8 @@ export async function sendTaskOverdueOwnerTemplate(
  * To-Do Stage 3: Deadline crossed notification
  * Template: todo_overdue
  * Body {{1}} = task title
- * Quick Reply button payload = "task_mark_completed::{taskId}"
+ * Quick Reply button 0 payload = "task_mark_completed::{taskId}"
+ * Quick Reply button 1 payload = "todo_edit_deadline_prompt::{taskId}"
  */
 export async function sendTodoOverdueTemplate(
     to: string,
@@ -481,6 +482,14 @@ export async function sendTodoOverdueTemplate(
             index: '0',
             parameters: [
                 { type: 'payload', payload: `task_mark_completed::${taskId}` },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '1',
+            parameters: [
+                { type: 'payload', payload: `todo_edit_deadline_prompt::${taskId}` },
             ],
         },
     ])
