@@ -50,6 +50,12 @@ export function DashboardClientWrapper({
         debugLog("REFRESH_DATA_TIMELINES_FIRED", "timeline invalidation dispatched (fire-and-forget)");
     }, [queryClient, userId]);
 
+    // Hide the inline HTML app shell once React renders
+    // The CSS rule `.hydrated #app-shell { display: none }` handles it
+    useEffect(() => {
+        document.documentElement.classList.add('hydrated');
+    }, []);
+
     // TEMP DEBUG: Test Supabase connectivity from this device on mount
     const hasLoggedRef = useRef(false);
     useEffect(() => {
