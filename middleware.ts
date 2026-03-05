@@ -78,7 +78,8 @@ export function middleware(request: NextRequest) {
 }
 
 // Pin middleware to Singapore (same region as Supabase ap-southeast-1)
-export const preferredRegion = 'sin1'
+// REMOVED: Since the middleware no longer makes network calls (synchronous cookie check),
+// it should run as close to the user as possible to avoid cross-region hop latency.
 
 export const config = {
     matcher: [
