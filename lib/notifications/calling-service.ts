@@ -361,8 +361,8 @@ export function buildAcceptanceCallScript(
     ownerName: string,
     taskSummary: string,
 ): string {
-    const trimmedTask = taskSummary.length > 50
-        ? taskSummary.substring(0, 50).trim() + '...'
+    const trimmedTask = taskSummary.length > 500
+        ? taskSummary.substring(0, 500).trim() + '...'
         : taskSummary
     return `नमस्ते! आपको एक नया काम दिया है, ${ownerName} ने। काम है: ${trimmedTask}। कृपया इसे WhatsApp पर स्वीकार करें।`
 }
@@ -371,8 +371,8 @@ export function buildReminderCallScript(
     taskTitle: string,
     ownerName: string,
 ): string {
-    const trimmedTask = taskTitle.length > 40
-        ? taskTitle.substring(0, 40).trim() + '...'
+    const trimmedTask = taskTitle.length > 500
+        ? taskTitle.substring(0, 500).trim() + '...'
         : taskTitle
     return `नमस्ते! यह आपके काम का रिमाइंडर है from, ${ownerName}। काम है: ${trimmedTask}। हमने आपको WhatsApp पर मैसेज भेजा है। कृपया वहां बताएं कि काम ठीक से चल रहा है, या अगर जरूरत हो तो आप डेडलाइन भी बदल सकते हैं। धन्यवाद।`
 }
