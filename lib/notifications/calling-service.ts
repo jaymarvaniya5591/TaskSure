@@ -364,7 +364,7 @@ export function buildAcceptanceCallScript(
     const trimmedTask = taskSummary.length > 50
         ? taskSummary.substring(0, 50).trim() + '...'
         : taskSummary
-    return `नमस्ते! यह कॉल ${ownerName} द्वारा आपको दिए गए एक काम के बारे में है। कृपया इसे देखें। उन्होंने आपसे कहा है: ${trimmedTask}। हमने आपको यह काम WhatsApp पर भी भेजा है। कृपया इसे स्वीकार करें।`
+    return `नमस्ते! यह कॉल, ${ownerName}, द्वारा आपको दिए गए एक काम के बारे में है। कृपया इसे देखें। उन्होंने आपसे कहा है: ${trimmedTask}। हमने आपको यह काम WhatsApp पर भी भेजा है। कृपया इसे स्वीकार करें।`
 }
 
 export function buildReminderCallScript(
@@ -374,5 +374,5 @@ export function buildReminderCallScript(
     const trimmedTask = taskTitle.length > 40
         ? taskTitle.substring(0, 40).trim() + '...'
         : taskTitle
-    return `नमस्ते! ${ownerName} की तरफ से आपके काम के बारे में एक अनुस्मारक है: ${trimmedTask}। क्या सब कुछ ठीक चल रहा है? अगर कोई समस्या हो तो कृपया ${ownerName} को बताएं।`
+    return `नमस्ते! ${ownerName}, की तरफ से आपके काम के बारे में एक अनुस्मारक है: ${trimmedTask}। क्या सब कुछ ठीक चल रहा है? अगर कोई समस्या हो तो कृपया ${ownerName} को बताएं।`
 }
