@@ -1,10 +1,31 @@
 import crypto from 'crypto';
 
-// Reformat private key if it was stored with literal \n
+// Reformat private key if it was stored with literal \n or lost its newlines in Vercel UI
 const getPrivateKey = () => {
-    const key = process.env.WHATSAPP_FLOWS_PRIVATE_KEY;
+    let key = process.env.WHATSAPP_FLOWS_PRIVATE_KEY;
     if (!key) throw new Error('Missing WHATSAPP_FLOWS_PRIVATE_KEY environment variable');
-    return key.replace(/\\n/g, '\n');
+
+    // 1. replace literal string "\n" with actual newlines
+    key = key.replace(/\\n/g, '\n').trim();
+
+    // 2. Re-construct the PEM format perfectly in case Vercel turned newlines into spaces
+    const beginMatch = key.match(/-----BEGIN (.*?)KEY-----/);
+    const endMatch = key.match(/-----END (.*?)KEY-----/);
+
+    if (beginMatch && endMatch) {
+        const beginTag = beginMatch[0];
+        const endTag = endMatch[0];
+
+        let body = key.substring(key.indexOf(beginTag) + beginTag.length, key.indexOf(endTag));
+        // Remove ALL whitespace from the base64 body
+        body = body.replace(/\s+/g, '');
+
+        // Chunk body into 64-character lines
+        const chunks = body.match(/.{1,64}/g) || [];
+        key = `${beginTag}\n${chunks.join('\n')}\n${endTag}\n`;
+    }
+
+    return key;
 };
 
 /**
