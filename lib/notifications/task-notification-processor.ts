@@ -177,6 +177,14 @@ async function processAcceptanceFollowup(
 
         // Send the acceptance template regardless of call result
         try {
+            let timeAgo = 'recently'
+            if (notif.stage_number === 1) timeAgo = '10 mins'
+            else if (notif.stage_number === 2) timeAgo = '1 hour'
+            else if (notif.stage_number === 3) timeAgo = '3 hours'
+
+            const followupText = `This is a followup on the task assigned to you ${timeAgo} ago. Please accept/reject it by clicking on the message below.`
+            await sendWhatsAppMessage(phone, followupText)
+
             await sendTaskAssignmentTemplate(phone, ownerName, taskTitle, notif.task_id)
         } catch (err) {
             console.error(`[Processor] Failed to send acceptance template:`, err)
