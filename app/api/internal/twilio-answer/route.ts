@@ -6,14 +6,12 @@ export async function POST(request: Request) {
         const text = url.searchParams.get('text') || 'Hello'
         const language = url.searchParams.get('language') || 'en-IN'
 
-        let voice = 'Polly.Raveena' // standard Indian English female
-        if (language.startsWith('hi')) {
-            voice = 'Polly.Aditi' // Indian Hindi/English female
-        }
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
+        const audioUrl = `${baseUrl}/api/internal/sarvam-audio.wav?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
 
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Say voice="${voice}" language="${language}">${text}</Say>
+    <Play>${audioUrl}</Play>
 </Response>`
 
         return new NextResponse(twiml, {

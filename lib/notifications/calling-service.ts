@@ -104,6 +104,66 @@ export async function getUserLanguage(
 }
 
 // ---------------------------------------------------------------------------
+// Sarvam TTS — Generate audio from text
+// ---------------------------------------------------------------------------
+
+const SARVAM_TTS_URL = 'https://api.sarvam.ai/text-to-speech'
+
+/**
+ * Generate speech audio from text using Sarvam Bulbul v3.
+ * Returns a base64-encoded audio string.
+ */
+export async function generateTTS(
+    text: string,
+    language: string = DEFAULT_LANGUAGE,
+): Promise<{ audioBase64: string; mimeType: string } | null> {
+    const apiKey = process.env.SARVAM_API_KEY
+    if (!apiKey) {
+        console.error('[CallingService] Missing SARVAM_API_KEY')
+        return null
+    }
+
+    try {
+        const response = await fetch(SARVAM_TTS_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-subscription-key': apiKey,
+            },
+            body: JSON.stringify({
+                inputs: [text],
+                target_language_code: language,
+                model: 'bulbul:v2',
+                speaker: 'anushka',
+                pitch: 0,
+                pace: 1.1,
+                loudness: 1.5,
+                enable_preprocessing: true,
+            }),
+        })
+
+        if (!response.ok) {
+            const errorBody = await response.text()
+            console.error(`[CallingService] Sarvam TTS failed (${response.status}):`, errorBody)
+            return null
+        }
+
+        const data = await response.json()
+        const audioBase64 = data?.audios?.[0]
+
+        if (!audioBase64) {
+            console.error('[CallingService] Sarvam TTS returned no audio')
+            return null
+        }
+
+        return { audioBase64, mimeType: 'audio/wav' }
+    } catch (err) {
+        console.error('[CallingService] Sarvam TTS error:', err instanceof Error ? err.message : err)
+        return null
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Twilio Provider
 // ---------------------------------------------------------------------------
 
