@@ -15,6 +15,10 @@ export function ServerWarmup() {
         fetch("/api/keep-warm", { method: "GET", cache: "no-store" }).catch(
             () => { /* silently ignore any errors */ }
         );
+        // Pre-warm the auth callback page in CDN cache
+        fetch("/auth/callback", { method: "GET" }).catch(
+            () => { /* silently ignore any errors */ }
+        );
     }, []);
 
     return null; // renders nothing

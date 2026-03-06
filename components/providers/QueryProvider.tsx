@@ -1,6 +1,6 @@
 "use client";
 
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { useState, useEffect } from "react";
@@ -35,8 +35,16 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
         }
     }, []);
 
-    // During SSR or before hydration, render a normal provider (or wait for persister)
-    if (!persister) return null; // Wait for persister to avoid hydration mismatches
+    // Render children IMMEDIATELY. Previously this returned null,
+    // blocking the entire dashboard UI for ~50-100ms.
+    // Once persister loads, upgrade to PersistQueryClientProvider.
+    if (!persister) {
+        return (
+            <QueryClientProvider client={queryClient}>
+                {children}
+            </QueryClientProvider>
+        );
+    }
 
     return (
         <PersistQueryClientProvider
@@ -47,3 +55,4 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
         </PersistQueryClientProvider>
     );
 }
+
