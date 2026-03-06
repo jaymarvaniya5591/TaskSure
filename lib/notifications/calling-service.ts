@@ -1,14 +1,13 @@
 /**
  * Calling Service — Pluggable telephony abstraction layer.
  *
- * Default provider: Plivo
+ * Default provider: Twilio (Trial) / Plivo (Future)
  * Architecture: Provider-agnostic interface so the telephony backend
- * can be swapped (Plivo → Exotel → Twilio) without changing callers.
+ * can be swapped without changing callers.
  *
  * Flow:
- *   1. Generate TTS audio via Sarvam Bulbul v3
- *   2. Make outbound call via configured telephony provider
- *   3. Return call status (connected, not_connected, error)
+ *   1. Make outbound call via configured telephony provider
+ *   2. Return call status (connected, not_connected, error)
  *
  * Server-side only — never import on the client.
  */
@@ -36,7 +35,7 @@ export interface CallingProvider {
 // Language Detection
 // ---------------------------------------------------------------------------
 
-// Map incoming_messages language_detected values to Sarvam TTS language codes
+// Map incoming_messages language_detected values to standard TTS language codes
 const LANGUAGE_MAP: Record<string, string> = {
     'hi': 'hi-IN',
     'hindi': 'hi-IN',
@@ -105,128 +104,124 @@ export async function getUserLanguage(
 }
 
 // ---------------------------------------------------------------------------
-// Sarvam TTS — Generate audio from text
+// Twilio Provider
 // ---------------------------------------------------------------------------
 
-const SARVAM_TTS_URL = 'https://api.sarvam.ai/text-to-speech'
-
-/**
- * Generate speech audio from text using Sarvam Bulbul v3.
- * Returns a base64-encoded audio string.
- */
-export async function generateTTS(
-    text: string,
-    language: string = DEFAULT_LANGUAGE,
-): Promise<{ audioBase64: string; mimeType: string } | null> {
-    const apiKey = process.env.SARVAM_API_KEY
-    if (!apiKey) {
-        console.error('[CallingService] Missing SARVAM_API_KEY')
-        return null
-    }
-
-    try {
-        const response = await fetch(SARVAM_TTS_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'api-subscription-key': apiKey,
-            },
-            body: JSON.stringify({
-                inputs: [text],
-                target_language_code: language,
-                model: 'bulbul:v2',
-                speaker: 'anushka',
-                pitch: 0,
-                pace: 1.1,
-                loudness: 1.5,
-                enable_preprocessing: true,
-            }),
-        })
-
-        if (!response.ok) {
-            const errorBody = await response.text()
-            console.error(`[CallingService] Sarvam TTS failed (${response.status}):`, errorBody)
-            return null
-        }
-
-        const data = await response.json()
-        const audioBase64 = data?.audios?.[0]
-
-        if (!audioBase64) {
-            console.error('[CallingService] Sarvam TTS returned no audio')
-            return null
-        }
-
-        return { audioBase64, mimeType: 'audio/wav' }
-    } catch (err) {
-        console.error('[CallingService] Sarvam TTS error:', err instanceof Error ? err.message : err)
-        return null
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Exotel Provider
-// ---------------------------------------------------------------------------
-
-const exotelProvider: CallingProvider = {
-    name: 'exotel',
+const twilioProvider: CallingProvider = {
+    name: 'twilio',
 
     async makeCall(phone: string, text: string, language: string): Promise<CallResult> {
-        const apiKey = process.env.EXOTEL_API_KEY
-        const apiToken = process.env.EXOTEL_API_TOKEN
-        const accountSid = process.env.EXOTEL_ACCOUNT_SID || apiKey // Many times account SID is the API key, or separate
-        const callerId = process.env.EXOTEL_CALLER_ID
+        const accountSid = process.env.TWILIO_ACCOUNT_SID
+        const authToken = process.env.TWILIO_AUTH_TOKEN
+        const callerId = process.env.TWILIO_PHONE_NUMBER
 
-        if (!apiKey || !apiToken || !accountSid || !callerId) {
-            console.error('[CallingService] Missing Exotel credentials (EXOTEL_API_KEY, EXOTEL_API_TOKEN, EXOTEL_CALLER_ID)')
-            return { success: false, status: 'error', error: 'Missing Exotel configuration' }
+        if (!accountSid || !authToken || !callerId) {
+            console.error('[CallingService] Missing Twilio credentials')
+            return { success: false, status: 'error', error: 'Missing Twilio configuration (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER)' }
         }
 
-        // Exotel typically prefers numbers without the leading + (e.g., 919876543210)
-        // or with no formatting. But we'll strip the leading + just to be safe.
-        const to = phone.startsWith('+') ? phone.slice(1) : phone
-        const from = callerId.startsWith('+') ? callerId.slice(1) : callerId
+        const to = phone.startsWith('+') ? phone : `+${phone}`
+        const from = callerId.startsWith('+') ? callerId : `+${callerId}`
 
-        // Build the answer_url pointing to our Exotel answer endpoint, passing text and language
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
-        const answerUrl = `${baseUrl}/api/internal/exotel-answer?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
+        const answerUrl = `${baseUrl}/api/internal/twilio-answer?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
 
-        const subdomain = process.env.EXOTEL_SUBDOMAIN || 'api.exotel.com'
-        const apiUrl = `https://${subdomain}/v1/Accounts/${accountSid}/Calls/connect.json`
+        const apiUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`
 
         try {
-            // Exotel uses x-www-form-urlencoded rather than JSON for its payloads
             const formParams = new URLSearchParams()
-            formParams.append('From', to) // The customer's number
-            formParams.append('CallerId', from) // Your assigned ExoPhone
-            formParams.append('Url', answerUrl) // Webhook for ExoML
+            formParams.append('To', to)
+            formParams.append('From', from)
+            formParams.append('Url', answerUrl)
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': `Basic ${Buffer.from(`${apiKey}:${apiToken}`).toString('base64')}`,
+                    'Authorization': `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
                 },
                 body: formParams,
             })
 
+            const data = await response.json()
+
             if (!response.ok) {
-                const errorBody = await response.text()
-                console.error(`[CallingService] Exotel call failed (${response.status}):`, errorBody)
-                return { success: false, status: 'error', error: `Exotel ${response.status}: ${errorBody}` }
+                console.error(`[CallingService] Twilio call failed (${response.status}):`, data)
+                return { success: false, status: 'error', error: data.message || `Twilio ${response.status}` }
             }
 
-            const data = await response.json()
-            console.log(`[CallingService] Exotel call initiated:`, data)
+            console.log(`[CallingService] Twilio call initiated:`, data.sid)
 
             return {
                 success: true,
-                callId: data?.Call?.Sid || '',
-                status: 'connected', // Will be updated by callback
+                callId: data.sid,
+                status: 'connected',
             }
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : 'Unknown error'
-            console.error('[CallingService] Exotel call error:', errMsg)
+            console.error('[CallingService] Twilio call error:', errMsg)
+            return { success: false, status: 'error', error: errMsg }
+        }
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Plivo Provider (Ready for future switch)
+// ---------------------------------------------------------------------------
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const plivoProvider: CallingProvider = {
+    name: 'plivo',
+
+    async makeCall(phone: string, text: string, language: string): Promise<CallResult> {
+        const authId = process.env.PLIVO_AUTH_ID
+        const authToken = process.env.PLIVO_AUTH_TOKEN
+        const callerId = process.env.PLIVO_PHONE_NUMBER
+
+        if (!authId || !authToken || !callerId) {
+            console.error('[CallingService] Missing Plivo credentials')
+            return { success: false, status: 'error', error: 'Missing Plivo configuration' }
+        }
+
+        const to = phone.startsWith('+') ? phone : `+${phone}`
+
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
+        const answerUrl = `${baseUrl}/api/internal/plivo-answer?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
+
+        const apiUrl = `https://api.plivo.com/v1/Account/${authId}/Call/`
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${Buffer.from(`${authId}:${authToken}`).toString('base64')}`,
+                },
+                body: JSON.stringify({
+                    to: to,
+                    from: callerId,
+                    answer_url: answerUrl,
+                    answer_method: 'GET'
+                }),
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                console.error(`[CallingService] Plivo call failed (${response.status}):`, data)
+                return { success: false, status: 'error', error: data.error || `Plivo ${response.status}` }
+            }
+
+            console.log(`[CallingService] Plivo call initiated:`, data.request_uuid)
+
+            return {
+                success: true,
+                callId: data.request_uuid,
+                status: 'connected',
+            }
+        } catch (err) {
+            const errMsg = err instanceof Error ? err.message : 'Unknown error'
+            console.error('[CallingService] Plivo call error:', errMsg)
             return { success: false, status: 'error', error: errMsg }
         }
     },
@@ -238,27 +233,17 @@ const exotelProvider: CallingProvider = {
 
 /**
  * Get the currently configured calling provider.
- * Defaults to Exotel.
+ * Currently set to Twilio.
+ * To switch to Plivo, just return plivoProvider here once the account is approved!
  */
 function getProvider(): CallingProvider {
-    return exotelProvider
+    return twilioProvider
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-/**
- * Make an automated call to a phone number with a spoken message.
- *
- * Flow:
- *   1. Generate TTS audio from the message text
- *   2. Make outbound call via the configured provider
- *
- * @param phone   - Phone number in international format (e.g. "919876543210")
- * @param message - Text to speak to the recipient
- * @param language - Language code for TTS (e.g. "hi-IN", "en-IN")
- */
 export async function makeAutomatedCall(
     phone: string,
     message: string,
@@ -266,7 +251,6 @@ export async function makeAutomatedCall(
 ): Promise<CallResult> {
     console.log(`[CallingService] Making automated call to ${phone} in ${language}`)
 
-    // Step 1: Make the call via the provider, which will use the webhook to generate TTS
     const provider = getProvider()
     const result = await provider.makeCall(phone, message, language)
 
@@ -274,23 +258,16 @@ export async function makeAutomatedCall(
     return result
 }
 
-/**
- * Build a concise call script for task acceptance followups.
- */
 export function buildAcceptanceCallScript(
     ownerName: string,
     taskSummary: string,
 ): string {
-    // Keep it under 15 words — extremely concise
     const trimmedTask = taskSummary.length > 50
         ? taskSummary.substring(0, 50).trim() + '...'
         : taskSummary
-    return `Hi! You have a task from ${ownerName}. They asked you to: ${trimmedTask}. Please accept it.`
+    return `Hi! This call is regarding a task given to you by ${ownerName}. Please look into it. They asked you to: ${trimmedTask}. We have sent you the task on WhatsApp as well. Please accept it.`
 }
 
-/**
- * Build a call script for Stage 2 reminder acknowledgment.
- */
 export function buildReminderCallScript(
     taskTitle: string,
     ownerName: string,
