@@ -57,11 +57,11 @@ export function decryptRequest(encryptedAesKey: string, encryptedFlowData: strin
     // Decode the base64 encrypted AES key into a binary string for node-forge
     const encryptedAesKeyBytes = forge.util.decode64(encryptedAesKey);
 
-    // Decrypt using RSA-OAEP with SHA-256
+    // Decrypt using RSA-OAEP with SHA-256 for both main hash and MGF1 hash
     const decryptedAesKeyBytes = privateKey.decrypt(encryptedAesKeyBytes, 'RSA-OAEP', {
         md: forge.md.sha256.create(),
         mgf1: {
-            md: forge.md.sha1.create() // Default MGF1 hash is usually SHA-1 even with OAEP SHA-256
+            md: forge.md.sha256.create() // Node natively sets MGF1 to match oaepHash
         }
     });
 
