@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 
+import forge from 'node-forge';
+
 // Reformat private key if it was stored with literal \n or lost its newlines in Vercel UI
 const getPrivateKey = () => {
     let key = process.env.WHATSAPP_FLOWS_PRIVATE_KEY;
@@ -47,24 +49,24 @@ export function signChallenge(challenge: string): string {
  * @param initialVector Base64 encoded initial vector
  */
 export function decryptRequest(encryptedAesKey: string, encryptedFlowData: string, initialVector: string) {
-    const privateKey = getPrivateKey();
+    const privateKeyStr = getPrivateKey();
 
-    // 1. Decrypt the AES key using RSA private key
-    // First, convert the PEM string to a KeyObject
-    const privateKeyObj = crypto.createPrivateKey({
-        key: privateKey,
-        format: 'pem',
-        type: 'pkcs8'
+    // 1. Decrypt the AES key using node-forge (bypasses OpenSSL compatibility issues)
+    const privateKey = forge.pki.privateKeyFromPem(privateKeyStr);
+
+    // Decode the base64 encrypted AES key into a binary string for node-forge
+    const encryptedAesKeyBytes = forge.util.decode64(encryptedAesKey);
+
+    // Decrypt using RSA-OAEP with SHA-256
+    const decryptedAesKeyBytes = privateKey.decrypt(encryptedAesKeyBytes, 'RSA-OAEP', {
+        md: forge.md.sha256.create(),
+        mgf1: {
+            md: forge.md.sha1.create() // Default MGF1 hash is usually SHA-1 even with OAEP SHA-256
+        }
     });
 
-    const decryptedAesKey = crypto.privateDecrypt(
-        {
-            key: privateKeyObj,
-            padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-            oaepHash: 'sha256',
-        },
-        Buffer.from(encryptedAesKey, 'base64')
-    );
+    // Convert the decrypted binary string back into a Node.js Buffer for the AES decryption step
+    const decryptedAesKey = Buffer.from(decryptedAesKeyBytes, 'binary');
 
     // 2. Decrypt the Flow data using the decrypted AES key and IV
     const decipher = crypto.createDecipheriv(
