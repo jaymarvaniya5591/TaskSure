@@ -176,11 +176,25 @@ export async function processMessageInline(
             .single()
 
         if (!senderUser) {
-            await sendErrorAndMark(
-                supabase, messageId, msg.phone,
-                '🚦 *Not Registered*\n\nThis phone number is not registered with Boldo.\n\nPlease sign up first.',
-                `User not found for phone: ${msg.phone}`,
-            )
+            // User not in DB — send signup link (same as webhook unregistered-user flow)
+            console.log(`[ProcessMessage] User not found for phone: ${msg.phone}, sending signup link`)
+            const intlPhone = msg.phone.startsWith('91') ? msg.phone : `91${msg.phone}`
+            try {
+                const { generateAuthToken } = await import('@/lib/auth-links')
+                const { sendSignupLinkTemplate } = await import('@/lib/whatsapp')
+                const tokenResult = await generateAuthToken(senderPhone10, 'signup', supabase)
+                if (tokenResult.success && tokenResult.token) {
+                    await sendSignupLinkTemplate(intlPhone, tokenResult.token)
+                } else {
+                    await sendWhatsAppMessage(intlPhone,
+                        '🚦 *Not Registered*\n\nThis phone number is not registered with Boldo.\n\nPlease sign up first.')
+                }
+            } catch (signupErr) {
+                console.error('[ProcessMessage] Error sending signup link:', signupErr)
+                await sendWhatsAppMessage(intlPhone,
+                    '🚦 *Not Registered*\n\nThis phone number is not registered with Boldo.\n\nPlease sign up first.')
+            }
+            await markProcessed(supabase, messageId, 'auth_signup', `User not found for phone: ${msg.phone}`)
             return { status: 'user_not_found' }
         }
 
