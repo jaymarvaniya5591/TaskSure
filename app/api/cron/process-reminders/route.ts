@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { processTaskNotifications } from '@/lib/notifications/task-notification-processor'
+import { processDailySummaries } from '@/lib/notifications/daily-summary'
 
 export const preferredRegion = 'sin1';
 
@@ -7,6 +8,7 @@ export const preferredRegion = 'sin1';
 // GET handler — Vercel Cron triggers this every 5 minutes
 //
 // Processes all due task notifications from the task_notifications table:
+//   - Daily Summaries: sent at 8:00 AM IST strictly before other reminders
 //   - Stage 1: Acceptance followups (calls + templates)
 //   - Stage 2: Mid-task reminders (templates + call escalation on timeout)
 //   - Stage 3: Post-deadline escalations (owner templates)
@@ -26,6 +28,19 @@ export async function GET(request: Request) {
     const t0 = Date.now()
 
     try {
+        // Run Daily Summaries strictly before other task notifications
+        // Check if IST time is 8:00 AM - 8:05 AM
+        const now = new Date()
+        const istTime = new Date(now.getTime() + 5.5 * 60 * 60 * 1000)
+        const istHour = istTime.getUTCHours()
+        const istMinute = istTime.getUTCMinutes()
+
+        let summaryStats = { sent: 0, failed: 0 }
+        if (istHour === 8 && istMinute <= 5) {
+            summaryStats = await processDailySummaries()
+            console.log(`[Cron] Daily Summaries processed — sent: ${summaryStats.sent}, failed: ${summaryStats.failed}`)
+        }
+
         const stats = await processTaskNotifications()
 
         const duration = Date.now() - t0
