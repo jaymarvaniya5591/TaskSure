@@ -96,22 +96,22 @@ export function decryptRequest(encryptedAesKey: string, encryptedFlowData: strin
  * Encrypts the response data using the same AES key and IV.
  */
 export function encryptResponse(responseData: Record<string, unknown>, aesKeyBuffer: Buffer, initialVectorBuffer: Buffer): string {
-    // Flip the IV bits as per WhatsApp Flows spec
-    const flippedIV = Buffer.alloc(12);
+    // Flip the initialization vector exactly as per Meta's NodeJS example
+    const flipped_iv = [];
     for (let i = 0; i < initialVectorBuffer.length; i++) {
-        flippedIV[i] = ~initialVectorBuffer[i];
+        flipped_iv.push(~initialVectorBuffer[i]);
     }
 
-    const cipher = crypto.createCipheriv('aes-128-gcm', aesKeyBuffer, flippedIV);
+    // Encrypt the response data
+    const cipher = crypto.createCipheriv(
+        'aes-128-gcm',
+        aesKeyBuffer,
+        Buffer.from(flipped_iv)
+    );
 
-    const responseDataString = JSON.stringify(responseData);
-
-    let encryptedData = cipher.update(responseDataString, 'utf8');
-    encryptedData = Buffer.concat([encryptedData, cipher.final()]);
-
-    const authTag = cipher.getAuthTag();
-
-    const finalEncryptedBuffer = Buffer.concat([encryptedData, authTag]);
-
-    return finalEncryptedBuffer.toString('base64');
+    return Buffer.concat([
+        cipher.update(JSON.stringify(responseData), 'utf-8'),
+        cipher.final(),
+        cipher.getAuthTag(),
+    ]).toString('base64');
 }
