@@ -133,11 +133,9 @@ export async function generateTTS(
             body: JSON.stringify({
                 inputs: [text],
                 target_language_code: language,
-                model: 'bulbul:v2',
-                speaker: 'anushka',
-                pitch: 0,
+                model: 'bulbul:v3',
+                speaker: 'sunny',
                 pace: 0.95,
-                loudness: 1.5,
                 enable_preprocessing: true,
             }),
         })
