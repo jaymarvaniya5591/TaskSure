@@ -165,7 +165,7 @@ async function processAcceptanceFollowup(
         // Only make call if within business hours right now
         if (isWithinBusinessHours(new Date())) {
             try {
-                const language = await getUserLanguage(notif.target_user_id, supabase)
+                const language = 'hi-IN' // Call scripts are in Hindi
                 const script = buildAcceptanceCallScript(ownerName, taskTitle)
                 callResult = await makeAutomatedCall(phone, script, language)
             } catch (err) {
@@ -271,7 +271,7 @@ async function processTaskReminder(
         // This is a call escalation (button wasn't clicked within 1hr)
         if (isWithinBusinessHours(new Date())) {
             try {
-                const language = await getUserLanguage(notif.target_user_id, supabase)
+                const language = 'hi-IN' // Call scripts are in Hindi
                 const script = buildReminderCallScript(taskTitle, ownerName)
                 await makeAutomatedCall(phone, script, language)
             } catch (err) {

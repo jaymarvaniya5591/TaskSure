@@ -136,7 +136,7 @@ export async function generateTTS(
                 model: 'bulbul:v2',
                 speaker: 'anushka',
                 pitch: 0,
-                pace: 1.1,
+                pace: 0.95,
                 loudness: 1.5,
                 enable_preprocessing: true,
             }),
@@ -183,19 +183,25 @@ const twilioProvider: CallingProvider = {
         const to = phone.startsWith('+') ? phone : `+${phone}`
         const from = callerId.startsWith('+') ? callerId : `+${callerId}`
 
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
-        let answerUrl = `${baseUrl}/api/internal/twilio-answer?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
-        if (audioUrl) {
-            answerUrl += `&audioUrl=${encodeURIComponent(audioUrl)}`
-        }
-
         const apiUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`
 
         try {
             const formParams = new URLSearchParams()
             formParams.append('To', to)
             formParams.append('From', from)
-            formParams.append('Url', answerUrl)
+
+            if (audioUrl) {
+                // Use inline TwiML with pre-generated Supabase audio URL
+                // This eliminates the webhook roundtrip entirely = 0 latency
+                const twiml = `<Response><Play>${audioUrl}</Play></Response>`
+                formParams.append('Twiml', twiml)
+                console.log(`[CallingService] Using inline TwiML with audio: ${audioUrl}`)
+            } else {
+                // Fallback: use webhook to generate TTS on-the-fly
+                const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
+                const answerUrl = `${baseUrl}/api/internal/twilio-answer?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
+                formParams.append('Url', answerUrl)
+            }
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -313,7 +319,7 @@ function getProvider(): CallingProvider {
 export async function makeAutomatedCall(
     phone: string,
     message: string,
-    language: string = DEFAULT_LANGUAGE,
+    language: string = 'hi-IN',
 ): Promise<CallResult> {
     console.log(`[CallingService] Making automated call to ${phone} in ${language}`)
 
@@ -360,7 +366,7 @@ export function buildAcceptanceCallScript(
     const trimmedTask = taskSummary.length > 50
         ? taskSummary.substring(0, 50).trim() + '...'
         : taskSummary
-    return `Hi! This call is regarding a task given to you by ${ownerName}. Please look into it. They asked you to: ${trimmedTask}. We have sent you the task on WhatsApp as well. Please accept it.`
+    return `नमस्ते! यह कॉल ${ownerName} द्वारा आपको दिए गए एक काम के बारे में है। कृपया इसे देखें। उन्होंने आपसे कहा है: ${trimmedTask}। हमने आपको यह काम WhatsApp पर भी भेजा है। कृपया इसे स्वीकार करें।`
 }
 
 export function buildReminderCallScript(
@@ -370,5 +376,5 @@ export function buildReminderCallScript(
     const trimmedTask = taskTitle.length > 40
         ? taskTitle.substring(0, 40).trim() + '...'
         : taskTitle
-    return `Hi! Quick check on your task: ${trimmedTask}. Is everything on track? Please let ${ownerName} know if there are any issues.`
+    return `नमस्ते! ${ownerName} की तरफ से आपके काम के बारे में एक अनुस्मारक है: ${trimmedTask}। क्या सब कुछ ठीक चल रहा है? अगर कोई समस्या हो तो कृपया ${ownerName} को बताएं।`
 }
