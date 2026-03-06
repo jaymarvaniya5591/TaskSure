@@ -4,11 +4,11 @@ import { decryptRequest, encryptResponse, signChallenge } from '@/lib/whatsapp-f
 export async function POST(req: Request) {
     try {
         const rawBody = await req.text();
-        let body: any = {};
+        let body: Record<string, unknown> = {};
 
         try {
             body = JSON.parse(rawBody);
-        } catch (e) {
+        } catch {
             console.log('Failed to parse body as JSON. Raw body:', rawBody);
         }
 
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
         // If we detect a challenge, sign it using the private key and return.
         if (body && typeof body === 'object' && 'challenge' in body) {
             console.log('Received challenge for public key signing. Signing...');
-            const signature = signChallenge(body.challenge);
+            const signature = signChallenge(body.challenge as string);
             console.log('Returning signature:', signature);
             // Might just need to return the signature or { signature }
             return NextResponse.json({ signature }, { status: 200 });
@@ -43,9 +43,9 @@ export async function POST(req: Request) {
             console.log('Received encrypted flow data exchange.');
 
             const { decryptedBody, aesKeyBuffer, initialVectorBuffer } = decryptRequest(
-                body.encrypted_aes_key,
-                body.encrypted_flow_data,
-                body.initial_vector
+                body.encrypted_aes_key as string,
+                body.encrypted_flow_data as string,
+                body.initial_vector as string
             );
 
             console.log('Decrypted Flow Payload:', decryptedBody);

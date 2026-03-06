@@ -65,7 +65,7 @@ export function decryptRequest(encryptedAesKey: string, encryptedFlowData: strin
 /**
  * Encrypts the response data using the same AES key and IV.
  */
-export function encryptResponse(responseData: any, aesKeyBuffer: Buffer, initialVectorBuffer: Buffer): string {
+export function encryptResponse(responseData: Record<string, unknown>, aesKeyBuffer: Buffer, initialVectorBuffer: Buffer): string {
     // Flip the IV bits as per WhatsApp Flows spec
     const flippedIV = Buffer.alloc(12);
     for (let i = 0; i < initialVectorBuffer.length; i++) {
