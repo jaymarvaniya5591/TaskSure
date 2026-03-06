@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
         const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
-        let validationData: {
+        const validationData: {
             manager?: { id: string, name: string, organisation_id: string }
             partner?: { id: string, name: string, role: string }
             companySlug?: string
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
         } else if (action === 'join' && role === 'key_partner') {
             const partnerPhoneNorm = normalizePhone(partnerPhone);
 
-            const { data: reqData, error: reqErr } = await supabase.from('join_requests').insert({
+            const { error: reqErr } = await supabase.from('join_requests').insert({
                 requester_phone: phone10,
                 requester_name: fullName,
                 partner_phone: partnerPhoneNorm,
