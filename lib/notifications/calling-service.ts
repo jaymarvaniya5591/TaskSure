@@ -28,7 +28,7 @@ export interface CallResult {
 
 export interface CallingProvider {
     name: string
-    makeCall(phone: string, text: string, language: string): Promise<CallResult>
+    makeCall(phone: string, text: string, language: string, audioUrl?: string): Promise<CallResult>
 }
 
 // ---------------------------------------------------------------------------
@@ -170,7 +170,7 @@ export async function generateTTS(
 const twilioProvider: CallingProvider = {
     name: 'twilio',
 
-    async makeCall(phone: string, text: string, language: string): Promise<CallResult> {
+    async makeCall(phone: string, text: string, language: string, audioUrl?: string): Promise<CallResult> {
         const accountSid = process.env.TWILIO_ACCOUNT_SID
         const authToken = process.env.TWILIO_AUTH_TOKEN
         const callerId = process.env.TWILIO_PHONE_NUMBER
@@ -184,7 +184,10 @@ const twilioProvider: CallingProvider = {
         const from = callerId.startsWith('+') ? callerId : `+${callerId}`
 
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
-        const answerUrl = `${baseUrl}/api/internal/twilio-answer?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
+        let answerUrl = `${baseUrl}/api/internal/twilio-answer?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
+        if (audioUrl) {
+            answerUrl += `&audioUrl=${encodeURIComponent(audioUrl)}`
+        }
 
         const apiUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`
 
@@ -233,7 +236,7 @@ const twilioProvider: CallingProvider = {
 const plivoProvider: CallingProvider = {
     name: 'plivo',
 
-    async makeCall(phone: string, text: string, language: string): Promise<CallResult> {
+    async makeCall(phone: string, text: string, language: string, audioUrl?: string): Promise<CallResult> {
         const authId = process.env.PLIVO_AUTH_ID
         const authToken = process.env.PLIVO_AUTH_TOKEN
         const callerId = process.env.PLIVO_PHONE_NUMBER
@@ -246,7 +249,10 @@ const plivoProvider: CallingProvider = {
         const to = phone.startsWith('+') ? phone : `+${phone}`
 
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
-        const answerUrl = `${baseUrl}/api/internal/plivo-answer?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
+        let answerUrl = `${baseUrl}/api/internal/plivo-answer?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
+        if (audioUrl) {
+            answerUrl += `&audioUrl=${encodeURIComponent(audioUrl)}`
+        }
 
         const apiUrl = `https://api.plivo.com/v1/Account/${authId}/Call/`
 
@@ -311,8 +317,37 @@ export async function makeAutomatedCall(
 ): Promise<CallResult> {
     console.log(`[CallingService] Making automated call to ${phone} in ${language}`)
 
+    // Generate Sarvam TTS before making the call to achieve <0.2s latency upon pickup
+    let audioUrl: string | undefined = undefined
+    try {
+        console.log(`[CallingService] Pre-generating Sarvam TTS...`)
+        const tts = await generateTTS(message, language)
+        if (tts && tts.audioBase64) {
+            const fileName = `${Date.now()}-${phone.replace('+', '')}.wav`
+            const audioBuffer = Buffer.from(tts.audioBase64, 'base64')
+            const sb = createAdminClient()
+
+            const { error: uploadError } = await sb.storage
+                .from('call-audio')
+                .upload(fileName, audioBuffer, {
+                    contentType: 'audio/wav',
+                    upsert: true
+                })
+
+            if (!uploadError) {
+                const { data } = sb.storage.from('call-audio').getPublicUrl(fileName)
+                audioUrl = data.publicUrl
+                console.log(`[CallingService] Pre-generated TTS ready at: ${audioUrl}`)
+            } else {
+                console.error(`[CallingService] Failed to upload TTS to Supabase:`, uploadError)
+            }
+        }
+    } catch (err) {
+        console.error(`[CallingService] TTS pre-generation error:`, err)
+    }
+
     const provider = getProvider()
-    const result = await provider.makeCall(phone, message, language)
+    const result = await provider.makeCall(phone, message, language, audioUrl)
 
     console.log(`[CallingService] Call result for ${phone}:`, result)
     return result

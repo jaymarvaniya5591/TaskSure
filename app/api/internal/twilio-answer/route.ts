@@ -7,11 +7,17 @@ export async function POST(request: Request) {
         const language = url.searchParams.get('language') || 'en-IN'
 
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
-        const audioUrl = `${baseUrl}/api/internal/sarvam-audio.wav?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
+        let finalUrl = `${baseUrl}/api/internal/sarvam-audio.wav?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
+
+        // If an audioUrl was provided, use that for 0-latency playback
+        const providedAudioUrl = url.searchParams.get('audioUrl')
+        if (providedAudioUrl) {
+            finalUrl = providedAudioUrl
+        }
 
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Play>${audioUrl}</Play>
+    <Play>${finalUrl}</Play>
 </Response>`
 
         return new NextResponse(twiml, {
