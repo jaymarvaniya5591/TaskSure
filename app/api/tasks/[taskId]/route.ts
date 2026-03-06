@@ -368,16 +368,7 @@ export async function PATCH(
                 return NextResponse.json({ error: "Only the owner can delete a task" }, { status: 403 });
             }
 
-            // Notify fire-and-forget — deletion is inherently destructive, don't block on it
             const adminDb = createAdminClient();
-            notifyTaskCancelled(adminDb, {
-                ownerId: userId,
-                ownerName: currentUser.name || 'The task owner',
-                assigneeId: task.assigned_to,
-                taskTitle: task.title || 'Untitled task',
-                taskId: taskId,
-                source: 'dashboard',
-            }).catch(err => console.error('[TaskPatch] Notification error (delete):', err));
 
             // Cancel all active subtasks recursively
             const cancelSubtasks = async (parentId: string): Promise<void> => {
@@ -404,7 +395,7 @@ export async function PATCH(
                 }
             };
 
-            // Run subtask cancellation and audit log in parallel
+            // Run subtask cancellation, audit log, and notification in parallel
             const [, cancelResult] = await Promise.allSettled([
                 cancelSubtasks(taskId),
                 supabase
@@ -421,6 +412,14 @@ export async function PATCH(
                     entity_type: "task",
                     entity_id: taskId
                 }),
+                notifyTaskCancelled(adminDb, {
+                    ownerId: userId,
+                    ownerName: currentUser.name || 'The task owner',
+                    assigneeId: task.assigned_to,
+                    taskTitle: task.title || 'Untitled task',
+                    taskId: taskId,
+                    source: 'dashboard',
+                }).catch(err => console.error('[TaskPatch] Notification error (delete):', err))
             ]);
 
             if (cancelResult.status === 'rejected' || (cancelResult.status === 'fulfilled' && cancelResult.value?.error)) {
