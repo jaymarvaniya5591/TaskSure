@@ -162,8 +162,7 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
     const actions = getAvailableActions(task, currentUserId);
 
     // ── Action handlers ─────────────────────────────────────────────────────
-
-    const queryKey = ["dashboard", currentUserId, orgId];
+    const queryKey = ["dashboard", currentUserId];
 
     const actionMutation = useMutation({
         mutationFn: async ({ url, method, body }: { url: string; method: string; body: Record<string, unknown> }) => {
@@ -193,10 +192,10 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
             if (currentUserId && orgId && variables.body && typeof variables.body === "object" && "action" in variables.body) {
                 setModal(null); // Instantly close the modal to make UI feel snappy
 
-                queryClient.setQueryData(queryKey, (oldData: { tasks?: Task[] } | undefined) => {
+                queryClient.setQueryData(queryKey, (oldData: { tasks?: Task[], allOrgTasks?: Task[] } | undefined) => {
                     if (!oldData || !oldData.tasks) return oldData;
 
-                    const newTasks = oldData.tasks.map((t: Task) => {
+                    let newTasks = oldData.tasks.map((t: Task) => {
                         if (t.id === task.id) {
                             const body = variables.body as {
                                 action?: string;
@@ -234,9 +233,33 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
                         return t;
                     }).filter((t: Task & { _markedForOptimisticDeletion?: boolean }) => !t._markedForOptimisticDeletion);
 
+                    let newAllOrgTasks = oldData.allOrgTasks ? [...oldData.allOrgTasks] : [];
+
+                    // Optimistic Subtask Creation
+                    const body = variables.body as Record<string, unknown>;
+                    if (body.action === "create_subtask") {
+                        const mockSubtask: Task = {
+                            id: `temp-${Date.now()}`,
+                            title: String(body.title),
+                            description: body.description ? String(body.description) : null,
+                            status: "pending",
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
+                            parent_task_id: task.id,
+                            created_by: currentUserId,
+                            assigned_to: String(body.assigned_to) || currentUserId,
+                            deadline: body.deadline ? String(body.deadline) : null,
+                            organisation_id: orgId,
+                            committed_deadline: null
+                        };
+                        newTasks = [mockSubtask, ...newTasks];
+                        newAllOrgTasks = [mockSubtask, ...newAllOrgTasks];
+                    }
+
                     return {
                         ...oldData,
                         tasks: newTasks,
+                        allOrgTasks: newAllOrgTasks
                     };
                 });
             }
@@ -315,6 +338,7 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
             url: `/api/tasks`,
             method: "POST",
             body: {
+                action: "create_subtask",
                 parent_task_id: task.id,
                 assigned_to: assignedToId,
                 title,

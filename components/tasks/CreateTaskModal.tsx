@@ -3,18 +3,14 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { X, Loader2, PlusCircle } from "lucide-react";
 import SearchEmployee from "@/components/dashboard/SearchEmployee";
 import { useUserContext } from "@/lib/user-context";
-import { type OrgUser } from "@/lib/hierarchy";
+import { type TaskUser, type Task } from "@/lib/types";
 import { getTodayMidnightISO } from "@/lib/date-utils";
 import DateTimePickerBoxes from "@/components/ui/DateTimePickerBoxes";
 import { cn } from "@/lib/utils";
-
-interface TaskUser extends OrgUser {
-    avatar_url?: string | null;
-}
 
 interface CreateTaskModalProps {
     isOpen: boolean;
@@ -79,6 +75,74 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
 
     const isSelfAssigned = assignedTo?.id === currentUserId;
 
+    // Need to use the user's session ID to correctly snapshot the cache
+    const currentQueryKey = ["dashboard", currentUserId];
+
+    const createMutation = useMutation({
+        mutationFn: async ({ title, description, assigned_to, deadline }: Record<string, unknown>) => {
+            const res = await fetch("/api/tasks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title, description, assigned_to, deadline }),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Failed to create task");
+            }
+            return res.json();
+        },
+        onMutate: async (variables) => {
+            await queryClient.cancelQueries({ queryKey: currentQueryKey });
+            const previousDashboardData = queryClient.getQueryData(currentQueryKey);
+
+            setMounted(true); // Close any lingering visual blockers if needed
+
+            queryClient.setQueryData(currentQueryKey, (oldData: { profile?: Record<string, unknown>; tasks?: Task[]; allOrgTasks?: Task[] } | undefined) => {
+                if (!oldData) return oldData;
+
+                const mockTask: Task = {
+                    id: `temp-${Date.now()}`,
+                    title: String(variables.title),
+                    description: variables.description ? String(variables.description) : null,
+                    status: "pending",
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    parent_task_id: null,
+                    created_by: currentUserId,
+                    assigned_to: String(variables.assigned_to),
+                    deadline: variables.deadline ? String(variables.deadline) : null,
+                    organisation_id: oldData.profile?.organisation_id ? String(oldData.profile.organisation_id) : "",
+                    committed_deadline: null
+                };
+
+                return {
+                    ...oldData,
+                    tasks: [mockTask, ...(oldData.tasks || [])],
+                    allOrgTasks: [mockTask, ...(oldData.allOrgTasks || [])]
+                };
+            });
+
+            // Close the modal immediately for 0 latency feel
+            onClose();
+
+            return { previousDashboardData };
+        },
+        onError: (err: unknown, variables: Record<string, unknown>, context: unknown) => {
+            setError(err instanceof Error ? err.message : "An unexpected error occurred");
+            if (context && typeof context === 'object' && 'previousDashboardData' in context) {
+                const ctx = context as { previousDashboardData: unknown };
+                if (ctx.previousDashboardData) {
+                    queryClient.setQueryData(currentQueryKey, ctx.previousDashboardData);
+                }
+            }
+        },
+        onSettled: () => {
+            setIsSubmitting(false);
+            queryClient.invalidateQueries({ queryKey: currentQueryKey });
+            router.refresh();
+        }
+    });
+
     const handleSubmit = async () => {
         setError(null);
 
@@ -104,33 +168,12 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
 
         setIsSubmitting(true);
 
-        try {
-            const res = await fetch("/api/tasks", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    title: title.trim(),
-                    description: description.trim() || undefined,
-                    assigned_to: assignedTo.id,
-                    deadline: deadline ? deadline : undefined,
-                }),
-            });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || "Failed to create task");
-            }
-
-            queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-            router.refresh();
-            onClose();
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : "An unexpected error occurred");
-        } finally {
-            setIsSubmitting(false);
-        }
+        createMutation.mutate({
+            title: title.trim(),
+            description: description.trim() || undefined,
+            assigned_to: assignedTo.id,
+            deadline: deadline ? deadline : undefined,
+        });
     };
 
     if (!mounted || !isOpen) return null;
