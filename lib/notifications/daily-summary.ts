@@ -149,7 +149,7 @@ export async function processDailySummaries(supabaseAdmin?: SupabaseAdmin): Prom
                 const pocId = getPocId(task)
                 const poc = getLastActiveParticipant(task, allTasks)
                 const pocName = pocId === user.id ? 'You' : (poc?.name || 'Unknown')
-                return `• *${task.title}*\n  _POC: ${pocName}_`
+                return `"${task.title}"\n_POC: ${pocName}_`
             }
 
             const formatOverdueLine = (task: Task) => {
@@ -159,13 +159,13 @@ export async function processDailySummaries(supabaseAdmin?: SupabaseAdmin): Prom
                 const isSelfAssigned = isTodo(task)
                 const effectiveDeadline = isSelfAssigned ? (task.committed_deadline || task.deadline) : task.committed_deadline
                 const deadlineText = effectiveDeadline ? formatDateAndTime(effectiveDeadline) : 'NA'
-                return `• *${task.title}*\n  _Deadline: ${deadlineText}_\n  _POC: ${pocName}_`
+                return `"${task.title}"\n_Deadline: ${deadlineText}_\n_POC: ${pocName}_`
             }
 
             // Build Message 1: Today's Tasks
             let msg1 = ''
             if (todayOwned.length > 0 || todayAssigned.length > 0) {
-                msg1 += `📅 *Today's Tasks*\n`
+                msg1 += `📅 TODAY'S TASKS\n───────────────\n`
                 if (todayOwned.length > 0) {
                     msg1 += `\n👤 *Owned By You*\n\n` + todayOwned.map(formatTaskLine).join('\n\n')
                 }
@@ -177,7 +177,8 @@ export async function processDailySummaries(supabaseAdmin?: SupabaseAdmin): Prom
             // Build Message 2: Overdue + Not Accepted
             let msg2 = ''
             if (overdueTasks.length > 0 || pendingTasks.length > 0) {
-                msg2 += `🚨 *Attention Required*\n`
+                // 18 chars + emoji -> 20 dashes
+                msg2 += `🚨 ATTENTION REQUIRED\n────────────────────\n`
                 if (overdueTasks.length > 0) {
                     msg2 += `\n⚠️ *Overdue Tasks*\n\n` + overdueTasks.map(formatOverdueLine).join('\n\n')
                 }
@@ -188,7 +189,8 @@ export async function processDailySummaries(supabaseAdmin?: SupabaseAdmin): Prom
 
             // Empty state message
             if (!msg1 && !msg2) {
-                msg1 = `✅ *All Caught Up!*\n\nYou have no tasks due today and no pending actions. Have a great day!`
+                // 15 chars + emoji -> 16 dashes
+                msg1 = `✅ ALL CAUGHT UP!\n────────────────\n\nYou have no tasks due today and no pending actions. Have a great day!`
             }
 
             // Send Messages
