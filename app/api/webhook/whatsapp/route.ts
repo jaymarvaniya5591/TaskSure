@@ -69,7 +69,7 @@ interface CachedUser {
     cachedAt: number
 }
 
-const knownUsersCache = new Map<string, CachedUser | null>()
+const knownUsersCache = new Map<string, CachedUser>()
 
 /** Look up a user, checking cache first. Returns user or null. */
 async function getCachedUser(
@@ -82,8 +82,8 @@ async function getCachedUser(
     const cached = knownUsersCache.get(phone10)
 
     if (!forceDbCheck && cached !== undefined) {
-        // Cache hit — check TTL
-        if (cached === null || now - cached.cachedAt < KNOWN_USERS_TTL_MS) {
+        // Cache hit — check TTL (only positive results are cached)
+        if (now - cached.cachedAt < KNOWN_USERS_TTL_MS) {
             return cached
         }
         // Expired — fall through to DB
@@ -108,10 +108,9 @@ async function getCachedUser(
         return entry
     }
 
-    // Not registered — cache the negative result for a shorter time (60s)
-    // so we re-check soon in case they sign up
-    knownUsersCache.set(phone10, null)
-    setTimeout(() => knownUsersCache.delete(phone10), 60_000)
+    // Not registered — do NOT cache negative results.
+    // This ensures that if the user signs up, the very next message
+    // will find them in the DB without any stale-cache issues.
     return null
 }
 
@@ -120,7 +119,7 @@ setInterval(() => {
     const now = Date.now()
     const entries = Array.from(knownUsersCache.entries())
     for (const [phone, entry] of entries) {
-        if (entry && now - entry.cachedAt >= KNOWN_USERS_TTL_MS) {
+        if (now - entry.cachedAt >= KNOWN_USERS_TTL_MS) {
             knownUsersCache.delete(phone)
         }
     }
