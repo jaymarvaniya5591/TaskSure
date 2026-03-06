@@ -22,7 +22,7 @@ import {
     sendTodoDeadlineApproachingTemplate,
     sendTodoOverdueTemplate
 } from '@/lib/whatsapp'
-import { makeAutomatedCall, buildAcceptanceCallScript, buildReminderCallScript, getUserLanguage } from './calling-service'
+import { makeAutomatedCall, buildAcceptanceCallScript, buildReminderCallScript } from './calling-service'
 import {
     scheduleReminderCallEscalation,
     scheduleOwnerNoReplyNotification,
