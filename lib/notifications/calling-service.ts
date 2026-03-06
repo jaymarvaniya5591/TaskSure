@@ -374,5 +374,5 @@ export function buildReminderCallScript(
     const trimmedTask = taskTitle.length > 40
         ? taskTitle.substring(0, 40).trim() + '...'
         : taskTitle
-    return `नमस्ते! यह आपके काम का रिमाइंडर है, ${ownerName} की तरफ से। काम है: ${trimmedTask}। क्या सब कुछ ठीक चल रहा है?`
+    return `नमस्ते! यह आपके काम का रिमाइंडर है from, ${ownerName}। काम है: ${trimmedTask}। हमने आपको WhatsApp पर मैसेज भेजा है। कृपया वहां बताएं कि काम ठीक से चल रहा है, या अगर जरूरत हो तो आप डेडलाइन भी बदल सकते हैं। धन्यवाद।`
 }
