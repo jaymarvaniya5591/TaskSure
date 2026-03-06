@@ -7,13 +7,7 @@ import { getLastActiveParticipant, getPendingInfo, isTodo } from '@/lib/task-ser
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAdmin = any
 
-function formatTimeOnly(dateStr: string): string {
-    const d = new Date(dateStr)
-    return d.toLocaleTimeString('en-IN', {
-        hour: '2-digit', minute: '2-digit', hour12: true,
-        timeZone: 'Asia/Kolkata',
-    })
-}
+
 
 function formatDateAndTime(dateStr: string): string {
     const d = new Date(dateStr)

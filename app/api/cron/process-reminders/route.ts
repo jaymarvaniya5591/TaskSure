@@ -36,7 +36,8 @@ export async function GET(request: Request) {
         const istMinute = istTime.getUTCMinutes()
 
         let summaryStats = { sent: 0, failed: 0 }
-        if (istHour === 8 && istMinute <= 5) {
+        // Extended window to 8:15 AM to ensure it runs after deployment finishes
+        if (istHour === 8 && istMinute <= 15) {
             summaryStats = await processDailySummaries()
             console.log(`[Cron] Daily Summaries processed — sent: ${summaryStats.sent}, failed: ${summaryStats.failed}`)
         }
