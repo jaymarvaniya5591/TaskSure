@@ -29,9 +29,16 @@ export function decryptRequest(encryptedAesKey: string, encryptedFlowData: strin
     const privateKey = getPrivateKey();
 
     // 1. Decrypt the AES key using RSA private key
+    // First, convert the PEM string to a KeyObject
+    const privateKeyObj = crypto.createPrivateKey({
+        key: privateKey,
+        format: 'pem',
+        type: 'pkcs8'
+    });
+
     const decryptedAesKey = crypto.privateDecrypt(
         {
-            key: privateKey,
+            key: privateKeyObj,
             padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
             oaepHash: 'sha256',
         },
