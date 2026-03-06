@@ -278,6 +278,15 @@ async function processTaskReminder(
                 console.error(`[Processor] Reminder call failed:`, err)
             }
         }
+
+        // As requested by the user, also send the WhatsApp template again alongside the call
+        const deadlineFormatted = deadline ? formatDate(deadline) : 'soon'
+        try {
+            await sendTaskProgressCheckTemplate(phone, taskTitle, deadlineFormatted, ownerName, notif.task_id)
+        } catch (err) {
+            console.error(`[Processor] Failed to send progress check template alongside call:`, err)
+        }
+
         await markNotificationSent(supabase, notif.id)
         return
     }
