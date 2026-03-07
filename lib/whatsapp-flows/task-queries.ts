@@ -334,9 +334,6 @@ export async function getTaskDetail(
         infoLines.push(`👑  Owner: ${ownerName}`)
         infoLines.push(`👤  Assignee: ${assigneeName}`)
     }
-    if (t.description) {
-        infoLines.push(`📝  ${t.description}`)
-    }
 
     // Get available actions from shared task-service logic
     const rawActions = getAvailableActions(t, userId)

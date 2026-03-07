@@ -55,14 +55,21 @@ export async function handleLoadTasks(
     const { tasks, label } = await getTasksForView(validView, user.id, user.organisation_id)
 
     const isEmpty = tasks.length === 0
+    if (isEmpty) {
+        return {
+            screen: 'EMPTY_TASK_LIST',
+            data: {
+                view_label: label,
+                empty_message: emptyMessage(validView),
+            }
+        }
+    }
+
     return {
         screen: 'TASK_LIST',
         data: {
             view_label: label,
-            // Always provide at least one item; disabled items can't be tapped
-            tasks: isEmpty
-                ? [{ id: '__empty__', title: emptyMessage(validView), description: '', enabled: false }]
-                : tasks.map(t => ({ ...t, enabled: true })),
+            tasks: tasks.map(t => ({ ...t, enabled: true })),
         },
     }
 }
