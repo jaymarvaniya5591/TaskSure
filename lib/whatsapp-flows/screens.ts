@@ -210,12 +210,16 @@ export async function handleCommitAction(
 
     let mergedDeadline: string | undefined
     if (payload.new_deadline_date && payload.new_deadline_time) {
-        // new_deadline_date from WhatsApp flows is a Unix epoch string in MS (e.g. "1710000000000")
-        const dateObj = new Date(Number(payload.new_deadline_date))
-        const yyyy = dateObj.getFullYear()
-        const mm = String(dateObj.getMonth() + 1).padStart(2, '0')
-        const dd = String(dateObj.getDate()).padStart(2, '0')
-        const dateString = `${yyyy}-${mm}-${dd}`
+        let dateString = payload.new_deadline_date
+
+        // If it's a numeric epoch string (e.g. "1710000000000")
+        if (!isNaN(Number(payload.new_deadline_date))) {
+            const dateObj = new Date(Number(payload.new_deadline_date))
+            const yyyy = dateObj.getFullYear()
+            const mm = String(dateObj.getMonth() + 1).padStart(2, '0')
+            const dd = String(dateObj.getDate()).padStart(2, '0')
+            dateString = `${yyyy}-${mm}-${dd}`
+        }
 
         // Merge into a single local ISO string format that native parseISO/endOfDay can handle
         mergedDeadline = `${dateString}T${payload.new_deadline_time}:00`

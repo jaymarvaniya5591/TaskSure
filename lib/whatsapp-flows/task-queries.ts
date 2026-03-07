@@ -554,11 +554,16 @@ export async function executeTaskAction(
             if (!payload.newDeadline) {
                 return { success: false, message: 'No deadline provided.' }
             }
+
             // DatePicker returns string in YYYY-MM-DDTHH:MM:00 (without TZ) so we append IST timezone
-            const deadlineISO = new Date(payload.newDeadline + '+05:30').toISOString()
+            const customDate = new Date(payload.newDeadline + '+05:30')
+            if (isNaN(customDate.getTime())) {
+                return { success: false, message: 'Invalid deadline format provided.' }
+            }
+            const deadlineISO = customDate.toISOString()
 
             // Reject past deadlines
-            if (new Date(deadlineISO).getTime() < Date.now()) {
+            if (customDate.getTime() < Date.now()) {
                 return { success: false, message: 'Deadline cannot be in the past.' }
             }
 
