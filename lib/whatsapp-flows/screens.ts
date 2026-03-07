@@ -3,6 +3,12 @@
  *
  * Each function builds the encrypted screen data returned to WhatsApp.
  * Called by the Flow endpoint route handler.
+ *
+ * Flow structure (v2 — single-click navigation):
+ *   DASHBOARD → on-select → TASK_LIST → on-select → TASK_DETAIL
+ *   TASK_DETAIL → on-select → [DEADLINE_SCREEN | PERSONS_SCREEN | SUCCESS]
+ *   DEADLINE_SCREEN → footer → SUCCESS
+ *   PERSONS_SCREEN  → footer → SUCCESS
  */
 
 import {
@@ -16,27 +22,21 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type ScreenResponse =
-    | { screen: string; data: Record<string, unknown> }
-    | { screen: 'ERROR'; data: { error_message: string } }
+type ScreenResponse = { screen: string; data: Record<string, unknown> }
 
 // ─── INIT → DASHBOARD ────────────────────────────────────────────────────────
 
 export async function handleInit(phone10: string): Promise<ScreenResponse> {
     const user = await resolveUserByPhone(phone10)
     if (!user || !user.organisation_id) {
-        return errorScreen('Your account could not be found. Please sign up first.')
+        return dashboardFallback('Your account could not be found. Please sign up first.')
     }
 
-    // Use today_assigned as default to compute summary
-    const { summary } = await getTasksForView('today_assigned', user.id, user.organisation_id)
-
+    // DASHBOARD is fully static — the options are hardcoded in the Flow JSON.
+    // We return an empty data object so the screen renders immediately.
     return {
         screen: 'DASHBOARD',
-        data: {
-            summary,
-            filter_options: staticFilterOptions(),
-        },
+        data: {},
     }
 }
 
@@ -48,7 +48,7 @@ export async function handleLoadTasks(
 ): Promise<ScreenResponse> {
     const user = await resolveUserByPhone(phone10)
     if (!user || !user.organisation_id) {
-        return errorScreen('Account not found.')
+        return dashboardFallback('Account not found.')
     }
 
     const validView = isValidView(view) ? (view as FlowView) : 'today_assigned'
@@ -59,10 +59,10 @@ export async function handleLoadTasks(
         screen: 'TASK_LIST',
         data: {
             view_label: label,
-            tasks: isEmpty ? [{ id: '__empty__', title: 'No tasks', description: '' }] : tasks,
-            tasks_visible: !isEmpty,
-            empty_visible: isEmpty,
-            empty_message: emptyMessage(validView),
+            // Always provide at least one item; disabled items can't be tapped
+            tasks: isEmpty
+                ? [{ id: '__empty__', title: emptyMessage(validView), description: '', enabled: false }]
+                : tasks.map(t => ({ ...t, enabled: true })),
         },
     }
 }
@@ -75,15 +75,15 @@ export async function handleLoadTask(
 ): Promise<ScreenResponse> {
     const user = await resolveUserByPhone(phone10)
     if (!user || !user.organisation_id) {
-        return errorScreen('Account not found.')
+        return dashboardFallback('Account not found.')
     }
-    if (!taskId) {
-        return errorScreen('Please select a task first.')
+    if (!taskId || taskId === '__empty__') {
+        return dashboardFallback('Please select a valid task.')
     }
 
     const detail = await getTaskDetail(taskId, user.id, user.organisation_id)
     if (!detail) {
-        return errorScreen('Task not found. It may have been deleted.')
+        return dashboardFallback('Task not found. It may have been deleted.')
     }
 
     return {
@@ -92,12 +92,19 @@ export async function handleLoadTask(
             task_id: detail.taskId,
             task_title: detail.title,
             task_info: detail.info,
-            actions: detail.actions,
+            actions: detail.actions.map(a => ({ ...a, enabled: true })),
         },
     }
 }
 
-// ─── PREPARE_ACTION → ACTION_EXECUTE ─────────────────────────────────────────
+// ─── PREPARE_ACTION → (commit immediately OR collect input) ───────────────────
+//
+// Simple actions (complete, delete, reject, send_followup):
+//   Execute immediately → return SUCCESS screen.
+// Deadline actions (edit_deadline, accept):
+//   Return DEADLINE_SCREEN so user can pick a date.
+// Person action (edit_persons):
+//   Fetch employee list → return PERSONS_SCREEN.
 
 export async function handlePrepareAction(
     phone10: string,
@@ -106,67 +113,63 @@ export async function handlePrepareAction(
 ): Promise<ScreenResponse> {
     const user = await resolveUserByPhone(phone10)
     if (!user || !user.organisation_id) {
-        return errorScreen('Account not found.')
+        return dashboardFallback('Account not found.')
     }
 
     switch (selectedAction) {
+        // ── Deadline input required ─────────────────────────────────────────
         case 'edit_deadline':
-        case 'accept':
-            return {
-                screen: 'ACTION_EXECUTE',
-                data: {
-                    task_id: taskId,
-                    action_type: selectedAction,
-                    confirm_message: '',
-                    show_confirm: false,
-                    show_date_picker: true,
-                    show_employee_search: false,
-                    show_error: false,
-                    error_message: '',
-                    employees: [],
-                },
-            }
+        case 'accept': {
+            // min_date = today midnight UTC in milliseconds (DatePicker uses epoch ms)
+            const minDate = String(new Date(new Date().toDateString()).getTime())
 
-        case 'edit_persons': {
-            const employees = await getEmployees(user.organisation_id)
+            // Fetch task title for the sub-heading
+            const detail = await getTaskDetail(taskId, user.id, user.organisation_id)
             return {
-                screen: 'ACTION_EXECUTE',
+                screen: 'DEADLINE_SCREEN',
                 data: {
                     task_id: taskId,
-                    action_type: 'edit_persons',
-                    confirm_message: '',
-                    show_confirm: false,
-                    show_date_picker: false,
-                    show_employee_search: true,
-                    show_error: false,
-                    error_message: '',
-                    employees,
+                    task_title: detail?.title ?? 'Task',
+                    action_type: selectedAction,
+                    min_date: minDate,
                 },
             }
         }
 
+        // ── Person selection required ───────────────────────────────────────
+        case 'edit_persons': {
+            const [employees, detail] = await Promise.all([
+                getEmployees(user.organisation_id),
+                getTaskDetail(taskId, user.id, user.organisation_id),
+            ])
+            return {
+                screen: 'PERSONS_SCREEN',
+                data: {
+                    task_id: taskId,
+                    task_title: detail?.title ?? 'Task',
+                    employees: employees.map(e => ({ ...e, enabled: true })),
+                },
+            }
+        }
+
+        // ── Simple 1-click actions — commit immediately ─────────────────────
         case 'complete':
-            return confirmScreen(taskId, 'complete',
-                'This will mark the task as completed. The other party will be notified.')
-
         case 'delete':
-            return confirmScreen(taskId, 'delete',
-                '⚠️ This will permanently delete the task and cancel all pending notifications.')
-
         case 'reject':
-            return confirmScreen(taskId, 'reject',
-                'This will reject the task. The owner will be notified.')
-
-        case 'send_followup':
-            return confirmScreen(taskId, 'send_followup',
-                'This will send a follow-up reminder to the pending person.')
+        case 'send_followup': {
+            return commitAndRespond(
+                taskId, user.id, user.organisation_id,
+                selectedAction, {}
+            )
+        }
 
         default:
-            return errorScreen('Unknown action selected.')
+            return dashboardFallback('Unknown action selected.')
     }
 }
 
 // ─── COMMIT_ACTION → SUCCESS ──────────────────────────────────────────────────
+// Called from DEADLINE_SCREEN and PERSONS_SCREEN footer buttons.
 
 export async function handleCommitAction(
     phone10: string,
@@ -180,109 +183,64 @@ export async function handleCommitAction(
 ): Promise<ScreenResponse> {
     const user = await resolveUserByPhone(phone10)
     if (!user || !user.organisation_id) {
-        return errorScreen('Account not found.')
+        return dashboardFallback('Account not found.')
     }
 
-    // Employee search: if search text present but no selection → filter list and return back to ACTION_EXECUTE
-    if (actionType === 'edit_persons' && payload.employeeSearch && !payload.selectedEmployee) {
-        const employees = await getEmployees(user.organisation_id, payload.employeeSearch)
-        return {
-            screen: 'ACTION_EXECUTE',
-            data: {
-                task_id: taskId,
-                action_type: 'edit_persons',
-                confirm_message: '',
-                show_confirm: false,
-                show_date_picker: false,
-                show_employee_search: true,
-                show_error: employees.length === 0,
-                error_message: employees.length === 0 ? 'No employees found. Try a different name.' : '',
-                employees: employees.length > 0 ? employees : [],
-            },
-        }
-    }
-
-    const result = await executeTaskAction(
-        taskId,
-        user.id,
-        user.organisation_id,
-        actionType,
-        payload
+    return commitAndRespond(
+        taskId, user.id, user.organisation_id,
+        actionType, payload
     )
+}
 
-    if (!result.success) {
-        // Return back to ACTION_EXECUTE with error shown
-        return {
-            screen: 'ACTION_EXECUTE',
-            data: {
-                task_id: taskId,
-                action_type: actionType,
-                confirm_message: '',
-                show_confirm: false,
-                show_date_picker: actionType === 'edit_deadline' || actionType === 'accept',
-                show_employee_search: actionType === 'edit_persons',
-                show_error: true,
-                error_message: result.message,
-                employees: actionType === 'edit_persons'
-                    ? await getEmployees(user.organisation_id)
-                    : [],
-            },
-        }
-    }
+// ─── Shared commit helper ─────────────────────────────────────────────────────
 
-    // Send notification if needed (fire and forget)
+async function commitAndRespond(
+    taskId: string,
+    userId: string,
+    orgId: string,
+    actionType: string,
+    payload: { newDeadline?: string; selectedEmployee?: string; employeeSearch?: string }
+): Promise<ScreenResponse> {
+    const result = await executeTaskAction(taskId, userId, orgId, actionType, payload)
+
+    // Fire-and-forget notification
     if (result.notifyPhone && result.notifyMessage) {
         notifyAsync(result.notifyPhone, result.notifyMessage)
     }
 
+    // On failure we still show SUCCESS but with the error as the message —
+    // there is no good way to show an error without navigating backward in Flows.
     return {
         screen: 'SUCCESS',
         data: {
-            success_message: result.message,
+            success_message: result.success
+                ? result.message
+                : `⚠️ ${result.message}`,
         },
     }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function errorScreen(message: string): ScreenResponse {
+/**
+ * Falls back to the DASHBOARD screen with an empty data set.
+ * We can't show a proper error screen without a dedicated ERROR screen in the Flow;
+ * returning DASHBOARD at least keeps the user in the flow.
+ */
+function dashboardFallback(_message: string): ScreenResponse {
+    // Log for server debugging
+    console.error('[FlowScreens] Fallback to DASHBOARD:', _message)
     return {
-        screen: 'ERROR' as string,
-        data: { error_message: message },
+        screen: 'DASHBOARD',
+        data: {},
     }
-}
-
-function confirmScreen(taskId: string, actionType: string, message: string): ScreenResponse {
-    return {
-        screen: 'ACTION_EXECUTE',
-        data: {
-            task_id: taskId,
-            action_type: actionType,
-            confirm_message: message,
-            show_confirm: true,
-            show_date_picker: false,
-            show_employee_search: false,
-            show_error: false,
-            error_message: '',
-            employees: [],
-        },
-    }
-}
-
-function staticFilterOptions() {
-    return [
-        { id: 'today_assigned', title: '📥  Today — Assigned to Me' },
-        { id: 'today_owned', title: '👑  Today — Owned by Me' },
-        { id: 'action_required', title: '⚡  Action Required from Me' },
-        { id: 'pending_others', title: '⏳  Waiting on Others' },
-        { id: 'overdue', title: '🔴  Overdue Tasks' },
-        { id: 'todos', title: '✅  My To-Dos' },
-        { id: 'future', title: '📆  Upcoming Tasks' },
-    ]
 }
 
 function isValidView(view: string): boolean {
-    return ['today_assigned', 'today_owned', 'action_required', 'pending_others', 'overdue', 'todos', 'future'].includes(view)
+    return [
+        'today_assigned', 'today_owned', 'action_required',
+        'pending_others', 'overdue', 'todos', 'future',
+    ].includes(view)
 }
 
 function emptyMessage(view: FlowView): string {
@@ -297,11 +255,13 @@ function emptyMessage(view: FlowView): string {
     }
 }
 
-// Fire-and-forget WhatsApp notification (import lazily to avoid circular deps)
+// Fire-and-forget WhatsApp notification (lazy import to avoid circular deps)
 function notifyAsync(phone: string, message: string) {
-    import('@/lib/whatsapp').then(({ sendWhatsAppMessage }) => {
-        sendWhatsAppMessage(phone, message).catch(err =>
-            console.error('[FlowScreens] Failed to send notification:', err)
-        )
-    }).catch(() => { /* ignore */ })
+    import('@/lib/whatsapp')
+        .then(({ sendWhatsAppMessage }) => {
+            sendWhatsAppMessage(phone, message).catch(err =>
+                console.error('[FlowScreens] Failed to send notification:', err)
+            )
+        })
+        .catch(() => { /* ignore */ })
 }
