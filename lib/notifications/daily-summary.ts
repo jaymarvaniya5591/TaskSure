@@ -32,12 +32,11 @@ export async function processDailySummaries(supabaseAdmin?: SupabaseAdmin): Prom
         const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
 
         // 1. Check if already run today
-        const systemNotifId = `system-summary-${todayStr}`
         const { data: existing } = await sb
-            .from('task_notifications')
+            .from('audit_log')
             .select('id')
-            .eq('task_id', systemNotifId)
-            .eq('stage', 'escalation') // using standard stage to fit type
+            .eq('action', 'daily_summary_run')
+            .eq('metadata->>date', todayStr)
             .limit(1)
 
         if (existing && existing.length > 0) {
@@ -47,18 +46,14 @@ export async function processDailySummaries(supabaseAdmin?: SupabaseAdmin): Prom
         console.log(`[DailySummary] Processing daily summaries for ${todayStr}`)
 
         // Mark as run to prevent duplicate runs
-        await sb.from('task_notifications').insert({
-            task_id: systemNotifId,
-            stage: 'escalation',
-            stage_number: 999,
-            target_user_id: 'system',
-            target_role: 'owner',
-            channel: 'whatsapp',
-            scheduled_at: now.toISOString(),
-            status: 'sent',
-            sent_at: now.toISOString(),
-            metadata: { type: 'daily_summary' }
+        const { error: insertError } = await sb.from('audit_log').insert({
+            action: 'daily_summary_run',
+            metadata: { date: todayStr }
         })
+
+        if (insertError) {
+            console.error(`[DailySummary] Failed to mark run in audit_log:`, insertError)
+        }
 
         // 2. Fetch users with phones
         const { data: usersData } = await sb
