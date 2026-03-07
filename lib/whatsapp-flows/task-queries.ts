@@ -8,7 +8,6 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-    extractUserId,
     extractUserName,
     isTodo,
     isActive,
@@ -20,7 +19,7 @@ import {
     getEffectiveDeadline,
 } from '@/lib/task-service'
 import { type Task } from '@/lib/types'
-import { format, startOfDay, endOfDay, addDays } from 'date-fns'
+import { format, endOfDay, addDays } from 'date-fns'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -135,7 +134,6 @@ export async function getTasksForView(
     const allTasks = await fetchUserTasks(userId, orgId)
     const now = new Date()
     const todayEnd = endOfDay(now)
-    const todayStart = startOfDay(now)
 
     let filtered: Task[] = []
     let label = ''
