@@ -111,7 +111,8 @@ export async function POST(req: Request) {
                             flowData.task_id as string,
                             flowData.action_type as string,
                             {
-                                newDeadline: flowData.new_deadline as string | undefined,
+                                new_deadline_date: flowData.new_deadline_date as string | undefined,
+                                new_deadline_time: flowData.new_deadline_time as string | undefined,
                                 selectedEmployee: flowData.selected_employee as string | undefined,
                                 employeeSearch: flowData.employee_search as string | undefined,
                             }

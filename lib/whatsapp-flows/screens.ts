@@ -120,8 +120,21 @@ export async function handlePrepareAction(
         // ── Deadline input required ─────────────────────────────────────────
         case 'edit_deadline':
         case 'accept': {
-            // min_date = today midnight UTC in milliseconds (DatePicker uses epoch ms)
-            const minDate = String(new Date(new Date().toDateString()).getTime())
+            // min_date = 'YYYY-MM-DD'
+            const minDate = new Date().toISOString().split('T')[0]
+
+            // Create time options (every 30 mins)
+            const timeOptions = []
+            for (let h = 0; h < 24; h++) {
+                for (let m = 0; m < 60; m += 30) {
+                    const ampm = h >= 12 ? 'PM' : 'AM'
+                    const hour12 = h % 12 || 12
+                    const minStr = m === 0 ? '00' : '30'
+                    const timeId = `${h.toString().padStart(2, '0')}:${minStr}`
+                    const timeLabel = `${hour12}:${minStr} ${ampm}`
+                    timeOptions.push({ id: timeId, title: timeLabel })
+                }
+            }
 
             // Fetch task title for the sub-heading
             const detail = await getTaskDetail(taskId, user.id, user.organisation_id)
@@ -132,6 +145,7 @@ export async function handlePrepareAction(
                     task_title: detail?.title ?? 'Task',
                     action_type: selectedAction,
                     min_date: minDate,
+                    time_options: timeOptions,
                 },
             }
         }
@@ -176,7 +190,8 @@ export async function handleCommitAction(
     taskId: string,
     actionType: string,
     payload: {
-        newDeadline?: string
+        new_deadline_date?: string
+        new_deadline_time?: string
         selectedEmployee?: string
         employeeSearch?: string
     }
@@ -186,9 +201,21 @@ export async function handleCommitAction(
         return dashboardFallback('Account not found.')
     }
 
+    let mergedDeadline: string | undefined
+    if (payload.new_deadline_date && payload.new_deadline_time) {
+        // new_deadline_date is 'YYYY-MM-DD', time is 'HH:mm'
+        // Merge them into a single local ISO string or timestamp string that endOfDay/parseISO can handle
+        mergedDeadline = `${payload.new_deadline_date}T${payload.new_deadline_time}:00`
+    }
+
     return commitAndRespond(
         taskId, user.id, user.organisation_id,
-        actionType, payload
+        actionType,
+        {
+            newDeadline: mergedDeadline,
+            selectedEmployee: payload.selectedEmployee,
+            employeeSearch: payload.employeeSearch
+        }
     )
 }
 
