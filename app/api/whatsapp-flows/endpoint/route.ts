@@ -94,14 +94,15 @@ export async function POST(req: Request) {
                         break;
 
                     case 'LOAD_TASK':
-                        screenResponse = await handleLoadTask(phone10, flowData.task_id as string);
+                        screenResponse = await handleLoadTask(phone10, flowData.task_id as string, flowData.view as string);
                         break;
 
                     case 'PREPARE_ACTION':
                         screenResponse = await handlePrepareAction(
                             phone10,
                             flowData.task_id as string,
-                            flowData.selected_action as string
+                            flowData.selected_action as string,
+                            flowData.view as string
                         );
                         break;
 
@@ -115,7 +116,8 @@ export async function POST(req: Request) {
                                 new_deadline_time: flowData.new_deadline_time as string | undefined,
                                 selectedEmployee: flowData.selected_employee as string | undefined,
                                 employeeSearch: flowData.employee_search as string | undefined,
-                            }
+                            },
+                            flowData.view as string
                         );
                         break;
 

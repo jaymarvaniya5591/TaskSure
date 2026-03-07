@@ -69,6 +69,7 @@ export async function handleLoadTasks(
         screen: 'TASK_LIST',
         data: {
             view_label: label,
+            view_state: validView,
             tasks: tasks.map(t => ({ ...t, enabled: true })),
         },
     }
@@ -78,7 +79,8 @@ export async function handleLoadTasks(
 
 export async function handleLoadTask(
     phone10: string,
-    taskId: string
+    taskId: string,
+    viewState?: string
 ): Promise<ScreenResponse> {
     const user = await resolveUserByPhone(phone10)
     if (!user || !user.organisation_id) {
@@ -97,6 +99,7 @@ export async function handleLoadTask(
         screen: 'TASK_DETAIL',
         data: {
             task_id: detail.taskId,
+            view_state: viewState || '',
             task_title: detail.title,
             task_info: detail.info,
             actions: detail.actions.map(a => ({ ...a, enabled: true })),
@@ -116,7 +119,8 @@ export async function handleLoadTask(
 export async function handlePrepareAction(
     phone10: string,
     taskId: string,
-    selectedAction: string
+    selectedAction: string,
+    viewState?: string
 ): Promise<ScreenResponse> {
     const user = await resolveUserByPhone(phone10)
     if (!user || !user.organisation_id) {
@@ -151,6 +155,7 @@ export async function handlePrepareAction(
                     task_id: taskId,
                     task_title: detail?.title ?? 'Task',
                     action_type: selectedAction,
+                    view_state: viewState || '',
                     min_date: minDate,
                     time_options: timeOptions,
                 },
@@ -168,6 +173,8 @@ export async function handlePrepareAction(
                 data: {
                     task_id: taskId,
                     task_title: detail?.title ?? 'Task',
+                    action_type: selectedAction,
+                    view_state: viewState || '',
                     employees: employees.map(e => ({ ...e, enabled: true })),
                 },
             }
@@ -180,7 +187,7 @@ export async function handlePrepareAction(
         case 'send_followup': {
             return commitAndRespond(
                 taskId, user.id, user.organisation_id,
-                selectedAction, {}
+                selectedAction, {}, viewState
             )
         }
 
@@ -201,7 +208,8 @@ export async function handleCommitAction(
         new_deadline_time?: string
         selectedEmployee?: string
         employeeSearch?: string
-    }
+    },
+    viewState?: string
 ): Promise<ScreenResponse> {
     const user = await resolveUserByPhone(phone10)
     if (!user || !user.organisation_id) {
@@ -232,7 +240,8 @@ export async function handleCommitAction(
             newDeadline: mergedDeadline,
             selectedEmployee: payload.selectedEmployee,
             employeeSearch: payload.employeeSearch
-        }
+        },
+        viewState
     )
 }
 
@@ -243,7 +252,8 @@ async function commitAndRespond(
     userId: string,
     orgId: string,
     actionType: string,
-    payload: { newDeadline?: string; selectedEmployee?: string; employeeSearch?: string }
+    payload: { newDeadline?: string; selectedEmployee?: string; employeeSearch?: string },
+    viewState?: string
 ): Promise<ScreenResponse> {
     const result = await executeTaskAction(taskId, userId, orgId, actionType, payload)
 
@@ -255,6 +265,7 @@ async function commitAndRespond(
             success_message: result.success
                 ? result.message
                 : `⚠️ ${result.message}`,
+            view_state: viewState || '',
         },
     }
 }

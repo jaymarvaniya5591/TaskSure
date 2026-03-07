@@ -320,6 +320,17 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
     }
 
     async function handleEditDeadline(deadline: string) {
+        const currentDeadline = task.committed_deadline || task.deadline;
+        if (currentDeadline) {
+            const currentDt = new Date(currentDeadline).getTime();
+            const newDt = new Date(deadline).getTime();
+            // If the difference is less than 60 seconds, treat it as essentially unchanged
+            if (Math.abs(currentDt - newDt) < 60000) {
+                setModal(null);
+                return;
+            }
+        }
+
         setLoading(true);
         actionMutation.mutate({
             url: `/api/tasks/${task.id}`,

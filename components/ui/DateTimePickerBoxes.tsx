@@ -94,7 +94,10 @@ const SpinnerSegment = ({
                         "text-center text-lg sm:text-xl font-black bg-transparent outline-none p-0 focus:bg-gray-100 rounded-lg transition-colors"
                     )}
                     value={isFocused ? localValue : value}
-                    onChange={(e) => setLocalValue(e.target.value)}
+                    onChange={(e) => {
+                        setLocalValue(e.target.value);
+                        onCommit?.(e.target.value);
+                    }}
                     onFocus={() => {
                         setIsFocused(true);
                         setLocalValue(""); // remove completely on click so they can type immediately

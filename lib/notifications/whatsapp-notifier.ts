@@ -225,7 +225,7 @@ async function computeRecipientIds(
     supabase: SupabaseAdmin,
     opts: NotifyTaskEventOpts,
 ): Promise<string[]> {
-    const { eventType, taskId, actorId, source, ownerId, assigneeId } = opts
+    const { eventType, taskId, actorId, ownerId, assigneeId } = opts
     const recipientSet = new Set<string>()
 
     // Always include the direct task participants (owner + assignee)
