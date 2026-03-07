@@ -245,8 +245,8 @@ export async function getTasksForView(
     const capped = filtered.slice(0, 20)
     const total = filtered.length
     const displayLabel = total > 20
-        ? `${label}  ·  ${total} tasks (showing first 20)`
-        : `${label}${total > 0 ? `  ·  ${total} task${total !== 1 ? 's' : ''}` : ''}`
+        ? `${label}  ·  (showing first 20)`
+        : label
 
     return {
         tasks: capped.map(buildTaskItem),
