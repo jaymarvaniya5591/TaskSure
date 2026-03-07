@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizePhone } from '@/lib/phone';
+import { sendJoinRequestPendingTemplate } from '@/lib/whatsapp';
 
 export const preferredRegion = 'sin1';
 
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
 
         const validationData: {
             manager?: { id: string, name: string, organisation_id: string }
-            partner?: { id: string, name: string, role: string }
+            partner?: { id: string, name: string, role: string, organisation_id: string }
             companySlug?: string
         } = {};
 
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
                 const normalizedPartner = normalizePhone(partnerPhone);
                 const { data: partner } = await supabase
                     .from('users')
-                    .select('id, name, role')
+                    .select('id, name, role, organisation_id')
                     .eq('phone_number', normalizedPartner)
                     .single();
 
@@ -93,9 +94,6 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ error: 'No user found with that phone number.' }, { status: 404 });
                 }
 
-                if (partner.role !== 'owner') {
-                    return NextResponse.json({ error: 'This user is not an owner and cannot approve.' }, { status: 403 });
-                }
                 validationData.partner = partner;
 
             } else if (role === 'other_partner') {
@@ -182,22 +180,24 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, user_id: authUserId });
 
         } else if (action === 'join' && role === 'key_partner') {
-            const partnerPhoneNorm = normalizePhone(partnerPhone);
-
-            const { error: reqErr } = await supabase.from('join_requests').insert({
-                requester_phone: phone10,
-                requester_name: fullName,
-                partner_phone: partnerPhoneNorm,
+            const { error: userErr } = await supabase.from('users').insert({
+                id: authUserId,
+                name: fullName,
+                first_name: firstName.trim(),
+                last_name: lastName.trim(),
+                phone_number: phone10,
+                organisation_id: validationData.partner!.organisation_id,
                 role: 'owner'
-            }).select('id').single();
+            });
 
-            if (reqErr) {
-                return NextResponse.json({ error: `Join request failure: ${reqErr.message}` }, { status: 500 });
+            if (userErr) {
+                if (userErr.code === '23505') {
+                    return NextResponse.json({ error: 'An account with this phone number already exists.' }, { status: 409 });
+                }
+                return NextResponse.json({ error: `User insert failed: ${userErr.message}` }, { status: 500 });
             }
 
-            // DO NOT SEND WHATSAPP TEMPLATE (since it's tester)
-            // But we should return pending to show the UI state
-            return NextResponse.json({ status: 'pending_approval' });
+            return NextResponse.json({ success: true, user_id: authUserId });
 
         } else if (action === 'join' && role === 'other_partner') {
             const { error: userErr } = await supabase.from('users').insert({
