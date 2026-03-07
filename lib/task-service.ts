@@ -258,7 +258,8 @@ export type TaskActionType =
     | "edit_deadline"
     | "create_subtask"
     | "edit_persons"
-    | "delete";
+    | "delete"
+    | "send_followup";
 
 export interface TaskAction {
     type: TaskActionType;

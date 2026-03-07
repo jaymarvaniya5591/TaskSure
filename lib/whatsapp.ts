@@ -565,3 +565,85 @@ export async function downloadWhatsAppMedia(
         mimeType: metaData.mime_type || 'audio/ogg',
     }
 }
+
+// ---------------------------------------------------------------------------
+// Task Manager Flow Template
+// ---------------------------------------------------------------------------
+
+/**
+ * Sends the task_manager_flow template to open the Task Dashboard Flow.
+ * The user's 10-digit phone number is encoded as flow_token so our
+ * endpoint can identify them without a separate DB lookup.
+ *
+ * @param to       - Recipient phone in international format (e.g. "919727731867")
+ * @param phone10  - Normalised 10-digit phone used as flow_token
+ */
+export async function sendTaskManagerFlowTemplate(
+    to: string,
+    phone10: string
+): Promise<WhatsAppSendResult> {
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
+    const flowId = process.env.WHATSAPP_FLOW_ID
+    const templateName = process.env.WHATSAPP_FLOW_TEMPLATE ?? 'task_manager_flow'
+
+    if (!accessToken || !phoneNumberId || !flowId) {
+        console.error('[WhatsApp] Missing WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, or WHATSAPP_FLOW_ID')
+        return { success: false, error: 'Missing WhatsApp Flow configuration' }
+    }
+
+    const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`
+
+    const payload = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to,
+        type: 'template',
+        template: {
+            name: templateName,
+            language: { code: 'en' },
+            components: [
+                {
+                    type: 'button',
+                    sub_type: 'flow',
+                    index: '0',
+                    parameters: [
+                        {
+                            type: 'action',
+                            action: {
+                                flow_token: phone10,
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+    }
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        })
+
+        if (!response.ok) {
+            const errorBody = await response.text()
+            console.error(`[WhatsApp] Flow template send failed (${response.status}):`, errorBody)
+            return { success: false, error: `HTTP ${response.status}: ${errorBody}` }
+        }
+
+        const data = await response.json()
+        const messageId = data?.messages?.[0]?.id
+        console.log(`[WhatsApp] Flow template sent to ${to}, id: ${messageId}`)
+        return { success: true, messageId }
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error'
+        console.error('[WhatsApp] Flow template send error:', message)
+        return { success: false, error: message }
+    }
+}
+

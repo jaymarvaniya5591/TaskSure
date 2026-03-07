@@ -7,6 +7,7 @@ import {
     sendWhatsAppMessage,
     sendSignupLinkTemplate,
     sendSigninLinkTemplate,
+    sendTaskManagerFlowTemplate,
 } from '@/lib/whatsapp'
 import { generateAuthToken } from '@/lib/auth-links'
 import { normalizePhone } from '@/lib/phone'
@@ -682,9 +683,10 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     continue
                 }
 
-                // --- EARLY TEXT CHECK: detect signin/login BEFORE DB lookup ---
+                // --- EARLY TEXT CHECK: detect signin/login/list BEFORE DB lookup ---
                 const normalizedText = textBody.replace(/\s+/g, '').toLowerCase()
                 const isSignin = normalizedText === 'signin' || normalizedText === 'login'
+                const isList = normalizedText === 'list'
 
                 // --- SIGNIN FAST PATH: parallelize user lookup + token generation ---
                 if (isSignin) {
@@ -748,10 +750,28 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     continue
                 }
 
-                // --- NON-SIGNIN: regular user lookup ---
+                // --- NON-SIGNIN: regular user lookup (needed for list + AI processor) ---
                 const tLookup = Date.now()
                 const registeredUser = await getCachedUser(senderPhone10, supabase)
                 console.log(`[Webhook] User lookup took ${Date.now() - tLookup}ms`)
+
+                // --- LIST FAST PATH: send task manager flow ---
+                if (isList) {
+                    if (!registeredUser) {
+                        await sendWhatsAppMessage(rawSenderPhone, '🔐 *Not Registered*\n\nPlease sign up first to use the task dashboard.\n\nReply *signin* to get started.')
+                    } else {
+                        console.log(`[Webhook] List trigger for: ${senderPhone10}`)
+                        await sendTaskManagerFlowTemplate(rawSenderPhone, senderPhone10)
+                    }
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    ; (supabase as any)
+                        .from('incoming_messages')
+                        .insert({ phone: senderPhone10, raw_text: textBody || `[${messageType}]`, payload: body, processed: true, intent_type: 'flow_list' })
+                        .then(() => { /* ignore */ })
+                        .catch((logErr: unknown) => console.error('[Webhook] Error logging:', logErr))
+                    console.log(`[Webhook] List total time: ${Date.now() - t0}ms`)
+                    continue
+                }
 
                 // --- STEP B: UNREGISTERED USER → send signup link ---
                 if (!registeredUser) {

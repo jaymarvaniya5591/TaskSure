@@ -75,6 +75,7 @@ const ACTION_META: Record<
     create_subtask: { icon: PlusCircle, color: "text-teal-600 hover:bg-teal-50" },
     edit_persons: { icon: UserPlus, color: "text-violet-600 hover:bg-violet-50" },
     delete: { icon: Trash2, color: "text-red-500 hover:bg-red-50" },
+    send_followup: { icon: Calendar, color: "text-orange-500 hover:bg-orange-50" },
 };
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
