@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizePhone } from '@/lib/phone';
-import { sendJoinRequestPendingTemplate } from '@/lib/whatsapp';
 
 export const preferredRegion = 'sin1';
 
