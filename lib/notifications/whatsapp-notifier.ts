@@ -14,8 +14,8 @@
  *   - Edit by non-owner → notify actor + full parent chain (up to 3 levels)
  *
  * **Scenario 2 — WhatsApp bot (source='whatsapp'):**
- *   - Same recipient logic as Scenario 1, but the actor is EXCLUDED from
- *     notifications because the bot already sent them an acknowledgement.
+ *   - Same recipient logic as Scenario 1. Actors receive identical text notifications 
+ *     for their actions to maintain a consistent chat history log.
  *
  * ## Parent Chain:
  *   - Walks up parent_task_id links collecting created_by + assigned_to
@@ -219,7 +219,7 @@ async function getParentChainUserIds(
  *
  *   3. Source filtering:
  *      - 'dashboard': include actor in notifications
- *      - 'whatsapp': exclude actor (they got the bot acknowledgement)
+ *      - 'whatsapp': include actor in notifications (for chat history logging)
  */
 async function computeRecipientIds(
     supabase: SupabaseAdmin,
@@ -251,11 +251,6 @@ async function computeRecipientIds(
 
     // Always include the actor in the set initially
     recipientSet.add(actorId)
-
-    // Source filtering: for WhatsApp, exclude the actor (they got the acknowledgement)
-    if (source === 'whatsapp') {
-        recipientSet.delete(actorId)
-    }
 
     return Array.from(recipientSet)
 }
