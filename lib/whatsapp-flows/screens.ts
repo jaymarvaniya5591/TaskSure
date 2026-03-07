@@ -290,13 +290,3 @@ function emptyMessage(view: FlowView): string {
     }
 }
 
-// Fire-and-forget WhatsApp notification (lazy import to avoid circular deps)
-function notifyAsync(phone: string, message: string) {
-    import('@/lib/whatsapp')
-        .then(({ sendWhatsAppMessage }) => {
-            sendWhatsAppMessage(phone, message).catch(err =>
-                console.error('[FlowScreens] Failed to send notification:', err)
-            )
-        })
-        .catch(() => { /* ignore */ })
-}

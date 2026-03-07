@@ -933,16 +933,4 @@ export async function executeTaskAction(
     }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function extractOtherUserPhone(
-    userRef: unknown
-): { phone: string; name: string } | null {
-    if (!userRef || typeof userRef !== 'object') return null
-    const u = userRef as Record<string, unknown>
-    const phone = u.phone_number as string | undefined
-    const name = u.name as string | undefined
-    if (!phone) return null
-    const intlPhone = phone.startsWith('91') ? phone : `91${phone}`
-    return { phone: intlPhone, name: name ?? 'Unknown' }
-}
