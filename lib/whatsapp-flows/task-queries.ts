@@ -9,6 +9,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
     extractUserName,
+    extractUserId,
     isTodo,
     isActive,
     isOverdue,
@@ -18,6 +19,14 @@ import {
     getPendingInfo,
     getEffectiveDeadline,
 } from '@/lib/task-service'
+import {
+    notifyTaskAccepted,
+    notifyTaskRejected,
+    notifyTaskCompleted,
+    notifyDeadlineEdited,
+    notifyAssigneeChanged,
+    notifyTaskCancelled,
+} from '@/lib/notifications/whatsapp-notifier'
 import { type Task } from '@/lib/types'
 import { format, endOfDay, addDays } from 'date-fns'
 
@@ -414,12 +423,11 @@ export async function getEmployees(
 export interface ActionResult {
     success: boolean
     message: string
-    notifyPhone?: string
-    notifyMessage?: string
 }
 
 /**
- * Execute a task action and return the success message + any party to notify.
+ * Execute a task action and return the success message.
+ * Notifications and Audit Logs are dispatched fire-and-forget in the background.
  */
 export async function executeTaskAction(
     taskId: string,
@@ -459,8 +467,28 @@ export async function executeTaskAction(
         return { success: false, message: 'You don\'t have permission to perform this action.' }
     }
 
+    const userIdIsOwner = isOwner(t, userId)
+    const userIdIsAssignee = isAssignee(t, userId)
+    const isTaskTodo = isTodo(t)
+    const isSubtask = !!t.parent_task_id
+    const tAssigneeId = extractUserId(t.assigned_to) as string
+    const tOwnerId = extractUserId(t.created_by) as string
+
+    // Fetch user details for audit logs and notifications
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: currentUserData } = await (supabase as any)
+        .from('users')
+        .select('name')
+        .eq('id', userId)
+        .single()
+    const currentUserName = currentUserData?.name || 'A team member'
+
     switch (actionType) {
         case 'complete': {
+            if (!userIdIsOwner) {
+                return { success: false, message: 'Only the owner can complete a task.' }
+            }
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error } = await (supabase as any)
                 .from('tasks')
@@ -469,138 +497,295 @@ export async function executeTaskAction(
 
             if (error) return { success: false, message: 'Failed to complete task. Please try again.' }
 
-            // Cancel pending notifications
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase as any)
-                .from('task_notifications')
-                .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-                .eq('task_id', taskId)
-                .eq('status', 'pending')
+            const [updateResult] = await Promise.allSettled([
+                // Cancel pending notifications
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (supabase as any)
+                    .from('task_notifications')
+                    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+                    .eq('task_id', taskId)
+                    .eq('status', 'pending'),
+                // Audit log for completion
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (supabase as any).from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: orgId,
+                    action: isSubtask ? "subtask.completed" : isTaskTodo ? "todo.completed" : "task.completed",
+                    entity_type: "task",
+                    entity_id: taskId
+                }),
+                // If subtask, also log to the parent task timeline
+                isSubtask && t.parent_task_id
+                    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    (supabase as any).from("audit_log").insert({
+                        user_id: userId,
+                        organisation_id: orgId,
+                        action: "subtask.completed",
+                        entity_type: "task",
+                        entity_id: t.parent_task_id,
+                        metadata: {
+                            subtask_id: taskId,
+                            subtask_title: t.title,
+                        }
+                    })
+                    : Promise.resolve(),
+                // Fire central notification
+                notifyTaskCompleted(supabase, {
+                    ownerId: userId,
+                    ownerName: currentUserName,
+                    assigneeId: tAssigneeId,
+                    taskTitle: t.title || 'Untitled task',
+                    taskId: taskId,
+                    source: 'whatsapp',
+                }).catch(err => console.error('[FlowQueries] Notification error (complete):', err))
+            ])
 
-            // Notify the other party
-            const otherUser = isOwner(t, userId)
-                ? extractOtherUserPhone(t.assigned_to)
-                : extractOtherUserPhone(t.created_by)
-
-            if (otherUser && !isTodo(t)) {
-                return {
-                    success: true,
-                    message: `"${t.title}" marked as completed! The other party has been notified.`,
-                    notifyPhone: otherUser.phone,
-                    notifyMessage: `✅ *Task Completed!*\n\n"${t.title}"\n\nMarked as completed.`,
-                }
+            if (updateResult.status === 'rejected') {
+                console.error('[FlowQueries] Promise error (complete):', updateResult.reason);
             }
+
             return { success: true, message: `"${t.title}" marked as completed!` }
         }
 
         case 'edit_deadline': {
+            if (!userIdIsAssignee && !userIdIsOwner) {
+                return { success: false, message: 'Only the assignee or owner can edit the deadline.' }
+            }
             if (!payload.newDeadline) {
                 return { success: false, message: 'No deadline provided.' }
             }
-            // DatePicker returns YYYY-MM-DD — convert to end-of-day ISO
-            const deadlineISO = new Date(payload.newDeadline + 'T20:00:00').toISOString()
+            // DatePicker returns string in YYYY-MM-DDTHH:MM:00 (without TZ) so we append IST timezone
+            const deadlineISO = new Date(payload.newDeadline + '+05:30').toISOString()
+
+            // Reject past deadlines
+            if (new Date(deadlineISO).getTime() < Date.now()) {
+                return { success: false, message: 'Deadline cannot be in the past.' }
+            }
+
+            const updateData: Record<string, string> = {
+                updated_at: new Date().toISOString(),
+                deadline: deadlineISO
+            }
+
+            // Sync with web route logic: only modify committed_deadline if it already exists
+            if (t.committed_deadline) {
+                updateData.committed_deadline = deadlineISO
+            }
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error } = await (supabase as any)
                 .from('tasks')
-                .update({
-                    committed_deadline: deadlineISO,
-                    status: t.status === 'pending' ? 'accepted' : t.status,
-                    updated_at: new Date().toISOString()
-                })
+                .update(updateData)
                 .eq('id', taskId)
 
             if (error) return { success: false, message: 'Failed to update deadline.' }
 
-            const formatted = format(new Date(deadlineISO), 'MMM d, yyyy')
-            const ownerUser = extractOtherUserPhone(t.created_by)
-            if (ownerUser && !isTodo(t) && !isOwner(t, userId)) {
-                return {
-                    success: true,
-                    message: `Deadline updated to ${formatted}.`,
-                    notifyPhone: ownerUser.phone,
-                    notifyMessage: `📅 *Deadline Updated*\n\n"${t.title}"\n\nNew deadline: ${formatted}`,
-                }
+            const [updateResult] = await Promise.allSettled([
+                // Audit log for deadline edit
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (supabase as any).from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: orgId,
+                    action: "task.deadline_edited",
+                    entity_type: "task",
+                    entity_id: taskId,
+                    metadata: { old_deadline: t.deadline, new_deadline: deadlineISO }
+                }),
+                // Fire central notification
+                notifyDeadlineEdited(supabase, {
+                    ownerId: tOwnerId,
+                    assigneeId: tAssigneeId,
+                    actorId: userId,
+                    actorName: currentUserName,
+                    taskTitle: t.title || 'Untitled task',
+                    taskId: taskId,
+                    newDeadline: deadlineISO,
+                    source: 'whatsapp',
+                }).catch(err => console.error('[FlowQueries] Notification error (edit_deadline):', err))
+            ])
+
+            if (updateResult.status === 'rejected') {
+                console.error('[FlowQueries] Promise error (edit_deadline):', updateResult.reason);
             }
+
+            const formatted = format(new Date(deadlineISO), 'MMM d, yyyy h:mm a')
             return { success: true, message: `Deadline updated to ${formatted}.` }
         }
 
         case 'edit_persons': {
+            if (!userIdIsOwner) {
+                return { success: false, message: 'Only the owner can change the assignee.' }
+            }
             if (!payload.selectedEmployee) {
                 return { success: false, message: 'No employee selected.' }
             }
+
             // Look up the new assignee
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { data: newAssignee } = await (supabase as any)
                 .from('users')
-                .select('id, name, phone_number')
+                .select('id, name')
                 .eq('id', payload.selectedEmployee)
                 .single()
 
             if (!newAssignee) return { success: false, message: 'Employee not found.' }
 
+            // Sync with web route logic: if assigning to self (creator), it's a To-do and auto-accepts
+            const isSelfAssign = payload.selectedEmployee === userId;
+            const updateData: Record<string, unknown> = {
+                assigned_to: newAssignee.id,
+                updated_at: new Date().toISOString(),
+            }
+
+            if (!isSelfAssign && newAssignee.id !== t.assigned_to) {
+                updateData.status = 'pending'
+                updateData.committed_deadline = null
+            } else if (isSelfAssign) {
+                updateData.status = 'accepted'
+                if (!t.committed_deadline && t.deadline) {
+                    updateData.committed_deadline = t.deadline
+                }
+            }
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error } = await (supabase as any)
                 .from('tasks')
-                .update({
-                    assigned_to: newAssignee.id,
-                    status: 'pending',
-                    committed_deadline: null,
-                    updated_at: new Date().toISOString()
-                })
+                .update(updateData)
                 .eq('id', taskId)
 
             if (error) return { success: false, message: 'Failed to update assignee.' }
 
-            const newPhone = newAssignee.phone_number?.startsWith('91')
-                ? newAssignee.phone_number
-                : `91${newAssignee.phone_number}`
+            const oldAssigneeName = extractUserName(t.assigned_to)
+
+            const [updateResult] = await Promise.allSettled([
+                // Audit log for reassignment
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (supabase as any).from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: orgId,
+                    action: "task.reassigned",
+                    entity_type: "task",
+                    entity_id: taskId,
+                    metadata: {
+                        old_assigned_to: tAssigneeId,
+                        new_assigned_to: newAssignee.id,
+                        old_name: oldAssigneeName,
+                        new_name: newAssignee.name
+                    }
+                }),
+                // Fire central notification
+                notifyAssigneeChanged(supabase, {
+                    ownerId: userId,
+                    ownerName: currentUserName,
+                    oldAssigneeId: tAssigneeId,
+                    newAssigneeId: newAssignee.id,
+                    newAssigneeName: newAssignee.name || 'the new assignee',
+                    taskTitle: t.title || 'Untitled task',
+                    taskId: taskId,
+                    source: 'whatsapp',
+                }).catch(err => console.error('[FlowQueries] Notification error (edit_persons):', err))
+            ])
+
+            if (updateResult.status === 'rejected') {
+                console.error('[FlowQueries] Promise error (edit_persons):', updateResult.reason);
+            }
 
             return {
                 success: true,
-                message: `Task reassigned to ${newAssignee.name}. They'll be notified.`,
-                notifyPhone: newPhone,
-                notifyMessage: `📋 *Task Assigned to You*\n\n"${t.title}"\n\nPlease reply to confirm your deadline.`,
+                message: `Task reassigned to ${newAssignee.name}. They will be notified.`,
             }
         }
 
         case 'delete': {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error } = await (supabase as any)
-                .from('tasks')
-                .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-                .eq('id', taskId)
-
-            if (error) return { success: false, message: 'Failed to delete task.' }
-
-            // Cancel pending notifications
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase as any)
-                .from('task_notifications')
-                .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-                .eq('task_id', taskId)
-                .eq('status', 'pending')
-
-            const otherUser = !isOwner(t, userId)
-                ? extractOtherUserPhone(t.created_by)
-                : extractOtherUserPhone(t.assigned_to)
-
-            if (otherUser && !isTodo(t)) {
-                return {
-                    success: true,
-                    message: `"${t.title}" has been deleted.`,
-                    notifyPhone: otherUser.phone,
-                    notifyMessage: `🗑️ *Task Deleted*\n\n"${t.title}"\n\nThis task has been deleted.`,
-                }
+            if (!userIdIsOwner) {
+                return { success: false, message: 'Only the owner can delete a task.' }
             }
+
+            // Cancel all active subtasks recursively (sync with web route)
+            const cancelSubtasks = async (parentId: string): Promise<void> => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: subs } = await (supabase as any)
+                    .from("tasks")
+                    .select("id")
+                    .eq("parent_task_id", parentId)
+                    .in("status", ["pending", "accepted", "overdue"]);
+
+                if (subs && subs.length > 0) {
+                    const subIds = subs.map((s: { id: string }) => s.id);
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await (supabase as any)
+                        .from("tasks")
+                        .update({
+                            status: "cancelled",
+                            updated_at: new Date().toISOString(),
+                        })
+                        .in("id", subIds);
+
+                    for (const subId of subIds) {
+                        await cancelSubtasks(subId);
+                    }
+                }
+            };
+
+            const [updateResult] = await Promise.allSettled([
+                cancelSubtasks(taskId),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (supabase as any)
+                    .from('tasks')
+                    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+                    .eq('id', taskId),
+                // Cancel pending notifications
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (supabase as any)
+                    .from('task_notifications')
+                    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+                    .eq('task_id', taskId)
+                    .eq('status', 'pending'),
+                // Audit log for deletion
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (supabase as any).from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: orgId,
+                    action: "task.deleted",
+                    entity_type: "task",
+                    entity_id: taskId
+                }),
+                // Fire central notification
+                notifyTaskCancelled(supabase, {
+                    ownerId: userId,
+                    ownerName: currentUserName,
+                    assigneeId: tAssigneeId,
+                    taskTitle: t.title || 'Untitled task',
+                    taskId: taskId,
+                    source: 'whatsapp',
+                }).catch(err => console.error('[FlowQueries] Notification error (delete):', err))
+            ])
+
+            if (updateResult.status === 'rejected') {
+                console.error('[FlowQueries] Promise error (delete):', updateResult.reason);
+                return { success: false, message: 'Failed to delete task.' }
+            }
+
             return { success: true, message: `"${t.title}" has been deleted.` }
         }
 
         case 'accept': {
+            if (!userIdIsAssignee) {
+                return { success: false, message: 'Only the assignee can accept a task.' }
+            }
+            if (t.status !== 'pending') {
+                return { success: false, message: 'Task can only be accepted when pending.' }
+            }
             if (!payload.newDeadline) {
                 return { success: false, message: 'Please provide a deadline to accept this task.' }
             }
-            const deadlineISO = new Date(payload.newDeadline + 'T20:00:00').toISOString()
+            // Add IST timezone for proper parsing
+            const deadlineISO = new Date(payload.newDeadline + '+05:30').toISOString()
+
+            if (new Date(deadlineISO).getTime() < Date.now()) {
+                return { success: false, message: 'Deadline cannot be in the past.' }
+            }
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error } = await (supabase as any)
                 .from('tasks')
@@ -613,40 +798,88 @@ export async function executeTaskAction(
 
             if (error) return { success: false, message: 'Failed to accept task.' }
 
-            const formatted = format(new Date(deadlineISO), 'MMM d, yyyy')
-            const ownerUser = extractOtherUserPhone(t.created_by)
-            if (ownerUser) {
-                return {
-                    success: true,
-                    message: `Task accepted! You've committed to ${formatted}.`,
-                    notifyPhone: ownerUser.phone,
-                    notifyMessage: `👍 *Task Accepted*\n\n"${t.title}"\n\nCommitted deadline: ${formatted}`,
-                }
+            const [updateResult] = await Promise.allSettled([
+                // Audit log for accept
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (supabase as any).from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: orgId,
+                    action: "task.accepted",
+                    entity_type: "task",
+                    entity_id: taskId,
+                    metadata: { committed_deadline: deadlineISO }
+                }),
+                // Fire central notification
+                notifyTaskAccepted(supabase, {
+                    ownerId: tOwnerId,
+                    assigneeId: userId,
+                    assigneeName: currentUserName,
+                    taskTitle: t.title || 'Untitled task',
+                    taskId: taskId,
+                    committedDeadline: deadlineISO,
+                    source: 'whatsapp',
+                }).catch(err => console.error('[FlowQueries] Notification error (accept):', err))
+            ])
+
+            if (updateResult.status === 'rejected') {
+                console.error('[FlowQueries] Promise error (accept):', updateResult.reason);
             }
+
+            const formatted = format(new Date(deadlineISO), 'MMM d, yyyy h:mm a')
             return { success: true, message: `Task accepted! Committed to ${formatted}.` }
         }
 
         case 'reject': {
+            if (!userIdIsAssignee) {
+                return { success: false, message: 'Only the assignee can reject a task.' }
+            }
+            if (t.status !== 'pending') {
+                return { success: false, message: 'Task can only be rejected when pending.' }
+            }
+
+            // Flow currently doesn't prompt for a reject reason string, so use null
+            const rejectReason = null
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error } = await (supabase as any)
                 .from('tasks')
-                .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+                .update({ status: 'rejected', updated_at: new Date().toISOString() })
                 .eq('id', taskId)
 
             if (error) return { success: false, message: 'Failed to reject task.' }
 
-            const ownerUser = extractOtherUserPhone(t.created_by)
-            if (ownerUser) {
-                return {
-                    success: true,
-                    message: 'Task rejected. The owner has been notified.',
-                    notifyPhone: ownerUser.phone,
-                    notifyMessage: `👎 *Task Rejected*\n\n"${t.title}"\n\nThe assignee has rejected this task.`,
-                }
+            const [updateResult] = await Promise.allSettled([
+                // Audit log for reject
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (supabase as any).from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: orgId,
+                    action: "task.rejected",
+                    entity_type: "task",
+                    entity_id: taskId,
+                    metadata: { reject_reason: rejectReason }
+                }),
+                // Fire central notification
+                notifyTaskRejected(supabase, {
+                    ownerId: tOwnerId,
+                    assigneeId: userId,
+                    assigneeName: currentUserName,
+                    taskTitle: t.title || 'Untitled task',
+                    taskId: taskId,
+                    reason: rejectReason,
+                    source: 'whatsapp',
+                }).catch(err => console.error('[FlowQueries] Notification error (reject):', err))
+            ])
+
+            if (updateResult.status === 'rejected') {
+                console.error('[FlowQueries] Promise error (reject):', updateResult.reason);
             }
-            return { success: true, message: 'Task rejected.' }
+
+            return { success: true, message: 'Task rejected. The owner has been notified.' }
         }
 
+        // Send follow up hasn't changed its core logic, still needs central unification if feasible,
+        // but 'route.ts' doesn't support 'send_followup'. It's a flow-exclusive action right now.
         case 'send_followup': {
             // Fetch pending info to find who to ping
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -677,12 +910,21 @@ export async function executeTaskAction(
                 : `91${pendingUser.phone_number}`
 
             const ownerName = extractUserName(t.created_by) ?? 'Your manager'
+            const msg = `⏰ *Reminder*\n\n"${t.title}"\n\nRequested by: ${ownerName}\n\nPlease respond to this task at your earliest.`
+
+            // Fire and forget text via whatsapp direct (since send_followup is not a native notification event type)
+            // Need lazy import to avoid circular dependency
+            import('@/lib/whatsapp')
+                .then(({ sendWhatsAppMessage }) => {
+                    sendWhatsAppMessage(theirPhone, msg).catch(err =>
+                        console.error('[FlowQueries] Failed to send followup notification:', err)
+                    )
+                })
+                .catch(() => { /* ignore */ })
 
             return {
                 success: true,
                 message: `Follow-up sent to ${pendingUser.name ?? 'the assignee'}.`,
-                notifyPhone: theirPhone,
-                notifyMessage: `⏰ *Reminder*\n\n"${t.title}"\n\nRequested by: ${ownerName}\n\nPlease respond to this task at your earliest.`,
             }
         }
 

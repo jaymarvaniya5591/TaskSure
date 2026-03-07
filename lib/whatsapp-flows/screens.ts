@@ -243,11 +243,6 @@ async function commitAndRespond(
 ): Promise<ScreenResponse> {
     const result = await executeTaskAction(taskId, userId, orgId, actionType, payload)
 
-    // Fire-and-forget notification
-    if (result.notifyPhone && result.notifyMessage) {
-        notifyAsync(result.notifyPhone, result.notifyMessage)
-    }
-
     // On failure we still show SUCCESS but with the error as the message —
     // there is no good way to show an error without navigating backward in Flows.
     return {
