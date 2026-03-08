@@ -62,11 +62,15 @@ export async function resolveUserByPhone(
 ): Promise<{ id: string; name: string; organisation_id: string } | null> {
     const supabase = createAdminClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
         .from('users')
         .select('id, name, organisation_id')
         .eq('phone_number', phone10)
         .single()
+
+    if (error) {
+        console.error('[FlowQueries] resolveUserByPhone error:', error)
+    }
     return data ?? null
 }
 

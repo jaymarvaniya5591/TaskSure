@@ -279,10 +279,12 @@ async function commitAndRespond(
  */
 function dashboardFallback(_message: string): ScreenResponse {
     // Log for server debugging
-    console.error('[FlowScreens] Fallback to DASHBOARD:', _message)
+    console.error('[FlowScreens] Fallback error message:', _message)
     return {
-        screen: 'DASHBOARD',
-        data: {},
+        screen: 'ERROR_SCREEN',
+        data: {
+            error_message: _message
+        },
     }
 }
 
