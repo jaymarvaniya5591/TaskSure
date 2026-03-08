@@ -78,7 +78,12 @@ This is the most important step. Your app has secret keys (WhatsApp tokens, Supa
 **At your domain provider (GoDaddy / Cloudflare / Namecheap):**
 1. Log in and go to DNS settings for `boldoai.in`.
 2. **Delete** any existing `A` or `CNAME` records that point to Vercel (usually pointing to `cname.vercel-dns.com` or similar).
-3. **Add** the new CNAME record Railway gave you.
+3. **Add** the new CNAME record Railway gave you for the domain you linked (`boldoai.in` or `www.boldoai.in`). 
+
+> **Important note on Cloudflare and free plans:** Railway's Hobby plan only allows one custom domain. If you want both `boldoai.in` and `www.boldoai.in` to point to your Railway app, link one of them in Railway (e.g., `www.boldoai.in`), set up the DNS record for it in Cloudflare, and then use a **Cloudflare Redirect Rule** to forward the other domain to it.
+> 
+> *To set up the redirect in Cloudflare:* Go to Rules > Redirect Rules > Create Rule. Create a "Dynamic" redirect where `Hostname` equals `boldoai.in`, redirecting to `concat("https://www.boldoai.in", http.request.uri.path)` with a `301` status code. You also need a dummy A-record for `boldoai.in` pointing to `192.0.2.1` with the Proxy status ON (Orange Cloud) for the redirect to work.
+
 4. Wait 5–30 minutes for it to update worldwide (called DNS propagation).
 
 ---

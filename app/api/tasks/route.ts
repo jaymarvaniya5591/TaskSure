@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = 'edge';
 export const preferredRegion = 'sin1';
 
 import { createClient } from "@/lib/supabase/server";

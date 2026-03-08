@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { resolveCurrentUser } from "@/lib/user";
 
-export const runtime = 'edge';
 export const preferredRegion = 'sin1';
 
 export async function GET(
