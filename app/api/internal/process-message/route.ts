@@ -636,6 +636,7 @@ async function handleTodoCreate(
                 taskId: createdTodo.id,
                 committedDeadline: deadline,
                 source: 'whatsapp',
+                inlineConfirmationSent: true,
             }).catch(err => console.error('[ProcessMessage] Notification error (todo_create):', err))
         }
     }

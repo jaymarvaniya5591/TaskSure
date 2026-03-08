@@ -122,10 +122,10 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                 };
             });
 
-            // Close the modal immediately for 0 latency feel
-            onClose();
-
             return { previousDashboardData };
+        },
+        onSuccess: () => {
+            onClose();
         },
         onError: (err: unknown, variables: Record<string, unknown>, context: unknown) => {
             setError(err instanceof Error ? err.message : "An unexpected error occurred");
@@ -172,7 +172,7 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
             title: title.trim(),
             description: description.trim() || undefined,
             assigned_to: assignedTo.id,
-            deadline: deadline ? deadline : undefined,
+            deadline: isSelfAssigned && deadline ? deadline : undefined,
         });
     };
 

@@ -269,7 +269,7 @@ async function computeRecipientIds(
 function buildNotificationMessage(opts: NotifyTaskEventOpts, recipientId?: string): string {
     const {
         eventType, taskTitle, actorName,
-        assigneeName, assigneeId, committedDeadline, newDeadline,
+        assigneeName, assigneeId, ownerId, committedDeadline, newDeadline,
         reason, subtaskTitle, subtaskAssigneeName,
         parentTaskTitle, ownerName,
         newAssigneeName, oldAssigneeName,
@@ -277,11 +277,19 @@ function buildNotificationMessage(opts: NotifyTaskEventOpts, recipientId?: strin
 
     switch (eventType) {
         case 'task_created': {
+            // To-dos are self-assigned: ownerId === assigneeId
+            const isTodo = ownerId && ownerId === assigneeId
+            if (isTodo) {
+                const deadlineStr = committedDeadline
+                    ? `\n\n*Deadline:*\n${formatDate(committedDeadline)}`
+                    : ''
+                return `✅ *To-Do Created!*\n\n*To-do:*\n"${taskTitle}"${deadlineStr}`
+            }
             if (recipientId && recipientId === assigneeId) {
-                // If the recipient is the assignee (and they are receiving this text as a fallback)
+                // Assignee of a task (not a to-do) receiving fallback text
                 return `📝 *New Task Assigned!*\n\n*Assigned by:*\n${actorName || ownerName || 'Someone'}\n\n*Task:*\n"${taskTitle}"\n\n_Please check your dashboard to accept or reject it._`
             } else if (assigneeName) {
-                // If the recipient is the creator
+                // Creator confirmation
                 return `✅ *Task Created!*\n\n*Assigned to:*\n${assigneeName}\n\n*Task:*\n"${taskTitle}"\n\n_Waiting for them to accept._`
             }
             return `✅ *To-Do Noted!*\n\n*To-do:*\n"${taskTitle}"\n\n_I'll keep track of it for you!_`
@@ -491,6 +499,7 @@ export async function notifyTaskCreated(
         ownerName: opts.ownerName,
         assigneeId: opts.assigneeId,
         assigneeName: assignee?.name || 'the assignee',
+        committedDeadline: opts.committedDeadline,
         inlineConfirmationSent: opts.inlineConfirmationSent,
     })
 }
