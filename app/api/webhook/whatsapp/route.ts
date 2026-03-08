@@ -11,7 +11,6 @@ import {
 } from '@/lib/whatsapp'
 import { generateAuthToken } from '@/lib/auth-links'
 import { normalizePhone } from '@/lib/phone'
-import { waitUntil } from '@vercel/functions'
 import { processMessageInline } from '@/app/api/internal/process-message/route'
 import { createSession } from '@/lib/ai/conversation-context'
 
@@ -826,15 +825,13 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             processorPayload.audioMimeType = message.audio.mime_type || 'audio/ogg'
                         }
 
-                        waitUntil(
-                            processMessageInline(
-                                insertedMsg.id,
-                                processorPayload.audioMediaId,
-                                processorPayload.audioMimeType,
-                            ).catch((err) => {
-                                console.error('[Webhook] Background processing error:', err)
-                            })
-                        )
+                        processMessageInline(
+                            insertedMsg.id,
+                            processorPayload.audioMediaId,
+                            processorPayload.audioMimeType,
+                        ).catch((err) => {
+                            console.error('[Webhook] Background processing error:', err)
+                        })
                     }
                 } catch (err) {
                     console.error('[Webhook] Error inserting message:', err)

@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    output: 'standalone',
     poweredByHeader: false,
     experimental: {
         optimizePackageImports: [
@@ -15,6 +16,22 @@ const nextConfig = {
         removeConsole: process.env.NODE_ENV === 'production'
             ? { exclude: ['error', 'warn'] }
             : false,
+    },
+    async headers() {
+        return [
+            {
+                source: '/(.*)\\.svg',
+                headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
+            },
+            {
+                source: '/(.*)\\.ico',
+                headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
+            },
+            {
+                source: '/(.*)\\.woff2',
+                headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+            },
+        ];
     },
     async rewrites() {
         return [

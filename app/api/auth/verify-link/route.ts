@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuthToken, consumeAuthToken, findAuthUserIdByPhone, generateDirectSession } from '@/lib/auth-links'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerClient } from '@supabase/ssr'
-import { waitUntil } from '@vercel/functions'
 
 /**
  * GET /api/auth/verify-link?token=xxx
@@ -138,7 +137,7 @@ export async function GET(request: NextRequest) {
                 console.log(`[VerifyLink] updateUserById: ${t6 - t5}ms`)
             }).catch(e => console.error('[VerifyLink] updateUserById failed:', e));
 
-            waitUntil(updatePromise);
+            updatePromise;
 
             // Generate session directly via password — no magic link round trip
             const t7 = Date.now()
