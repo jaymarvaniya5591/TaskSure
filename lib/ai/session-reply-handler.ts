@@ -513,7 +513,7 @@ async function handleAwaitingAcceptDeadline(
 
     await markProcessed(supabase, messageId, 'task_accept', null)
 
-    // Notify task owner
+    // Notify task owner (inline confirmation already sent to the actor above)
     await notifyTaskAccepted(supabase, {
         ownerId: task.created_by,
         assigneeId: sender.id,
@@ -522,6 +522,7 @@ async function handleAwaitingAcceptDeadline(
         taskId: taskId,
         committedDeadline: deadline,
         source: 'whatsapp',
+        inlineConfirmationSent: true,
     }).catch((err: unknown) => console.error('[SessionReply] Notification error (task_accept):', err))
 
     return { handled: true, intent: 'task_accept' }
@@ -774,7 +775,7 @@ async function handleAwaitingRejectReason(
             .catch((err: unknown) => console.error('[SessionReply] Failed to store rejection comment:', err))
     }
 
-    // Notify task owner
+    // Notify task owner (inline confirmation already sent to the actor above)
     await notifyTaskRejected(supabase, {
         ownerId: task.created_by,
         assigneeId: sender.id,
@@ -783,6 +784,7 @@ async function handleAwaitingRejectReason(
         taskId: taskId,
         reason: userText || null,
         source: 'whatsapp',
+        inlineConfirmationSent: true,
     }).catch((err: unknown) => console.error('[SessionReply] Notification error (task_reject):', err))
 
     return { handled: true, intent: 'task_reject' }
@@ -838,7 +840,7 @@ async function createTaskWithAssignee(
 
     await markProcessed(supabase, messageId, 'task_create', null)
 
-    // Notify assignee
+    // Notify assignee (inline confirmation already sent to the actor above)
     await notifyTaskCreated(supabase, {
         ownerName: sender.name,
         ownerId: sender.id,
@@ -846,6 +848,7 @@ async function createTaskWithAssignee(
         taskTitle: ctx.what || 'Untitled task',
         taskId: newTask.id,
         source: 'whatsapp',
+        inlineConfirmationSent: true,
     }).catch(err => console.error('[SessionReply] Notification error (task_create):', err))
 
     return { handled: true, intent: 'task_create' }

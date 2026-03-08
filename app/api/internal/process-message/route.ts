@@ -502,7 +502,7 @@ async function handleTaskCreate(
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_create', null)
 
-    // Notify the assignee (await to ensure Vercel doesn't terminate early)
+    // Notify the assignee (inline confirmation already sent to the actor above)
     await notifyTaskCreated(supabase, {
         ownerName: sender.name,
         ownerId: sender.id,
@@ -510,6 +510,7 @@ async function handleTaskCreate(
         taskTitle: analysis.what,
         taskId: newTask.id,
         source: 'whatsapp',
+        inlineConfirmationSent: true,
     }).catch(err => console.error('[ProcessMessage] Notification error (task_create):', err))
 }
 

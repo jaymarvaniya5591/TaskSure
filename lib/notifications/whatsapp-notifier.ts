@@ -14,8 +14,11 @@
  *   - Edit by non-owner → notify actor + full parent chain (up to 3 levels)
  *
  * **Scenario 2 — WhatsApp bot (source='whatsapp'):**
- *   - Same recipient logic as Scenario 1. Actors receive identical text notifications 
- *     for their actions to maintain a consistent chat history log.
+ *   - Same recipient logic as Scenario 1, unless `inlineConfirmationSent` is true.
+ *   - When AI bot handlers send an inline confirmation to the actor, they pass
+ *     `inlineConfirmationSent: true` so the notification system skips the actor
+ *     (preventing duplicate messages). WhatsApp Flows do NOT set this flag since
+ *     the notification system is their only text notification path.
  *
  * ## Parent Chain:
  *   - Walks up parent_task_id links collecting created_by + assigned_to
@@ -73,6 +76,10 @@ export interface NotifyTaskEventOpts {
     reason?: string | null
     subtaskTitle?: string
     subtaskAssigneeName?: string
+
+    // When true, the caller already sent the actor a WhatsApp confirmation,
+    // so the notification system should exclude the actor from text recipients.
+    inlineConfirmationSent?: boolean
 }
 
 interface UserInfo {
@@ -361,6 +368,12 @@ export async function notifyTaskEvent(
         let recipientIds = await computeRecipientIds(supabase, opts)
         console.log(`[Notifier] Computed recipient IDs:`, recipientIds);
 
+        // If the caller already sent an inline WhatsApp confirmation to the actor,
+        // exclude them from the notification system's text messages to prevent duplicates
+        if (opts.inlineConfirmationSent && opts.actorId) {
+            recipientIds = recipientIds.filter(id => id !== opts.actorId)
+        }
+
         // Fallback text message filtering: exclude the assignee if template was sent successfully
         if (templateSentToAssignee && opts.assigneeId) {
             recipientIds = recipientIds.filter(id => id !== opts.assigneeId)
@@ -434,6 +447,7 @@ export async function notifyTaskCreated(
         taskId: string
         committedDeadline?: string | null
         source: 'whatsapp' | 'dashboard'
+        inlineConfirmationSent?: boolean
     },
 ): Promise<void> {
     const isTodo = opts.ownerId === opts.assigneeId
@@ -478,6 +492,7 @@ export async function notifyTaskCreated(
         ownerName: opts.ownerName,
         assigneeId: opts.assigneeId,
         assigneeName: assignee?.name || 'the assignee',
+        inlineConfirmationSent: opts.inlineConfirmationSent,
     })
 }
 
@@ -491,6 +506,7 @@ export async function notifyTaskAccepted(
         taskId: string
         committedDeadline: string | null
         source: 'whatsapp' | 'dashboard'
+        inlineConfirmationSent?: boolean
     },
 ): Promise<void> {
     if (opts.ownerId === opts.assigneeId) return
@@ -552,6 +568,7 @@ export async function notifyTaskAccepted(
         assigneeId: opts.assigneeId,
         assigneeName: opts.assigneeName,
         committedDeadline: opts.committedDeadline,
+        inlineConfirmationSent: opts.inlineConfirmationSent,
     })
 }
 
@@ -565,6 +582,7 @@ export async function notifyTaskRejected(
         taskId: string
         reason: string | null
         source: 'whatsapp' | 'dashboard'
+        inlineConfirmationSent?: boolean
     },
 ): Promise<void> {
     if (opts.ownerId === opts.assigneeId) return
@@ -584,6 +602,7 @@ export async function notifyTaskRejected(
         assigneeId: opts.assigneeId,
         assigneeName: opts.assigneeName,
         reason: opts.reason,
+        inlineConfirmationSent: opts.inlineConfirmationSent,
     })
 }
 
