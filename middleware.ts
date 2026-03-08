@@ -49,9 +49,8 @@ export function middleware(request: NextRequest) {
     const isAuthRoute = authRoutes.some((route) => pathname === route)
 
     if (hasAuthCookie && (isAuthRoute || pathname === '/')) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/home'
-        return NextResponse.redirect(url)
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || `https://${request.headers.get('host')}`
+        return NextResponse.redirect(new URL('/home', siteUrl))
     }
 
     return NextResponse.next()

@@ -28,7 +28,7 @@ export const preferredRegion = 'sin1'
 export async function GET(request: NextRequest) {
     const token = request.nextUrl.searchParams.get('token')
     const isApiCall = request.nextUrl.searchParams.get('_api') === '1'
-    const baseUrl = request.nextUrl.origin
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
     const t0 = Date.now()
 
     if (!token) {

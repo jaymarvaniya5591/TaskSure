@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const baseUrl = request.nextUrl.origin;
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in';
 
     if (!supabaseUrl || !serviceRoleKey || !anonKey) {
         return NextResponse.redirect(`${baseUrl}/huehue?error=config`);
