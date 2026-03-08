@@ -24,7 +24,7 @@ export async function GET() {
 
     return Response.json({
         status: 'warm',
-        region: process.env.VERCEL_REGION || 'local',
+        region: process.env.RAILWAY_REGION || 'railway',
         db_latency_ms: t1 - t0,
         timestamp: new Date().toISOString(),
     })

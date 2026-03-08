@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
             const t10 = Date.now()
             console.log(`[VerifyLink] setSession+cookies: ${t10 - t9}ms`)
 
-            console.log(`[VerifyLink] TOTAL signin: ${t10 - t0}ms | region: ${process.env.VERCEL_REGION || 'local'}`)
+            console.log(`[VerifyLink] TOTAL signin: ${t10 - t0}ms | region: ${process.env.RAILWAY_REGION || 'railway'}`)
             return response
         } catch (err) {
             console.error('[VerifyLink] Error creating session:', err)

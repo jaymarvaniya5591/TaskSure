@@ -304,7 +304,6 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             if (user) {
                                 const tokenResult = await generateAuthToken(senderPhone10, 'signin', supabase)
                                 if (tokenResult.success && tokenResult.token) {
-                                    fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
                                     await sendSigninLinkTemplate(rawSenderPhone, user.name, tokenResult.token)
                                 } else {
                                     await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
@@ -721,9 +720,6 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         }
 
                         if (tokenResult.success && tokenResult.token) {
-                            // Fire-and-forget keep-warm
-                            fetch(`https://${process.env.VERCEL_URL || 'www.boldoai.in'}/api/keep-warm`, { cache: 'no-store' }).catch(() => { })
-
                             // Send the signin link (critical await)
                             const tSend = Date.now()
                             await sendSigninLinkTemplate(rawSenderPhone, registeredUser.name, tokenResult.token)
@@ -733,7 +729,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                         }
                     } catch (err) {
-                        console.error('[Webhook] Error in signin fast-path:', err)
+                        console.error('[Webhook] Error in signin fast-path:', err instanceof Error ? err.message : err, err instanceof Error ? err.stack : '')
                     }
 
                     // Log as auth_signin — FIRE-AND-FORGET
