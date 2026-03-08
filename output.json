@@ -1,0 +1,37 @@
+{
+  "Task": {
+    "Title": "Checking if notif comes with railway todo",
+    "ID": "367405ea-e299-4a07-9b12-fd19045b92e4",
+    "CreatedAt_UTC": "2026-03-08T17:23:36.557938+00:00",
+    "CreatedAt_Local": "8/3/2026, 10:53:36 pm",
+    "Deadline_UTC": "2026-03-08T17:30:00+00:00",
+    "Deadline_Local": "8/3/2026, 11:00:00 pm",
+    "Status": "overdue"
+  },
+  "Notifications": [
+    {
+      "Stage": "escalation",
+      "TargetRole": "assignee",
+      "Channel": "whatsapp",
+      "Status": "pending",
+      "ScheduledAt_UTC": "2026-03-09T17:30:22.491+00:00",
+      "SentAt_UTC": null
+    },
+    {
+      "Stage": "escalation",
+      "TargetRole": "assignee",
+      "Channel": "whatsapp",
+      "Status": "pending",
+      "ScheduledAt_UTC": "2026-03-11T17:30:22.491+00:00",
+      "SentAt_UTC": null
+    },
+    {
+      "Stage": "escalation",
+      "TargetRole": "assignee",
+      "Channel": "whatsapp",
+      "Status": "sent",
+      "ScheduledAt_UTC": "2026-03-08T17:30:22.491+00:00",
+      "SentAt_UTC": "2026-03-08T17:30:24.205+00:00"
+    }
+  ]
+}

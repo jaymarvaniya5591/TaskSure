@@ -168,6 +168,9 @@ export async function handlePrepareAction(
                 getEmployees(user.organisation_id),
                 getTaskDetail(taskId, user.id, user.organisation_id),
             ])
+            const filteredEmployees = detail?.isTodo
+                ? employees.filter(e => e.id !== user.id)
+                : employees
             return {
                 screen: 'PERSONS_SCREEN',
                 data: {
@@ -175,7 +178,7 @@ export async function handlePrepareAction(
                     task_title: detail?.title ?? 'Task',
                     action_type: selectedAction,
                     view_state: viewState || '',
-                    employees: employees.map(e => ({ ...e, enabled: true })),
+                    employees: filteredEmployees.map(e => ({ ...e, enabled: true })),
                 },
             }
         }

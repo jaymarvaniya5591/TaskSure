@@ -1,0 +1,125 @@
+﻿commit 37e399033dd9c275dd51dec4b05585e7964d8f30
+Author: marvaniyajay-kgp <marvaniyajay2003@kgpian.iitkgp.ac.in>
+Date:   Sun Mar 8 17:13:29 2026 +0530
+
+    Auto update
+
+ lib/whatsapp-flows/screens.ts      | 8 +++++---
+ lib/whatsapp-flows/task-queries.ts | 6 +++++-
+ 2 files changed, 10 insertions(+), 4 deletions(-)
+
+commit 0b70400460263d7d84d1d2a288a13b52ed7fce98
+Author: marvaniyajay-kgp <marvaniyajay2003@kgpian.iitkgp.ac.in>
+Date:   Sun Mar 8 16:39:37 2026 +0530
+
+    Auto update
+
+ app/api/internal/process-message/route.ts |  3 ++-
+ lib/ai/session-reply-handler.ts           |  9 ++++++---
+ lib/notifications/whatsapp-notifier.ts    | 23 +++++++++++++++++++++--
+ 3 files changed, 29 insertions(+), 6 deletions(-)
+
+commit d422c3c06976677f1a1fbff6467d1bd84afd9a9d
+Author: marvaniyajay-kgp <marvaniyajay2003@kgpian.iitkgp.ac.in>
+Date:   Sun Mar 8 16:01:37 2026 +0530
+
+    whatsapp bug fix
+
+ app/api/auth/verify-link/route.ts | 2 +-
+ app/api/test-auth/route.ts        | 2 +-
+ middleware.ts                     | 5 ++---
+ 3 files changed, 4 insertions(+), 5 deletions(-)
+
+commit 4883948e434f9c105a5d6cf7b6e204d36d605821
+Author: marvaniyajay-kgp <marvaniyajay2003@kgpian.iitkgp.ac.in>
+Date:   Sun Mar 8 14:38:55 2026 +0530
+
+    fix: remove Vercel keep-warm pings and VERCEL_REGION refs for Railway
+    
+    - Remove 2 fire-and-forget keep-warm fetch calls from webhook (pointless
+      on Railway's always-on server, and referenced VERCEL_URL)
+    - Replace VERCEL_REGION with RAILWAY_REGION in keep-warm and verify-link
+    - Add better error logging to signin fast-path catch block
+    
+    Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+ app/api/auth/verify-link/route.ts | 2 +-
+ app/api/keep-warm/route.ts        | 2 +-
+ app/api/webhook/whatsapp/route.ts | 6 +-----
+ 3 files changed, 3 insertions(+), 7 deletions(-)
+
+commit b3def23da3ad7a15911dad8ea09bf6349ed03326
+Author: marvaniyajay-kgp <marvaniyajay2003@kgpian.iitkgp.ac.in>
+Date:   Sun Mar 8 14:13:15 2026 +0530
+
+    Fix Railway deployment: static files, remove Vercel packages
+    
+    - Fix build script to copy .next/static and public into standalone output
+      (this was causing the unstyled page ΓÇö CSS/JS weren't being served)
+    - Remove @vercel/speed-insights and @vercel/functions (unused on Railway)
+    - Remove SpeedInsights component from app/layout.tsx
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+ app/layout.tsx    |  1 -
+ package-lock.json | 62 -------------------------------------------------------
+ package.json      |  2 --
+ 3 files changed, 65 deletions(-)
+
+commit b0afcdae716e6cf54b60436f125d93f4632030d7
+Author: marvaniyajay-kgp <marvaniyajay2003@kgpian.iitkgp.ac.in>
+Date:   Sun Mar 8 14:11:46 2026 +0530
+
+    Update Railway migration guide with Cloudflare Redirect instructions for custom domains
+
+ RAILWAY_MIGRATION.md                      | 7 ++++++-
+ app/api/internal/process-message/route.ts | 1 -
+ app/api/keep-warm/route.ts                | 1 -
+ app/api/tasks/[taskId]/route.ts           | 1 -
+ app/api/tasks/[taskId]/timeline/route.ts  | 1 -
+ app/api/tasks/route.ts                    | 1 -
+ app/api/users/route.ts                    | 1 -
+ app/api/webhook/whatsapp/route.ts         | 1 -
+ app/layout.tsx                            | 1 -
+ package.json                              | 2 +-
+ 10 files changed, 7 insertions(+), 10 deletions(-)
+
+commit 3a8ff97f1b7099e2ff975e190e422a6ba2f8188a
+Author: marvaniyajay-kgp <marvaniyajay2003@kgpian.iitkgp.ac.in>
+Date:   Sun Mar 8 13:57:00 2026 +0530
+
+    Fix Railway Next.js standalone host binding
+
+ RAILWAY_MIGRATION.md | 6 ++++--
+ railway.json         | 4 ++--
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+commit 9cecec5a2b5059b0e867d913d6a2d8b9e7a182af
+Author: marvaniyajay-kgp <marvaniyajay2003@kgpian.iitkgp.ac.in>
+Date:   Sun Mar 8 11:47:58 2026 +0530
+
+    fix: void fire-and-forget promise + protect env files from git
+    
+    - Use void operator on updatePromise to satisfy ESLint no-unused-expressions
+    - Add railway-env* patterns to .gitignore to prevent secret leaks
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+ .gitignore                        | 7 ++++++-
+ app/api/auth/verify-link/route.ts | 2 +-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+commit 136a415d2bf552c6b0330e2465ab56ae0a10e05c
+Author: marvaniyajay-kgp <marvaniyajay2003@kgpian.iitkgp.ac.in>
+Date:   Sun Mar 8 11:19:25 2026 +0530
+
+    migration to railway
+
+ .claude/settings.local.json       |   7 +++
+ CLAUDE.md                         |  83 ++++++++++++++++++++++++
+ RAILWAY_MIGRATION.md              | 129 ++++++++++++++++++++++++++++++++++++++
+ app/api/auth/verify-link/route.ts |   3 +-
+ app/api/webhook/whatsapp/route.ts |  17 +++--
+ next.config.mjs                   |  17 +++++
+ railway.json                      |   9 +++
+ 7 files changed, 253 insertions(+), 12 deletions(-)

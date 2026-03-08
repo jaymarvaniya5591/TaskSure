@@ -465,21 +465,20 @@ export async function notifyTaskCreated(
                 supabase,
             ).catch(err => console.error('[Notifier] Failed to schedule todo deadline approaching:', err))
         }
-        return
+    } else {
+        // Fire-and-forget: Schedule acceptance followup notifications (Stage 1)
+        await scheduleAcceptanceFollowups(
+            opts.taskId,
+            opts.assigneeId,
+            opts.ownerId,
+            opts.taskTitle,
+            opts.ownerName,
+            supabase,
+        ).catch(err => console.error('[Notifier] Failed to schedule acceptance followups:', err))
     }
 
     // Look up assignee name for richer messages
     const assignee = await lookupUser(supabase, opts.assigneeId)
-
-    // Fire-and-forget: Schedule acceptance followup notifications (Stage 1)
-    await scheduleAcceptanceFollowups(
-        opts.taskId,
-        opts.assigneeId,
-        opts.ownerId,
-        opts.taskTitle,
-        opts.ownerName,
-        supabase,
-    ).catch(err => console.error('[Notifier] Failed to schedule acceptance followups:', err))
 
     return notifyTaskEvent(supabase, {
         eventType: 'task_created',

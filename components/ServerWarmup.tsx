@@ -7,7 +7,7 @@ import { useEffect } from "react";
  * the moment the landing page is visited.
  *
  * Uses a RELATIVE URL so it works regardless of whether the user is on
- * boldoai.in or www.boldoai.in (avoids 307 redirect issues).
+ * boldoai.in (avoids 307 redirect issues).
  */
 export function ServerWarmup() {
     useEffect(() => {

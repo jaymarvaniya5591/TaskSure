@@ -809,7 +809,7 @@ function CreateSubtaskModal({
                                 <SearchEmployee
                                     orgUsers={orgUsers}
                                     currentUserId={currentUserId}
-                                    includeSelf={true}
+                                    includeSelf={false}
                                     isHeader={false}
                                     onSelect={(user) => {
                                         setAssignedTo(user);
@@ -1026,6 +1026,7 @@ function EditPersonsModal({
                             orgUsers={orgUsers}
                             currentUserId={currentUserId}
                             isHeader={false}
+                            includeSelf={!isSelfAssigned}
                             onSelect={(user) => {
                                 setSelected(user);
                                 setShowSearch(false);

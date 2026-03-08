@@ -309,6 +309,7 @@ export interface FlowTaskDetail {
     title: string
     info: string   // multi-line formatted string
     actions: Array<{ id: string; title: string }>
+    isTodo: boolean
 }
 
 export async function getTaskDetail(
@@ -380,6 +381,7 @@ export async function getTaskDetail(
         title: t.title,
         info: infoLines.join('\n'),
         actions: flowActions,
+        isTodo: isTaskTodo,
     }
 }
 
