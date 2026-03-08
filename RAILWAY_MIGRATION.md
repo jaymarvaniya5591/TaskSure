@@ -57,9 +57,11 @@ This is the most important step. Your app has secret keys (WhatsApp tokens, Supa
 2. Click the **"Variables"** tab.
 3. Click **"RAW Editor"** (it's a button, usually top-right of the variables section).
 4. Paste everything you copied from Vercel.
-5. **Add one more variable manually:**
+5. **Add two more variables manually:**
    - Name: `NODE_ENV`
    - Value: `production`
+   - Name: `HOSTNAME`
+   - Value: `0.0.0.0`
 6. Click **"Update"** — Railway will automatically redeploy with the correct settings.
 
 > Your app should now deploy successfully. Check the "Deployments" tab — wait for a green checkmark.
@@ -70,7 +72,7 @@ This is the most important step. Your app has secret keys (WhatsApp tokens, Supa
 
 1. In the Railway dashboard, click on your service → click the **"Settings"** tab.
 2. Scroll down to **"Networking"** → click **"+ Custom Domain"**.
-3. Type `boldoai.in` and press Enter.
+3. Type `boldoai.in` and press Enter. (You should also add `www.boldoai.in` if you use both, as they are separate domains in Railway).
 4. Railway will show you a **CNAME record** to add (looks like: `boldoai.in → xyz.up.railway.app`).
 
 **At your domain provider (GoDaddy / Cloudflare / Namecheap):**

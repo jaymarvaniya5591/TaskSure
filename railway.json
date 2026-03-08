@@ -4,6 +4,6 @@
         "builder": "NIXPACKS"
     },
     "deploy": {
-        "startCommand": "node .next/standalone/server.js"
+        "startCommand": "HOSTNAME=0.0.0.0 node .next/standalone/server.js"
     }
 }
