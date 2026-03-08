@@ -38,3 +38,8 @@ next-env.d.ts
 
 # project resources
 resources/
+
+# local env exports (contain secrets — never commit)
+railway-env*.txt
+railway-env*.json
+railway-env*
