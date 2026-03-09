@@ -343,18 +343,22 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                 continue
                             }
 
-                            await createSession(senderPhone10, 'awaiting_accept_deadline', {
-                                task_id: taskId,
-                                original_intent: 'task_accept',
-                            }, 10, supabase)
+                            // Run session creation + WA message in parallel — message text is fixed
+                            // regardless of session outcome. Session errors are caught independently.
+                            await Promise.all([
+                                createSession(senderPhone10, 'awaiting_accept_deadline', {
+                                    task_id: taskId,
+                                    original_intent: 'task_accept',
+                                }, 10, supabase).catch((err: unknown) => console.error('[Webhook] Failed to create accept session:', err)),
+                                sendWhatsAppMessage(
+                                    rawSenderPhone,
+                                    '🎯 *When Can You Complete This?*\n\nPlease reply with a date.\n\n*Examples:*\n"tomorrow", "Friday", "Feb 28"'
+                                ),
+                            ])
                         } catch (err) {
-                            console.error('[Webhook] Failed to create accept session:', err)
+                            console.error('[Webhook] Error in task_accept_prompt:', err)
                         }
 
-                        await sendWhatsAppMessage(
-                            rawSenderPhone,
-                            '🎯 *When Can You Complete This?*\n\nPlease reply with a date.\n\n*Examples:*\n"tomorrow", "Friday", "Feb 28"'
-                        )
                         continue
                     }
 
@@ -382,18 +386,22 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                 continue
                             }
 
-                            await createSession(senderPhone10, 'awaiting_reject_reason', {
-                                task_id: taskId,
-                                original_intent: 'task_reject',
-                            }, 10, supabase)
+                            // Run session creation + WA message in parallel — message text is fixed
+                            // regardless of session outcome. Session errors are caught independently.
+                            await Promise.all([
+                                createSession(senderPhone10, 'awaiting_reject_reason', {
+                                    task_id: taskId,
+                                    original_intent: 'task_reject',
+                                }, 10, supabase).catch((err: unknown) => console.error('[Webhook] Failed to create reject session:', err)),
+                                sendWhatsAppMessage(
+                                    rawSenderPhone,
+                                    '📝 *Reason Required*\n\nPlease reply with a brief reason for rejecting this task.\n\n_I\'ll pass it along to the task owner._'
+                                ),
+                            ])
                         } catch (err) {
-                            console.error('[Webhook] Failed to create reject session:', err)
+                            console.error('[Webhook] Error in task_reject_prompt:', err)
                         }
 
-                        await sendWhatsAppMessage(
-                            rawSenderPhone,
-                            '📝 *Reason Required*\n\nPlease reply with a brief reason for rejecting this task.\n\n_I\'ll pass it along to the task owner._'
-                        )
                         continue
                     }
 
@@ -404,7 +412,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                         // Mark the reminder notification as acknowledged
                         try {
-                            // Check task status first
+                            // Check task status first — must validate before acting
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const { data: taskCheck } = await (supabase as any)
                                 .from('tasks')
@@ -422,41 +430,52 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                 continue
                             }
 
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            const { data: reminderNotifs } = await (supabase as any)
-                                .from('task_notifications')
-                                .select('id, metadata')
-                                .eq('task_id', taskId)
-                                .eq('stage', 'reminder')
-                                .eq('channel', 'whatsapp')
-                                .eq('status', 'sent')
-                                .order('sent_at', { ascending: false })
-                                .limit(1)
+                            // Run all 3 operations in parallel — the WA send (~200ms) dominates,
+                            // so the DB ops complete within that window at no extra cost.
+                            await Promise.all([
+                                // Branch A: acknowledge reminder notification (select → conditional update, sequential within branch)
+                                (async () => {
+                                    try {
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                        const { data: reminderNotifs } = await (supabase as any)
+                                            .from('task_notifications')
+                                            .select('id, metadata')
+                                            .eq('task_id', taskId)
+                                            .eq('stage', 'reminder')
+                                            .eq('channel', 'whatsapp')
+                                            .eq('status', 'sent')
+                                            .order('sent_at', { ascending: false })
+                                            .limit(1)
 
-                            if (reminderNotifs && reminderNotifs.length > 0) {
-                                const notif = reminderNotifs[0]
-                                const updatedMetadata = { ...(notif.metadata || {}), acknowledged: true, acknowledged_at: new Date().toISOString() }
+                                        if (reminderNotifs && reminderNotifs.length > 0) {
+                                            const notif = reminderNotifs[0]
+                                            const updatedMetadata = { ...(notif.metadata || {}), acknowledged: true, acknowledged_at: new Date().toISOString() }
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                            await (supabase as any)
+                                                .from('task_notifications')
+                                                .update({ metadata: updatedMetadata, updated_at: new Date().toISOString() })
+                                                .eq('id', notif.id)
+                                        }
+                                    } catch (ackErr) {
+                                        console.error('[Webhook] Error acknowledging reminder notification:', ackErr)
+                                    }
+                                })(),
+                                // Branch B: cancel pending call escalations (independent of Branch A)
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                await (supabase as any)
+                                (supabase as any)
                                     .from('task_notifications')
-                                    .update({ metadata: updatedMetadata, updated_at: new Date().toISOString() })
-                                    .eq('id', notif.id)
-                            }
-
-                            // Cancel any pending call escalation for this task's reminders
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            await (supabase as any)
-                                .from('task_notifications')
-                                .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-                                .eq('task_id', taskId)
-                                .eq('stage', 'reminder')
-                                .eq('channel', 'call')
-                                .eq('status', 'pending')
+                                    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+                                    .eq('task_id', taskId)
+                                    .eq('stage', 'reminder')
+                                    .eq('channel', 'call')
+                                    .eq('status', 'pending'),
+                                // Branch C: send "Noted!" message (independent — doesn't need DB results)
+                                sendWhatsAppMessage(rawSenderPhone, '👍 *Noted!*\n\nThings are on track.\n_Keep it up!_'),
+                            ])
                         } catch (err) {
                             console.error('[Webhook] Error acknowledging reminder:', err)
                         }
 
-                        await sendWhatsAppMessage(rawSenderPhone, '👍 *Noted!*\n\nThings are on track.\n_Keep it up!_')
                         continue
                     }
 
@@ -484,18 +503,22 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                 continue
                             }
 
-                            await createSession(senderPhone10, 'awaiting_edit_deadline', {
-                                task_id: taskId,
-                                original_intent: 'edit_deadline',
-                            }, 10, supabase)
+                            // Run session creation + WA message in parallel — message text is fixed
+                            // regardless of session outcome. Session errors are caught independently.
+                            await Promise.all([
+                                createSession(senderPhone10, 'awaiting_edit_deadline', {
+                                    task_id: taskId,
+                                    original_intent: 'edit_deadline',
+                                }, 10, supabase).catch((err: unknown) => console.error('[Webhook] Failed to create edit deadline session:', err)),
+                                sendWhatsAppMessage(
+                                    rawSenderPhone,
+                                    '📅 *New Deadline?*\n\nPlease reply with a new date.\n\n*Examples:*\n"tomorrow", "Friday", "March 10"'
+                                ),
+                            ])
                         } catch (err) {
-                            console.error('[Webhook] Failed to create edit deadline session:', err)
+                            console.error('[Webhook] Error in task_edit_deadline_prompt:', err)
                         }
 
-                        await sendWhatsAppMessage(
-                            rawSenderPhone,
-                            '📅 *New Deadline?*\n\nPlease reply with a new date.\n\n*Examples:*\n"tomorrow", "Friday", "March 10"'
-                        )
                         continue
                     }
 
@@ -523,18 +546,22 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                 continue
                             }
 
-                            await createSession(senderPhone10, 'awaiting_edit_deadline', {
-                                task_id: taskId,
-                                original_intent: 'edit_deadline',
-                            }, 10, supabase)
+                            // Run session creation + WA message in parallel — message text is fixed
+                            // regardless of session outcome. Session errors are caught independently.
+                            await Promise.all([
+                                createSession(senderPhone10, 'awaiting_edit_deadline', {
+                                    task_id: taskId,
+                                    original_intent: 'edit_deadline',
+                                }, 10, supabase).catch((err: unknown) => console.error('[Webhook] Failed to create todo edit deadline session:', err)),
+                                sendWhatsAppMessage(
+                                    rawSenderPhone,
+                                    '📅 *New Deadline?*\n\nPlease reply with a new date.\n\n*Examples:*\n"tomorrow", "Friday", "March 10"'
+                                ),
+                            ])
                         } catch (err) {
-                            console.error('[Webhook] Failed to create edit deadline session:', err)
+                            console.error('[Webhook] Error in todo_edit_deadline_prompt:', err)
                         }
 
-                        await sendWhatsAppMessage(
-                            rawSenderPhone,
-                            '📅 *New Deadline?*\n\nPlease reply with a new date.\n\n*Examples:*\n"tomorrow", "Friday", "March 10"'
-                        )
                         continue
                     }
 
@@ -544,7 +571,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         console.log(`[Webhook] Quick Reply: task_mark_completed ${taskId} from ${senderPhone10}`)
 
                         try {
-                            // Fetch task details before updating so we can notify the other party
+                            // Phase 1: Fetch task — needed for validation + notification content
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const { data: task } = await (supabase as any)
                                 .from('tasks')
@@ -562,56 +589,63 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                                 continue
                             }
 
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            const { error: updateError } = await (supabase as any)
-                                .from('tasks')
-                                .update({ status: 'completed', updated_at: new Date().toISOString() })
-                                .eq('id', taskId)
-
-                            if (updateError) {
-                                console.error('[Webhook] Failed to mark task completed:', updateError.message)
-                                await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
-                            } else {
-                                // Cancel remaining escalation notifications
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                await (supabase as any)
+                            // Phase 2: Parallel — update task + cancel notifications + prefetch other user.
+                            // All three only need data already available from Phase 1.
+                            /* eslint-disable @typescript-eslint/no-explicit-any */
+                            const [updateResult, , otherUserResult] = await Promise.all([
+                                // A: Mark task completed
+                                (supabase as any)
+                                    .from('tasks')
+                                    .update({ status: 'completed', updated_at: new Date().toISOString() })
+                                    .eq('id', taskId),
+                                // B: Cancel remaining escalation notifications
+                                (supabase as any)
                                     .from('task_notifications')
                                     .update({ status: 'cancelled', updated_at: new Date().toISOString() })
                                     .eq('task_id', taskId)
-                                    .eq('status', 'pending')
+                                    .eq('status', 'pending'),
+                                // C: Prefetch other user's contact info (skip for self-todos)
+                                task.assigned_to !== task.created_by
+                                    ? (async () => {
+                                        try {
+                                            const sender = await getCachedUser(senderPhone10, supabase)
+                                            const isOwner = sender && sender.id === task.created_by
+                                            const otherUserId = isOwner ? task.assigned_to : task.created_by
+                                            const { data: otherUser } = await (supabase as any)
+                                                .from('users')
+                                                .select('phone_number, name')
+                                                .eq('id', otherUserId)
+                                                .single()
+                                            return { sender, otherUser, isOwner }
+                                        } catch {
+                                            return null
+                                        }
+                                    })()
+                                    : Promise.resolve(null),
+                            ])
+                            /* eslint-enable @typescript-eslint/no-explicit-any */
 
+                            if (updateResult.error) {
+                                console.error('[Webhook] Failed to mark task completed:', updateResult.error.message)
+                                await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
+                            } else {
+                                // Phase 3: Confirm to sender immediately (task is already updated in DB)
                                 await sendWhatsAppMessage(rawSenderPhone, '🎊 *Task Completed!*\n\nThe task has been marked as completed.')
 
-                                // Notify the other party about the completion
-                                try {
-                                    // Determine who to notify: if completer is the owner, notify assignee; if completer is assignee, notify owner
-                                    const user = await getCachedUser(senderPhone10, supabase)
-                                    const isOwner = user && user.id === task.created_by
-                                    const otherUserId = isOwner ? task.assigned_to : task.created_by
-
-                                    // Skip notification if assignee == owner (self-todo)
-                                    if (task.assigned_to !== task.created_by) {
-                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                        const { data: otherUser } = await (supabase as any)
-                                            .from('users')
-                                            .select('phone_number, name')
-                                            .eq('id', otherUserId)
-                                            .single()
-
-                                        if (otherUser?.phone_number) {
-                                            const otherPhone = otherUser.phone_number.startsWith('91')
-                                                ? otherUser.phone_number
-                                                : `91${otherUser.phone_number}`
-                                            const completerName = user?.name || 'Someone'
-                                            const roleLabel = isOwner ? 'Task owner' : 'Assignee'
-                                            await sendWhatsAppMessage(
-                                                otherPhone,
-                                                `✅ *Task Completed!*\n\n*Task:*\n"${task.title}"\n\n*Completed by:*\n${completerName} (${roleLabel})`
-                                            )
-                                        }
-                                    }
-                                } catch (notifyErr) {
-                                    console.error('[Webhook] Error notifying other party about completion:', notifyErr)
+                                // Fire-and-forget: notify the other party.
+                                // Task is already completed in DB — other party sees correct status on their next query.
+                                // This matches the fire-and-forget pattern used throughout whatsapp-notifier.ts.
+                                if (otherUserResult?.otherUser?.phone_number) {
+                                    const { sender, otherUser, isOwner } = otherUserResult
+                                    const otherPhone = otherUser.phone_number.startsWith('91')
+                                        ? otherUser.phone_number
+                                        : `91${otherUser.phone_number}`
+                                    const completerName = sender?.name || 'Someone'
+                                    const roleLabel = isOwner ? 'Task owner' : 'Assignee'
+                                    sendWhatsAppMessage(
+                                        otherPhone,
+                                        `✅ *Task Completed!*\n\n*Task:*\n"${task.title}"\n\n*Completed by:*\n${completerName} (${roleLabel})`
+                                    ).catch((notifyErr: unknown) => console.error('[Webhook] Error notifying other party about completion:', notifyErr))
                                 }
                             }
                         } catch (err) {
@@ -682,7 +716,7 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
 
                 // --- EARLY TEXT CHECK: detect signin/login/list BEFORE DB lookup ---
                 const normalizedText = textBody.replace(/\s+/g, '').toLowerCase()
-                const isSignin = normalizedText === 'signin' || normalizedText === 'login'
+                const isSignin = normalizedText === 'signin' || normalizedText === 'login' || normalizedText === 'dashboard' || normalizedText === 'website'
                 const isList = normalizedText === 'list'
 
                 // --- SIGNIN FAST PATH: parallelize user lookup + token generation ---

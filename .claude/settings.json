@@ -10,7 +10,9 @@
       "Bash(xargs ls -lt)",
       "Bash(ls -la \"/c/Users/marva/Documents/Boldo AI/app/\\(dashboard\\)\")",
       "Bash(ls -la \"/c/Users/marva/Documents/Boldo AI/app/\\(dashboard\\)/tasks\")",
-      "Bash(npx tsc --noEmit)"
+      "Bash(npx tsc --noEmit)",
+      "Bash(xargs grep -l \"ReactQuery\\\\|react-query\\\\|useQuery\\\\|useMutation\")",
+      "Bash(npm run lint)"
     ]
   }
 }

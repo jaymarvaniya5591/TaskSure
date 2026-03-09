@@ -42,6 +42,18 @@ export function signChallenge(challenge: string): string {
     return sign.sign(privateKey, 'base64');
 }
 
+// Module-level RSA key cache — parsed once, reused across all requests in the same serverless instance.
+// node-forge key parsing is ~5-20ms per call (CPU-bound); this eliminates that overhead on every Flow interaction.
+// Safe to cache: the key is static at runtime; a deployment that rotates WHATSAPP_FLOWS_PRIVATE_KEY
+// restarts the instance anyway, clearing this cache automatically.
+let _cachedForgeKey: forge.pki.rsa.PrivateKey | null = null
+
+function getCachedForgeKey(): forge.pki.rsa.PrivateKey {
+    if (_cachedForgeKey) return _cachedForgeKey
+    _cachedForgeKey = forge.pki.privateKeyFromPem(getPrivateKey())
+    return _cachedForgeKey
+}
+
 /**
  * Decrypts the AES key, then uses the AES key to decrypt the flow data.
  * @param encryptedAesKey Base64 encoded encrypted AES key
@@ -49,10 +61,9 @@ export function signChallenge(challenge: string): string {
  * @param initialVector Base64 encoded initial vector
  */
 export function decryptRequest(encryptedAesKey: string, encryptedFlowData: string, initialVector: string) {
-    const privateKeyStr = getPrivateKey();
-
     // 1. Decrypt the AES key using node-forge (bypasses OpenSSL compatibility issues)
-    const privateKey = forge.pki.privateKeyFromPem(privateKeyStr);
+    // Key is cached at module-level to avoid re-parsing on every request.
+    const privateKey = getCachedForgeKey();
 
     // Decode the base64 encrypted AES key into a binary string for node-forge
     const encryptedAesKeyBytes = forge.util.decode64(encryptedAesKey);
