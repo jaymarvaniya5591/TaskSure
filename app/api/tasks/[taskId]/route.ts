@@ -13,6 +13,7 @@ import {
     notifyAssigneeChanged,
     notifyTaskCancelled,
 } from '@/lib/notifications/whatsapp-notifier'
+import { cancelPendingNotifications } from '@/lib/notifications/task-notification-scheduler'
 
 /**
  * PATCH /api/tasks/[taskId]
@@ -330,6 +331,11 @@ export async function PATCH(
             if (!isCreator) {
                 return NextResponse.json({ error: "Only the owner can change the assignee" }, { status: 403 });
             }
+            // Bug 2.1: Block conversion of a completed task — the resulting task
+            // would be created as "pending", forcing the assignee to re-complete it.
+            if (task.status === "completed") {
+                return NextResponse.json({ error: "Cannot reassign a completed task" }, { status: 400 });
+            }
 
             const { new_assigned_to, old_assigned_name, new_assigned_name } = body;
             if (!new_assigned_to) {
@@ -350,6 +356,8 @@ export async function PATCH(
 
             // If changing to a different person, reset to pending so they can accept
             const isSelfAssign = new_assigned_to === userId;
+            const wasToDoBeforeReassign = task.created_by === task.assigned_to;
+            const nowBecomesTask = wasToDoBeforeReassign && !isSelfAssign;
             const updateData: Record<string, unknown> = {
                 assigned_to: new_assigned_to,
                 updated_at: new Date().toISOString(),
@@ -366,6 +374,18 @@ export async function PATCH(
                 if (!task.committed_deadline && task.deadline) {
                     updateData.committed_deadline = task.deadline;
                 }
+            }
+
+            // Bug 3.4: When a personal To-Do is converted into a delegated Task, reset
+            // created_at so SLA aging metrics start from the moment of delegation, not
+            // from when the original To-Do was created days/weeks earlier.
+            if (nowBecomesTask) {
+                const conversionTime = new Date().toISOString();
+                // Use admin client to bypass RLS which typically protects created_at
+                await adminDb
+                    .from("tasks")
+                    .update({ created_at: conversionTime })
+                    .eq("id", taskId);
             }
 
             // Run update, audit log, and notification in parallel
@@ -440,7 +460,9 @@ export async function PATCH(
                 }
             };
 
-            // Run subtask cancellation, audit log, and notification in parallel
+            // Run subtask cancellation, audit log, notification, and pending notification
+            // cancellation in parallel. Cancelling scheduled notifications prevents the
+            // cron worker from processing stale reminders for a deleted task (Bug 1.3).
             const [, cancelResult] = await Promise.allSettled([
                 cancelSubtasks(taskId),
                 supabase
@@ -464,7 +486,11 @@ export async function PATCH(
                     taskTitle: task.title || 'Untitled task',
                     taskId: taskId,
                     source: 'dashboard',
-                }).catch(err => console.error('[TaskPatch] Notification error (delete):', err))
+                }).catch(err => console.error('[TaskPatch] Notification error (delete):', err)),
+                // Cancel all scheduled notifications for this task so the cron job
+                // does not attempt to send reminders after deletion.
+                cancelPendingNotifications(taskId, undefined, adminDb)
+                    .catch(err => console.error('[TaskPatch] Failed to cancel notifications on delete:', err)),
             ]);
 
             if (cancelResult.status === 'rejected' || (cancelResult.status === 'fulfilled' && cancelResult.value?.error)) {

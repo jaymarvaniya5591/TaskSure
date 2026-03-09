@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
@@ -54,6 +54,8 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Guard against rapid double-submission (e.g. Enter key spam before state update)
+    const isSubmittingRef = useRef(false);
 
     useEffect(() => {
         setMounted(true);
@@ -128,7 +130,12 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
             onClose();
         },
         onError: (err: unknown, variables: Record<string, unknown>, context: unknown) => {
-            setError(err instanceof Error ? err.message : "An unexpected error occurred");
+            const isNetworkError = err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('network'));
+            setError(
+                isNetworkError
+                    ? "No internet connection. Please check your network and try again."
+                    : (err instanceof Error ? err.message : "An unexpected error occurred")
+            );
             if (context && typeof context === 'object' && 'previousDashboardData' in context) {
                 const ctx = context as { previousDashboardData: unknown };
                 if (ctx.previousDashboardData) {
@@ -137,6 +144,7 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
             }
         },
         onSettled: () => {
+            isSubmittingRef.current = false;
             setIsSubmitting(false);
             queryClient.invalidateQueries({ queryKey: currentQueryKey });
             router.refresh();
@@ -144,6 +152,10 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
     });
 
     const handleSubmit = async () => {
+        // Ref-based guard prevents duplicate submissions from rapid clicks/Enter spam
+        // before the React state update disables the button
+        if (isSubmittingRef.current) return;
+
         setError(null);
 
         if (!title.trim()) {
@@ -166,6 +178,7 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
             return;
         }
 
+        isSubmittingRef.current = true;
         setIsSubmitting(true);
 
         createMutation.mutate({
