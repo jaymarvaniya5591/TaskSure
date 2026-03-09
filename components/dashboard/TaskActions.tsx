@@ -208,7 +208,7 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
                             // Apply optimistic changes based on the action
                             switch (body.action) {
                                 case "complete":
-                                    return { ...t, status: "completed" };
+                                    return { ...t, status: "completed", _markedForOptimisticDeletion: true } as unknown as Task;
                                 case "accept":
                                     return { ...t, status: "accepted", committed_deadline: body.committed_deadline };
                                 case "reject":

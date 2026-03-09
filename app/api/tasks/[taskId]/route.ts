@@ -381,10 +381,14 @@ export async function PATCH(
             // from when the original To-Do was created days/weeks earlier.
             if (nowBecomesTask) {
                 const conversionTime = new Date().toISOString();
-                // Use admin client to bypass RLS which typically protects created_at
+                // Use admin client to bypass RLS (which protects created_at).
+                // Cast to any because Supabase generated types mark created_at as
+                // non-updatable (never) even though it is writable at runtime via the
+                // service role key.
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await adminDb
                     .from("tasks")
-                    .update({ created_at: conversionTime })
+                    .update({ created_at: conversionTime } as any)
                     .eq("id", taskId);
             }
 
