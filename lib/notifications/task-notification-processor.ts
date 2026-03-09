@@ -636,6 +636,22 @@ export async function processTaskNotifications(
     const stats = { processed: 0, failed: 0, overdue: 0, reminderEscalations: 0 }
 
     try {
+        // 0. Recover stale 'processing' notifications abandoned by a crashed instance.
+        // Any notification stuck in 'processing' for >10 minutes is safe to retry —
+        // normal processing takes well under a minute and the cron runs every 5 minutes.
+        const staleThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+        const { error: recoveryError, count: recoveredCount } = await sb
+            .from('task_notifications')
+            .update({ status: 'pending', updated_at: new Date().toISOString() })
+            .eq('status', 'processing')
+            .lt('updated_at', staleThreshold)
+
+        if (recoveryError) {
+            console.error('[Processor] Failed to recover stale processing notifications:', recoveryError.message)
+        } else if (recoveredCount && recoveredCount > 0) {
+            console.log(`[Processor] Recovered ${recoveredCount} stale processing notification(s) to pending`)
+        }
+
         // 1. Atomically claim due notifications by marking them 'processing'.
         // This prevents a server restart mid-run from re-sending already-dispatched
         // notifications on the next cron tick.

@@ -657,8 +657,28 @@ export async function notifyDeadlineEdited(
         taskId: string
         newDeadline: string
         source: 'whatsapp' | 'dashboard'
+        ownerName?: string
     },
 ): Promise<void> {
+
+    // Cancel the old deadline_approaching notification and reschedule for the new deadline.
+    // This ensures the 30-min reminder fires at the right time when the deadline changes.
+    await cancelPendingNotifications(opts.taskId, 'deadline_approaching', supabase)
+        .catch(err => console.error('[Notifier] Failed to cancel old deadline_approaching:', err))
+
+    const resolvedOwnerName = opts.ownerName
+        ?? (await lookupUser(supabase, opts.ownerId))?.name
+        ?? 'the owner'
+
+    await scheduleDeadlineApproaching(
+        opts.taskId,
+        opts.assigneeId,
+        opts.ownerId,
+        new Date(opts.newDeadline),
+        opts.taskTitle,
+        resolvedOwnerName,
+        supabase,
+    ).catch(err => console.error('[Notifier] Failed to reschedule deadline approaching:', err))
 
     // Look up assignee name
     const assignee = await lookupUser(supabase, opts.assigneeId)

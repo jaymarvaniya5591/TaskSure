@@ -19,7 +19,9 @@
       "Bash(xargs grep -l \"generateDirectSession\\\\|verifyAuthToken\\\\|consumeAuthToken\")",
       "Bash(ls \"c:\\\\Users\\\\marva\\\\Documents\\\\Boldo AI\\\\app\\\\\\(dashboard\\)\\\\home\")",
       "WebFetch(domain:railway.com)",
-      "Bash(npm run lint -- --quiet)"
+      "Bash(npm run lint -- --quiet)",
+      "Read(//c/Users/marva/Documents/Boldo/**)",
+      "Bash(grep -A 30 \"cancelPendingNotifications\\\\|cron\" app/api/tasks/[taskId]/route.ts)"
     ]
   }
 }

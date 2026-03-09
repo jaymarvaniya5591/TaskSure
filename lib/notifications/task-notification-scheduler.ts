@@ -412,7 +412,7 @@ export async function cancelPendingNotifications(
             .from('task_notifications')
             .update({ status: 'cancelled', updated_at: new Date().toISOString() })
             .eq('task_id', taskId)
-            .eq('status', 'pending')
+            .in('status', ['pending', 'processing'])
 
         if (stage) {
             query = query.eq('stage', stage)
@@ -423,7 +423,7 @@ export async function cancelPendingNotifications(
         if (error) {
             console.error('[Scheduler] Failed to cancel notifications:', error.message)
         } else {
-            console.log(`[Scheduler] Cancelled ${count ?? '?'} pending notification(s) for task ${taskId}${stage ? ` (stage: ${stage})` : ''}`)
+            console.log(`[Scheduler] Cancelled ${count ?? '?'} pending/processing notification(s) for task ${taskId}${stage ? ` (stage: ${stage})` : ''}`)
         }
     } catch (err) {
         console.error('[Scheduler] Error cancelling notifications:', err instanceof Error ? err.message : err)
