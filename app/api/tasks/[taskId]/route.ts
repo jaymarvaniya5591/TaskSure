@@ -385,10 +385,10 @@ export async function PATCH(
                 // Cast to any because Supabase generated types mark created_at as
                 // non-updatable (never) even though it is writable at runtime via the
                 // service role key.
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await adminDb
                     .from("tasks")
-                    .update({ created_at: conversionTime } as any)
+                    // @ts-expect-error - Supabase types restrict updates to created_at
+                    .update({ created_at: conversionTime })
                     .eq("id", taskId);
             }
 
