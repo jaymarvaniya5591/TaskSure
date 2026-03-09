@@ -56,6 +56,29 @@ setInterval(() => {
 }, 5 * 60_000)
 
 // ---------------------------------------------------------------------------
+// In-memory message deduplication (5-minute TTL)
+// Meta retries webhooks if we are slow. This prevents processing the same
+// WhatsApp message ID twice, which would create duplicate sessions/tasks.
+// ---------------------------------------------------------------------------
+const DEDUP_TTL_MS = 5 * 60_000
+const processedMessageIds = new Map<string, number>() // messageId → timestamp
+
+function isAlreadyProcessed(messageId: string): boolean {
+    const seenAt = processedMessageIds.get(messageId)
+    if (seenAt !== undefined && Date.now() - seenAt < DEDUP_TTL_MS) return true
+    processedMessageIds.set(messageId, Date.now())
+    return false
+}
+
+// Evict expired dedup entries every 5 min alongside the rate-limit cleanup
+setInterval(() => {
+    const cutoff = Date.now() - DEDUP_TTL_MS
+    for (const [id, ts] of Array.from(processedMessageIds.entries())) {
+        if (ts < cutoff) processedMessageIds.delete(id)
+    }
+}, 5 * 60_000)
+
+// ---------------------------------------------------------------------------
 // In-memory known-users cache (10-minute TTL)
 // Avoids a DB round-trip for every repeated message from the same user.
 // ---------------------------------------------------------------------------
@@ -254,6 +277,12 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                 if (isRateLimited(senderPhone10)) {
                     console.warn(`[Webhook] Rate limited: ${senderPhone10}`)
                     await sendWhatsAppMessage(rawSenderPhone, '⏳ *Slow Down!*\n\nYou\'re sending messages too quickly.\nPlease wait a moment before trying again.')
+                    continue
+                }
+
+                // --- Deduplication (Meta retries on slow responses) ---
+                if (messageId && isAlreadyProcessed(messageId)) {
+                    console.warn(`[Webhook] Duplicate message skipped: ${messageId}`)
                     continue
                 }
 

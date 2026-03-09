@@ -14,7 +14,11 @@
       "Bash(xargs grep -l \"ReactQuery\\\\|react-query\\\\|useQuery\\\\|useMutation\")",
       "Bash(npm run lint)",
       "Bash(grep -E \"\\\\.\\(ts|tsx|js\\)$\")",
-      "Read(//c/Users/marva/.claude/projects/c--Users-marva-Documents-Boldo-AI/fdc93478-6ff4-45ce-a5b8-88c869c43d54/tool-results/**)"
+      "Read(//c/Users/marva/.claude/projects/c--Users-marva-Documents-Boldo-AI/fdc93478-6ff4-45ce-a5b8-88c869c43d54/tool-results/**)",
+      "Read(//c/Users/marva/.gemini/antigravity/brain/94939fc3-7b92-4520-ba29-8c6829a6da13/**)",
+      "Bash(xargs grep -l \"generateDirectSession\\\\|verifyAuthToken\\\\|consumeAuthToken\")",
+      "Bash(ls \"c:\\\\Users\\\\marva\\\\Documents\\\\Boldo AI\\\\app\\\\\\(dashboard\\)\\\\home\")",
+      "WebFetch(domain:railway.com)"
     ]
   }
 }

@@ -412,17 +412,34 @@ async function checkReminderAcknowledgmentTimeouts(supabase: SupabaseAdmin): Pro
             if (!existingOwnerNotify || existingOwnerNotify.length === 0) {
                 const ownerId = meta.owner_id as string
                 if (ownerId) {
-                    // Look up assignee name for the owner message
-                    const assignee = await lookupUser(supabase, reminder.target_user_id)
-                    await scheduleOwnerNoReplyNotification(
-                        reminder.task_id,
-                        ownerId,
-                        reminder.stage_number,
-                        (meta.task_title as string) || 'a task',
-                        assignee?.name || 'the assignee',
-                        supabase,
-                    )
-                    escalatedCount++
+                    // Only schedule if the owner user still exists
+                    const ownerUser = await lookupUser(supabase, ownerId)
+                    if (ownerUser) {
+                        // Look up assignee name for the owner message
+                        const assignee = await lookupUser(supabase, reminder.target_user_id)
+                        await scheduleOwnerNoReplyNotification(
+                            reminder.task_id,
+                            ownerId,
+                            reminder.stage_number,
+                            (meta.task_title as string) || 'a task',
+                            assignee?.name || 'the assignee',
+                            supabase,
+                        )
+                        escalatedCount++
+                    } else {
+                        console.log(`[Processor] Skipping owner no-reply for task ${reminder.task_id}: owner ${ownerId} no longer exists`)
+
+                        // Mark this notification as acknowledged so we don't keep trying to process it
+                        try {
+                            const newMeta = { ...meta, acknowledged: true }
+                            await supabase
+                                .from('task_notifications')
+                                .update({ metadata: newMeta })
+                                .eq('id', reminder.id)
+                        } catch (e) {
+                            console.error(`[Processor] Failed to mark reminder as acknowledged for deleted owner ${ownerId}:`, e)
+                        }
+                    }
                 }
             }
         }
@@ -619,14 +636,17 @@ export async function processTaskNotifications(
     const stats = { processed: 0, failed: 0, overdue: 0, reminderEscalations: 0 }
 
     try {
-        // 1. Fetch all due pending notifications
+        // 1. Atomically claim due notifications by marking them 'processing'.
+        // This prevents a server restart mid-run from re-sending already-dispatched
+        // notifications on the next cron tick.
         const { data: notifications, error } = await sb
             .from('task_notifications')
-            .select('*')
+            .update({ status: 'processing', updated_at: new Date().toISOString() })
             .eq('status', 'pending')
             .lte('scheduled_at', new Date().toISOString())
             .order('scheduled_at', { ascending: true })
             .limit(50)
+            .select('*')
 
         if (error) {
             console.error('[Processor] Failed to fetch notifications:', error.message)

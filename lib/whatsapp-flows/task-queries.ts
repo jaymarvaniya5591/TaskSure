@@ -496,12 +496,15 @@ export async function executeTaskAction(
             }
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error } = await (supabase as any)
+            const { data: completeData, error } = await (supabase as any)
                 .from('tasks')
                 .update({ status: 'completed', updated_at: new Date().toISOString() })
                 .eq('id', taskId)
+                .in('status', ['accepted', 'overdue'])
+                .select('id')
 
             if (error) return { success: false, message: 'Failed to complete task. Please try again.' }
+            if (!completeData || completeData.length === 0) return { success: false, message: 'Task cannot be completed in its current state.' }
 
             const [updateResult] = await Promise.allSettled([
                 // Cancel pending notifications
@@ -798,7 +801,7 @@ export async function executeTaskAction(
             }
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error } = await (supabase as any)
+            const { data: acceptData, error } = await (supabase as any)
                 .from('tasks')
                 .update({
                     committed_deadline: deadlineISO,
@@ -806,8 +809,11 @@ export async function executeTaskAction(
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', taskId)
+                .eq('status', 'pending')
+                .select('id')
 
             if (error) return { success: false, message: 'Failed to accept task.' }
+            if (!acceptData || acceptData.length === 0) return { success: false, message: 'Task state has already changed.' }
 
             const [updateResult] = await Promise.allSettled([
                 // Audit log for accept
@@ -852,12 +858,15 @@ export async function executeTaskAction(
             const rejectReason = null
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error } = await (supabase as any)
+            const { data: rejectData, error } = await (supabase as any)
                 .from('tasks')
                 .update({ status: 'rejected', updated_at: new Date().toISOString() })
                 .eq('id', taskId)
+                .eq('status', 'pending')
+                .select('id')
 
             if (error) return { success: false, message: 'Failed to reject task.' }
+            if (!rejectData || rejectData.length === 0) return { success: false, message: 'Task state has already changed.' }
 
             const [updateResult] = await Promise.allSettled([
                 // Audit log for reject

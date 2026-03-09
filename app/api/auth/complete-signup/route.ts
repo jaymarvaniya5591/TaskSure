@@ -272,6 +272,11 @@ export async function POST(request: NextRequest) {
                 // ROLLBACK: delete the org we just created so it doesn't become orphaned
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await (supabase as any).from('organisations').delete().eq('id', orgData.id)
+                // ROLLBACK: best-effort delete the auth user so they aren't permanently orphaned
+                // (auth user with no public.users row = unrecoverable login state)
+                try { await supabase.auth.admin.deleteUser(authUserId) } catch (e) {
+                    console.error('[CompleteSignup] Failed to rollback auth user:', e)
+                }
                 if (userErr.code === '23505') {
                     return NextResponse.json(
                         { error: 'An account with this phone number already exists. Please sign in instead.' },
@@ -326,6 +331,10 @@ export async function POST(request: NextRequest) {
                         { error: 'An account with this phone number already exists. Please sign in instead.' },
                         { status: 409 }
                     )
+                }
+                // ROLLBACK: best-effort delete the auth user so they aren't permanently orphaned
+                try { await supabase.auth.admin.deleteUser(authUserId) } catch (e) {
+                    console.error('[CompleteSignup] Failed to rollback auth user (join):', e)
                 }
                 throw new Error(`Member insert failed: ${userErr.message}`)
             }

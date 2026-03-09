@@ -225,7 +225,9 @@ export async function PATCH(
                         status: "completed",
                         updated_at: new Date().toISOString(),
                     })
-                    .eq("id", taskId),
+                    .eq("id", taskId)
+                    .in("status", ["accepted", "overdue"])
+                    .select("id"),
                 supabase.from("audit_log").insert({
                     user_id: userId,
                     organisation_id: task.organisation_id,
@@ -257,6 +259,10 @@ export async function PATCH(
                 }).catch(err => console.error('[TaskPatch] Notification error (complete):', err)),
             ]);
 
+            // If zero rows updated, task was not in an acceptable state (race condition or bad state)
+            if (updateResult.status === 'fulfilled' && !updateResult.value?.error && updateResult.value?.data?.length === 0) {
+                return NextResponse.json({ error: "Task cannot be completed in its current state" }, { status: 409 });
+            }
             if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
                 const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
                 return NextResponse.json({ error: errMsg }, { status: 500 });
@@ -379,22 +385,16 @@ export async function PATCH(
             // Bug 3.4: When a personal To-Do is converted into a delegated Task, reset
             // created_at so SLA aging metrics start from the moment of delegation, not
             // from when the original To-Do was created days/weeks earlier.
+            // Merged into updateData so both changes happen atomically in one query.
+            // Requires adminDb (service role) since RLS restricts created_at updates.
             if (nowBecomesTask) {
-                const conversionTime = new Date().toISOString();
-                // Use admin client to bypass RLS (which protects created_at).
-                // Cast to any because Supabase generated types mark created_at as
-                // non-updatable (never) even though it is writable at runtime via the
-                // service role key.
-                await adminDb
-                    .from("tasks")
-                    // @ts-expect-error - Supabase types restrict updates to created_at
-                    .update({ created_at: conversionTime })
-                    .eq("id", taskId);
+                updateData.created_at = new Date().toISOString();
             }
 
-            // Run update, audit log, and notification in parallel
+            // Run update, audit log, and notification in parallel.
+            // Use adminDb when nowBecomesTask so the service role can write created_at.
             const [updateResult] = await Promise.allSettled([
-                supabase
+                (nowBecomesTask ? adminDb : supabase)
                     .from("tasks")
                     .update(updateData)
                     .eq("id", taskId),
