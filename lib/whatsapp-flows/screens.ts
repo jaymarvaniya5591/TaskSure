@@ -20,6 +20,28 @@ import {
     executeTaskAction,
 } from './task-queries'
 
+// ─── COMMIT_ACTION Deduplication ─────────────────────────────────────────────
+// Prevents duplicate side-effects when slow connectivity causes the same action
+// to be submitted multiple times. Mirrors the processedMessageIds pattern in
+// app/api/webhook/whatsapp/route.ts.
+const COMMIT_DEDUP_TTL_MS = 30_000 // 30-second window
+const commitDedupMap = new Map<string, number>()
+
+function isDuplicateCommit(phone10: string, actionType: string, taskId: string): boolean {
+    const key = `${phone10}:${actionType}:${taskId}`
+    const seenAt = commitDedupMap.get(key)
+    if (seenAt !== undefined && Date.now() - seenAt < COMMIT_DEDUP_TTL_MS) return true
+    commitDedupMap.set(key, Date.now())
+    return false
+}
+
+setInterval(() => {
+    const cutoff = Date.now() - COMMIT_DEDUP_TTL_MS
+    for (const [key, ts] of Array.from(commitDedupMap.entries())) {
+        if (ts < cutoff) commitDedupMap.delete(key)
+    }
+}, 5 * 60_000)
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type ScreenResponse = { screen: string; data: Record<string, unknown> }
@@ -188,6 +210,12 @@ export async function handlePrepareAction(
         case 'delete':
         case 'reject':
         case 'send_followup': {
+            if (isDuplicateCommit(phone10, selectedAction, taskId)) {
+                return {
+                    screen: 'SUCCESS',
+                    data: { success_message: 'Action already processed.', view_state: viewState || '' },
+                }
+            }
             return commitAndRespond(
                 taskId, user.id, user.organisation_id,
                 selectedAction, {}, viewState
@@ -217,6 +245,14 @@ export async function handleCommitAction(
     const user = await resolveUserByPhone(phone10)
     if (!user || !user.organisation_id) {
         return dashboardFallback('Account not found.')
+    }
+
+    // Dedup: reject repeated COMMIT_ACTIONs for the same phone+action+task within 30s
+    if (isDuplicateCommit(phone10, actionType, taskId)) {
+        return {
+            screen: 'SUCCESS',
+            data: { success_message: 'Action already processed.', view_state: viewState || '' },
+        }
     }
 
     let mergedDeadline: string | undefined

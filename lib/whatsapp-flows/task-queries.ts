@@ -495,6 +495,21 @@ export async function executeTaskAction(
                 return { success: false, message: 'Only the owner can complete a task.' }
             }
 
+            // Validate: no incomplete subtasks before completing a parent task
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: incompleteSubtasks, error: subError } = await (supabase as any)
+                .from('tasks')
+                .select('id')
+                .eq('parent_task_id', taskId)
+                .in('status', ['pending', 'accepted', 'overdue'])
+
+            if (subError) {
+                return { success: false, message: 'Failed to check subtasks. Please try again.' }
+            }
+            if (incompleteSubtasks && incompleteSubtasks.length > 0) {
+                return { success: false, message: 'Please complete all subtasks first.' }
+            }
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { data: completeData, error } = await (supabase as any)
                 .from('tasks')
@@ -587,12 +602,16 @@ export async function executeTaskAction(
             }
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error } = await (supabase as any)
+            const { data: deadlineUpdateData, error } = await (supabase as any)
                 .from('tasks')
                 .update(updateData)
                 .eq('id', taskId)
+                .select('id')
 
             if (error) return { success: false, message: 'Failed to update deadline.' }
+            if (!deadlineUpdateData || deadlineUpdateData.length === 0) {
+                return { success: false, message: 'Task no longer exists.' }
+            }
 
             const [updateResult] = await Promise.allSettled([
                 // Audit log for deadline edit
@@ -640,6 +659,7 @@ export async function executeTaskAction(
                 .from('users')
                 .select('id, name')
                 .eq('id', payload.selectedEmployee)
+                .eq('organisation_id', orgId)
                 .single()
 
             if (!newAssignee) return { success: false, message: 'Employee not found.' }
@@ -662,12 +682,16 @@ export async function executeTaskAction(
             }
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error } = await (supabase as any)
+            const { data: personsUpdateData, error } = await (supabase as any)
                 .from('tasks')
                 .update(updateData)
                 .eq('id', taskId)
+                .select('id')
 
             if (error) return { success: false, message: 'Failed to update assignee.' }
+            if (!personsUpdateData || personsUpdateData.length === 0) {
+                return { success: false, message: 'Task no longer exists.' }
+            }
 
             const oldAssigneeName = extractUserName(t.assigned_to)
 

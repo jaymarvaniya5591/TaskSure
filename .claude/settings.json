@@ -18,7 +18,8 @@
       "Read(//c/Users/marva/.gemini/antigravity/brain/94939fc3-7b92-4520-ba29-8c6829a6da13/**)",
       "Bash(xargs grep -l \"generateDirectSession\\\\|verifyAuthToken\\\\|consumeAuthToken\")",
       "Bash(ls \"c:\\\\Users\\\\marva\\\\Documents\\\\Boldo AI\\\\app\\\\\\(dashboard\\)\\\\home\")",
-      "WebFetch(domain:railway.com)"
+      "WebFetch(domain:railway.com)",
+      "Bash(npm run lint -- --quiet)"
     ]
   }
 }
