@@ -33,7 +33,7 @@ const MODAL = {
     inputBase: "w-full px-4 py-3.5 sm:py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:bg-white transition-all text-sm sm:text-[15px] font-medium placeholder:font-normal placeholder:text-gray-400",
     textareaBase: "w-full px-4 py-3.5 sm:py-4 bg-gray-50/50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:bg-white transition-all text-sm sm:text-[15px] resize-none placeholder:text-gray-400",
     btnCancel: "flex-1 px-4 py-3.5 sm:py-3 rounded-2xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors",
-    errorBox: "mt-5 p-3.5 bg-red-50/80 text-red-700 rounded-2xl text-sm font-medium border border-red-100/50",
+    errorBox: "mb-4 p-3.5 bg-red-50/80 text-red-700 rounded-2xl text-sm font-medium border border-red-100/50",
 };
 
 export default function CreateTaskModal({ isOpen, onClose, currentUserId }: CreateTaskModalProps) {
@@ -297,12 +297,11 @@ export default function CreateTaskModal({ isOpen, onClose, currentUserId }: Crea
                             </div>
                         )}
                     </div>
-
-                    {error && <div className={MODAL.errorBox}>{error}</div>}
                 </div>
 
                 {(!isSearching || assignedTo) && (
                     <div className={MODAL.footer}>
+                        {error && <div className={MODAL.errorBox}>{error}</div>}
                         <div className="flex gap-3">
                             <button onClick={onClose} className={MODAL.btnCancel} disabled={isSubmitting}>Cancel</button>
                             <button

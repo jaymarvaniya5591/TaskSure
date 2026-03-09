@@ -513,7 +513,7 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
                         onSubmit={handleEditPersons}
                         onClose={() => setModal(null)}
                         loading={loading}
-                        orgUsers={orgUsers}
+                        orgUsers={allOrgUsers}
                         currentUserId={currentUserId}
                         task={task}
                     />
