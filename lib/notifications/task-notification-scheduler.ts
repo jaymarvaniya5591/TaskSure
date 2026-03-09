@@ -27,6 +27,7 @@ interface NotificationRow {
     target_role: 'assignee' | 'owner'
     channel: 'whatsapp' | 'call' | 'both'
     scheduled_at: string
+    status: 'pending'
     metadata?: Record<string, unknown>
 }
 
@@ -85,6 +86,7 @@ export async function scheduleAcceptanceFollowups(
                 target_role: 'assignee',
                 channel: 'both', // call + whatsapp template
                 scheduled_at: scheduledAt.toISOString(),
+                status: 'pending',
                 metadata: { task_title: taskTitle, owner_name: ownerName, owner_id: ownerId },
             })
 
@@ -97,6 +99,7 @@ export async function scheduleAcceptanceFollowups(
                 target_role: 'owner',
                 channel: 'whatsapp',
                 scheduled_at: scheduledAt.toISOString(),
+                status: 'pending',
                 metadata: { task_title: taskTitle, assignee_id: assigneeId },
             })
         }
@@ -230,6 +233,7 @@ export async function scheduleTaskReminders(
             target_role: 'assignee' as const,
             channel: 'whatsapp' as const,
             scheduled_at: time.toISOString(),
+            status: 'pending' as const,
             metadata: {
                 task_title: taskTitle,
                 owner_name: ownerName,
@@ -294,6 +298,7 @@ export async function scheduleDeadlineApproaching(
             target_role: isTodo ? 'owner' : 'assignee',
             channel: 'whatsapp',
             scheduled_at: scheduledAt.toISOString(),
+            status: 'pending',
             metadata: {
                 task_title: taskTitle,
                 deadline: deadline.toISOString(),
@@ -368,6 +373,7 @@ export async function scheduleEscalations(
                 target_role: isTodo ? 'assignee' : 'owner',
                 channel: 'whatsapp' as const,
                 scheduled_at: scheduledAt.toISOString(),
+                status: 'pending' as const,
                 metadata: {
                     task_title: taskTitle,
                     assignee_id: assigneeId,
@@ -459,6 +465,7 @@ export async function scheduleReminderCallEscalation(
                 target_role: 'assignee',
                 channel: 'call',
                 scheduled_at: callTime.toISOString(),
+                status: 'pending',
                 metadata: { task_title: taskTitle, owner_name: ownerName, deadline, is_call_escalation: true },
             })
 
@@ -500,6 +507,7 @@ export async function scheduleOwnerNoReplyNotification(
                 target_role: 'owner',
                 channel: 'whatsapp',
                 scheduled_at: notifyTime.toISOString(),
+                status: 'pending',
                 metadata: {
                     task_title: taskTitle,
                     assignee_name: assigneeName,

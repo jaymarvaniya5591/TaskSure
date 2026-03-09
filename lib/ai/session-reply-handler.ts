@@ -404,6 +404,7 @@ async function handleAwaitingTodoDeadline(
             taskId: createdTodo.id,
             committedDeadline: normalizedDeadline,
             source: 'whatsapp',
+            inlineConfirmationSent: true,
         }).catch(err => console.error('[SessionReply] Notification error (todo_create):', err))
     }
 
