@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCurrentUser } from "@/lib/user";
 import { notifyTaskCreated, notifySubtaskCreated } from '@/lib/notifications/whatsapp-notifier'
+import { isRateLimited } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
     const supabase = await createClient();
@@ -21,6 +22,11 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+        // Bug 3.1: Rate limit task creation — 30 per minute per user (prevents spam attacks)
+        if (isRateLimited('task_create', currentUser.id, 30, 60_000)) {
+            return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+        }
+
         const { assigned_to, title, description, deadline, parent_task_id } = body;
 
         if (!assigned_to || !title) {

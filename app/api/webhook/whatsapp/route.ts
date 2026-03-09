@@ -622,11 +622,15 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             // All three only need data already available from Phase 1.
                             /* eslint-disable @typescript-eslint/no-explicit-any */
                             const [updateResult, , otherUserResult] = await Promise.all([
-                                // A: Mark task completed
+                                // A: Mark task completed — Bug 1.2: guard with status check to prevent
+                                // a race where admin deletes the task between our preflight fetch and
+                                // this write. Without .in(), a cancelled task can be revived as 'completed'.
                                 (supabase as any)
                                     .from('tasks')
                                     .update({ status: 'completed', updated_at: new Date().toISOString() })
-                                    .eq('id', taskId),
+                                    .eq('id', taskId)
+                                    .in('status', ['accepted', 'overdue'])
+                                    .select('id'),
                                 // B: Cancel remaining escalation notifications
                                 (supabase as any)
                                     .from('task_notifications')
@@ -654,7 +658,11 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             ])
                             /* eslint-enable @typescript-eslint/no-explicit-any */
 
-                            if (updateResult.error) {
+                            // Bug 1.2: Zero rows = task was deleted or status changed between
+                            // the preflight check and this write (complete vs. delete race)
+                            if (!updateResult.error && (!updateResult.data || updateResult.data.length === 0)) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'ℹ️ *Task No Longer Available*\n\nThis task has been deleted or is no longer in an active state.')
+                            } else if (updateResult.error) {
                                 console.error('[Webhook] Failed to mark task completed:', updateResult.error.message)
                                 await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                             } else {

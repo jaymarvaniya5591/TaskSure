@@ -14,6 +14,7 @@ import {
     notifyTaskCancelled,
 } from '@/lib/notifications/whatsapp-notifier'
 import { cancelPendingNotifications } from '@/lib/notifications/task-notification-scheduler'
+import { isRateLimited } from '@/lib/rate-limit'
 
 /**
  * PATCH /api/tasks/[taskId]
@@ -57,6 +58,12 @@ export async function PATCH(
     }
 
     const userId = currentUser.id;
+
+    // Bug 3.2: Rate limit task mutations — 30 per minute per user (prevents cyclic reassignment loops)
+    if (isRateLimited('task_patch', userId, 30, 60_000)) {
+        return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+    }
+
     const isAssignee = task.assigned_to === userId;
     const isCreator = task.created_by === userId;
 
@@ -303,7 +310,9 @@ export async function PATCH(
                 supabase
                     .from("tasks")
                     .update(updateData)
-                    .eq("id", taskId),
+                    .eq("id", taskId)
+                    .not("status", "eq", "cancelled") // Bug 1.1: prevent editing a deleted task
+                    .select("id"),                     // Bug 1.1: enables row-count check
                 supabase.from("audit_log").insert({
                     user_id: userId,
                     organisation_id: task.organisation_id,
@@ -324,6 +333,10 @@ export async function PATCH(
                 }).catch(err => console.error('[TaskPatch] Notification error (edit_deadline):', err)),
             ]);
 
+            // Bug 1.1: Zero rows = task was cancelled/deleted before this write landed
+            if (updateResult.status === 'fulfilled' && !updateResult.value?.error && updateResult.value?.data?.length === 0) {
+                return NextResponse.json({ error: "Task is no longer active and cannot be edited" }, { status: 409 });
+            }
             if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
                 const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
                 return NextResponse.json({ error: errMsg }, { status: 500 });
