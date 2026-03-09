@@ -206,10 +206,38 @@ export function getPendingInfo(
         return { isPending: false, isPendingFromMe: false, pendingFrom: null };
     }
 
-    // If the task itself doesn't have a committed deadline and is active
-    if (!task.committed_deadline && isActive(task) && task.status === "pending") {
-        const assigneeId = extractUserId(task.assigned_to);
-        const assigneeName = extractUserName(task.assigned_to);
+    // Collect all tasks in the tree: root + all active subtasks
+    const treeTasks: Task[] = [task];
+    function collectAll(parentId: string) {
+        const subs = getActiveSubtasks(parentId, allTasks);
+        for (const s of subs) {
+            treeTasks.push(s);
+            collectAll(s.id);
+        }
+    }
+    collectAll(task.id);
+
+    // Filter to only those that are pending acceptance
+    const pendingTasks = treeTasks.filter(
+        (t) =>
+            !t.committed_deadline &&
+            isActive(t) &&
+            t.status === "pending" &&
+            !isTodo(t)
+    );
+
+    if (pendingTasks.length > 0) {
+        // Sort by created_at descending (most recent first)
+        pendingTasks.sort(
+            (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime()
+        );
+
+        const mostRecentPending = pendingTasks[0];
+        const assigneeId = extractUserId(mostRecentPending.assigned_to);
+        const assigneeName = extractUserName(mostRecentPending.assigned_to);
+
         return {
             isPending: true,
             isPendingFromMe: assigneeId === userId,
@@ -218,33 +246,6 @@ export function getPendingInfo(
                 : null,
         };
     }
-
-    // Check subtasks recursively for any pending deadlines
-    function findPendingInSubtrees(parentId: string): PendingInfo | null {
-        const subs = getActiveSubtasks(parentId, allTasks);
-        for (const sub of subs) {
-            if (
-                !sub.committed_deadline &&
-                isActive(sub) &&
-                sub.status === "pending" &&
-                !isTodo(sub)
-            ) {
-                const aId = extractUserId(sub.assigned_to);
-                const aName = extractUserName(sub.assigned_to);
-                return {
-                    isPending: true,
-                    isPendingFromMe: aId === userId,
-                    pendingFrom: aId ? { id: aId, name: aName } : null,
-                };
-            }
-            const deeper = findPendingInSubtrees(sub.id);
-            if (deeper) return deeper;
-        }
-        return null;
-    }
-
-    const subtreePending = findPendingInSubtrees(task.id);
-    if (subtreePending) return subtreePending;
 
     return { isPending: false, isPendingFromMe: false, pendingFrom: null };
 }
