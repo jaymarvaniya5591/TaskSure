@@ -65,6 +65,10 @@ export async function PATCH(
             if (!isAssignee) {
                 return NextResponse.json({ error: "Only the assignee can accept a task" }, { status: 403 });
             }
+            // BUG 2.3: Distinguish deleted task from "not pending" — return 409 for cancelled
+            if (task.status === "cancelled") {
+                return NextResponse.json({ error: "This task has been deleted" }, { status: 409 });
+            }
             if (task.status !== "pending") {
                 return NextResponse.json({ error: "Task can only be accepted when pending" }, { status: 400 });
             }
@@ -81,6 +85,7 @@ export async function PATCH(
             // Run update, audit log, and notification in parallel
             const adminDb = createAdminClient();
             const [updateResult] = await Promise.allSettled([
+                // BUG 2.1: Add .eq("status","pending") to prevent simultaneous accept/reject split-brain
                 supabase
                     .from("tasks")
                     .update({
@@ -88,7 +93,9 @@ export async function PATCH(
                         committed_deadline,
                         updated_at: new Date().toISOString(),
                     })
-                    .eq("id", taskId),
+                    .eq("id", taskId)
+                    .eq("status", "pending")
+                    .select("id"),
                 supabase.from("audit_log").insert({
                     user_id: userId,
                     organisation_id: task.organisation_id,
@@ -108,6 +115,10 @@ export async function PATCH(
                 }).catch(err => console.error('[TaskPatch] Notification error (accept):', err)),
             ]);
 
+            // BUG 2.1: If zero rows updated, another request already changed the status (race condition)
+            if (updateResult.status === 'fulfilled' && !updateResult.value?.error && updateResult.value?.data?.length === 0) {
+                return NextResponse.json({ error: "Task state has already changed" }, { status: 409 });
+            }
             if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
                 const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
                 return NextResponse.json({ error: errMsg }, { status: 500 });
@@ -121,6 +132,10 @@ export async function PATCH(
             if (!isAssignee) {
                 return NextResponse.json({ error: "Only the assignee can reject a task" }, { status: 403 });
             }
+            // BUG 2.3: Distinguish deleted task from "not pending" — return 409 for cancelled
+            if (task.status === "cancelled") {
+                return NextResponse.json({ error: "This task has been deleted" }, { status: 409 });
+            }
             if (task.status !== "pending") {
                 return NextResponse.json({ error: "Task can only be rejected when pending" }, { status: 400 });
             }
@@ -130,13 +145,16 @@ export async function PATCH(
             // Run update, comment, audit log, and notification in parallel
             const adminDb = createAdminClient();
             const [updateResult] = await Promise.allSettled([
+                // BUG 2.1: Add .eq("status","pending") to prevent simultaneous accept/reject split-brain
                 supabase
                     .from("tasks")
                     .update({
                         status: "rejected",
                         updated_at: new Date().toISOString(),
                     })
-                    .eq("id", taskId),
+                    .eq("id", taskId)
+                    .eq("status", "pending")
+                    .select("id"),
                 reject_reason
                     ? supabase.from("task_comments").insert({
                         task_id: taskId,
@@ -163,6 +181,10 @@ export async function PATCH(
                 }).catch(err => console.error('[TaskPatch] Notification error (reject):', err)),
             ]);
 
+            // BUG 2.1: If zero rows updated, another request already changed the status (race condition)
+            if (updateResult.status === 'fulfilled' && !updateResult.value?.error && updateResult.value?.data?.length === 0) {
+                return NextResponse.json({ error: "Task state has already changed" }, { status: 409 });
+            }
             if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
                 const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
                 return NextResponse.json({ error: errMsg }, { status: 500 });
@@ -180,6 +202,18 @@ export async function PATCH(
             // parent_task_id is already in the initial fetch — no 2nd query needed
             const isTodo = task.created_by === task.assigned_to;
             const isSubtask = !!task.parent_task_id;
+
+            // BUG 3.2: Block subtask completion when parent task is rejected
+            if (isSubtask && task.parent_task_id) {
+                const { data: parentTask } = await supabase
+                    .from("tasks")
+                    .select("status")
+                    .eq("id", task.parent_task_id)
+                    .single();
+                if (parentTask?.status === "rejected") {
+                    return NextResponse.json({ error: "Cannot complete subtask while the parent task is rejected" }, { status: 400 });
+                }
+            }
 
             // Run notification, update, and audit logs in parallel
             const adminDb = createAdminClient();
@@ -302,6 +336,18 @@ export async function PATCH(
                 return NextResponse.json({ error: "new_assigned_to is required" }, { status: 400 });
             }
 
+            // BUG 1.1: Validate new assignee exists in the same organisation
+            const adminDb = createAdminClient();
+            const { data: newAssigneeCheck } = await adminDb
+                .from("users")
+                .select("id")
+                .eq("id", new_assigned_to)
+                .eq("organisation_id", task.organisation_id)
+                .single();
+            if (!newAssigneeCheck) {
+                return NextResponse.json({ error: "Assigned user not found in your organisation" }, { status: 400 });
+            }
+
             // If changing to a different person, reset to pending so they can accept
             const isSelfAssign = new_assigned_to === userId;
             const updateData: Record<string, unknown> = {
@@ -309,7 +355,8 @@ export async function PATCH(
                 updated_at: new Date().toISOString(),
             };
 
-            if (!isSelfAssign && new_assigned_to !== task.assigned_to) {
+            // BUG 2.2: Also reset when reassigning to same person who previously rejected
+            if (!isSelfAssign && (new_assigned_to !== task.assigned_to || task.status === "rejected")) {
                 // New assignee needs to accept → reset to pending
                 updateData.status = "pending";
                 updateData.committed_deadline = null;
@@ -322,7 +369,6 @@ export async function PATCH(
             }
 
             // Run update, audit log, and notification in parallel
-            const adminDb = createAdminClient();
             const [updateResult] = await Promise.allSettled([
                 supabase
                     .from("tasks")

@@ -38,6 +38,44 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Deadline cannot be in the past" }, { status: 400 });
         }
 
+        // Hoist adminSupabase so it can be used for validation below
+        const adminSupabase = createAdminClient();
+
+        // BUG 1.1: Validate assignee exists in the same organisation
+        const { data: assigneeCheck } = await adminSupabase
+            .from("users")
+            .select("id")
+            .eq("id", assigned_to)
+            .eq("organisation_id", organisationId)
+            .single();
+        if (!assigneeCheck) {
+            return NextResponse.json({ error: "Assigned user not found in your organisation" }, { status: 400 });
+        }
+
+        // BUG 1.3 + BUG 3.2: Validate parent task when creating a subtask
+        if (parent_task_id) {
+            const { data: parentTask } = await adminSupabase
+                .from("tasks")
+                .select("status")
+                .eq("id", parent_task_id)
+                .single() as { data: { status: string } | null; error: unknown };
+            if (!parentTask) {
+                return NextResponse.json({ error: "Parent task not found" }, { status: 400 });
+            }
+            if (parentTask.status === "rejected" || parentTask.status === "cancelled") {
+                return NextResponse.json({ error: "Cannot add subtask to a rejected or cancelled task" }, { status: 400 });
+            }
+            // Enforce subtask count limit
+            const { count } = await adminSupabase
+                .from("tasks")
+                .select("id", { count: "exact", head: true })
+                .eq("parent_task_id", parent_task_id)
+                .not("status", "eq", "cancelled");
+            if ((count ?? 0) >= 50) {
+                return NextResponse.json({ error: "Maximum of 50 active subtasks per task" }, { status: 400 });
+            }
+        }
+
         // Determine initial status: if self-assigned (todo), auto-accept
         const isSelfAssigned = assigned_to === currentUser.id;
 
@@ -95,8 +133,6 @@ export async function POST(request: NextRequest) {
         }
 
         // --- Notifications (fire-and-forget via admin client) ---
-        const adminSupabase = createAdminClient();
-
         if (!isSelfAssigned) {
             await notifyTaskCreated(adminSupabase, {
                 ownerName: currentUser.name || 'Your manager',

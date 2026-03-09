@@ -7,7 +7,10 @@
       "Bash(ls -la /c/Users/marva/Documents/\"Boldo AI\"/app/\\\\\\(dashboard\\\\\\)/settings/)",
       "Bash(xargs grep -l \"team_id\\\\|organisation_id\\\\|no team\")",
       "Bash(wc -l /c/Users/marva/Documents/\"Boldo AI\"/app/api/auth/complete-signup/route.ts /c/Users/marva/Documents/\"Boldo AI\"/app/api/auth/delete-account/route.ts /c/Users/marva/Documents/\"Boldo AI\"/app/api/tasks/[taskId]/route.ts /c/Users/marva/Documents/\"Boldo AI\"/lib/hierarchy.ts)",
-      "Bash(xargs ls -lt)"
+      "Bash(xargs ls -lt)",
+      "Bash(ls -la \"/c/Users/marva/Documents/Boldo AI/app/\\(dashboard\\)\")",
+      "Bash(ls -la \"/c/Users/marva/Documents/Boldo AI/app/\\(dashboard\\)/tasks\")",
+      "Bash(npx tsc --noEmit)"
     ]
   }
 }
