@@ -367,7 +367,7 @@ async function checkReminderAcknowledgmentTimeouts(supabase: SupabaseAdmin): Pro
             .eq('id', reminder.task_id)
             .single()
 
-        if (!task || !['accepted'].includes(task.status)) continue
+        if (!task || !['accepted', 'overdue'].includes(task.status)) continue
 
         const meta = reminder.metadata || {}
         const sentAt = reminder.sent_at ? new Date(reminder.sent_at).getTime() : 0
@@ -381,6 +381,7 @@ async function checkReminderAcknowledgmentTimeouts(supabase: SupabaseAdmin): Pro
             .eq('stage', 'reminder')
             .eq('stage_number', reminder.stage_number)
             .eq('channel', 'call')
+            .in('status', ['pending', 'sent'])  // failed/cancelled → allow retry
             .limit(1)
 
         if (!existingCall || existingCall.length === 0) {
@@ -390,6 +391,7 @@ async function checkReminderAcknowledgmentTimeouts(supabase: SupabaseAdmin): Pro
                 reminder.stage_number,
                 (meta.task_title as string) || 'a task',
                 (meta.owner_name as string) || 'your manager',
+                (meta.deadline as string) || '',
                 supabase,
             )
             escalatedCount++

@@ -3,6 +3,18 @@ import { processTaskNotifications } from '@/lib/notifications/task-notification-
 import { processDailySummaries } from '@/lib/notifications/daily-summary'
 
 export const dynamic = 'force-dynamic';
+
+// ---------------------------------------------------------------------------
+// Concurrency guard — prevents two simultaneous cron runs on the same process.
+//
+// Railway runs a single Node.js instance. If two HTTP requests arrive at the
+// same time (e.g. duplicate cron-job.org entries), the second is skipped.
+//
+// NOTE: Does NOT protect across multiple Railway instances/replicas.
+// If Railway is ever scaled to >1 replica, replace with a Postgres advisory
+// lock (pg_try_advisory_lock) via a Supabase RPC.
+// ---------------------------------------------------------------------------
+let isRunning = false
 // ---------------------------------------------------------------------------
 // GET handler — Vercel Cron triggers this every 5 minutes
 //
@@ -23,6 +35,12 @@ export async function GET(request: Request) {
         console.warn('[Cron] Unauthorized request')
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    if (isRunning) {
+        console.warn('[Cron] Skipping: previous run is still in progress')
+        return NextResponse.json({ status: 'skipped', reason: 'already_running' })
+    }
+    isRunning = true
 
     const t0 = Date.now()
 
@@ -59,5 +77,7 @@ export async function GET(request: Request) {
         const errMsg = err instanceof Error ? err.message : 'Unknown error'
         console.error('[Cron] Unhandled error:', errMsg)
         return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    } finally {
+        isRunning = false
     }
 }

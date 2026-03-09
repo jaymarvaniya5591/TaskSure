@@ -441,6 +441,7 @@ export async function scheduleReminderCallEscalation(
     stageNumber: number,
     taskTitle: string,
     ownerName: string,
+    deadline: string,
     supabase?: SupabaseAdmin,
 ): Promise<void> {
     const sb = supabase || createAdminClient()
@@ -458,7 +459,7 @@ export async function scheduleReminderCallEscalation(
                 target_role: 'assignee',
                 channel: 'call',
                 scheduled_at: callTime.toISOString(),
-                metadata: { task_title: taskTitle, owner_name: ownerName, is_call_escalation: true },
+                metadata: { task_title: taskTitle, owner_name: ownerName, deadline, is_call_escalation: true },
             })
 
         if (error) {

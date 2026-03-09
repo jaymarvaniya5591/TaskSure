@@ -40,20 +40,23 @@ export async function processDailySummaries(supabaseAdmin?: SupabaseAdmin): Prom
             .limit(1)
 
         if (existing && existing.length > 0) {
+            console.log(`[DailySummary] Already run today (${todayStr}), skipping`)
             return stats
         }
 
-        console.log(`[DailySummary] Processing daily summaries for ${todayStr}`)
-
-        // Mark as run to prevent duplicate runs
+        // Insert lock record BEFORE sending any messages.
+        // If this fails, abort rather than risk sending duplicate messages.
         const { error: insertError } = await sb.from('audit_log').insert({
             action: 'daily_summary_run',
             metadata: { date: todayStr }
         })
 
         if (insertError) {
-            console.error(`[DailySummary] Failed to mark run in audit_log:`, insertError)
+            console.error(`[DailySummary] Failed to mark run in audit_log — aborting to prevent duplicate sends:`, insertError)
+            return stats
         }
+
+        console.log(`[DailySummary] Processing daily summaries for ${todayStr}`)
 
         // 2. Fetch users with phones
         const { data: usersData } = await sb
