@@ -103,6 +103,17 @@ export function DashboardClientWrapper({
                                             Try Again
                                         </button>
                                     </div>
+                                ) : !isLoading && !orgId ? (
+                                    <div className="flex flex-col items-center justify-center text-center px-4 h-[50vh]">
+                                        <p className="text-gray-800 font-semibold text-lg">Your account setup is incomplete.</p>
+                                        <p className="text-gray-500 mt-2 mb-6 text-sm">You need to create or join an organisation to use the dashboard.</p>
+                                        <a
+                                            href="/signup/complete"
+                                            className="px-5 py-2.5 bg-gray-900 text-white rounded-xl font-medium text-sm hover:bg-gray-800 transition-colors"
+                                        >
+                                            Complete Setup
+                                        </a>
+                                    </div>
                                 ) : (
                                     children
                                 )}

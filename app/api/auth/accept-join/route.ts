@@ -85,8 +85,15 @@ export async function POST(request: NextRequest) {
 
         if (!partner) {
             return NextResponse.json(
-                { error: 'Partner user not found in system' },
-                { status: 500 }
+                { error: 'This invitation is no longer valid — the inviting partner was not found.' },
+                { status: 404 }
+            )
+        }
+
+        if (!partner.organisation_id) {
+            return NextResponse.json(
+                { error: 'This invitation is no longer valid — the organisation no longer exists.' },
+                { status: 400 }
             )
         }
 
@@ -171,7 +178,16 @@ export async function POST(request: NextRequest) {
                 reporting_manager_id: null,  // Key partner has no manager
             })
 
-        if (userErr && userErr.code !== '23505') {
+        if (userErr) {
+            if (userErr.code === '23505') {
+                // User already exists in public.users (belongs to another org or was already accepted).
+                // Do NOT mark this request as accepted — the user's state is already determined.
+                console.warn('[AcceptJoin] User already has a profile row (23505):', normalizedRequesterPhone)
+                return NextResponse.json(
+                    { error: 'This user already belongs to an organisation. The join request cannot be processed.' },
+                    { status: 409 }
+                )
+            }
             console.error('[AcceptJoin] Failed to create user:', userErr)
             return NextResponse.json(
                 { error: 'Failed to create user profile' },

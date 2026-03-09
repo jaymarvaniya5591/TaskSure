@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         // 2. Fetch the user's details from public.users to verify the first name match
         const { data: dbUser, error: dbUserError } = await supabase
             .from("users")
-            .select("first_name, organisation_id")
+            .select("first_name, organisation_id, role")
             .eq("id", userId)
             .single();
 
@@ -62,6 +62,25 @@ export async function POST(req: NextRequest) {
                 { success: false, error: "First name does not match. Deletion aborted." },
                 { status: 400 }
             );
+        }
+
+        // Prevent the last owner from deleting their account — it would lock the organisation.
+        if (dbUser.role === 'owner' && dbUser.organisation_id) {
+            const { count: ownerCount } = await supabase
+                .from("users")
+                .select("id", { count: "exact", head: true })
+                .eq("organisation_id", dbUser.organisation_id)
+                .eq("role", "owner");
+
+            if (ownerCount === 1) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: "You are the only admin of this organisation. You cannot delete your account without first assigning admin rights to another member.",
+                    },
+                    { status: 400 }
+                );
+            }
         }
 
         console.log(`User ${userId} requested deletion and passed name validation.`);

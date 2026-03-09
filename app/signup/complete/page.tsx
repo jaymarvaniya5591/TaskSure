@@ -292,8 +292,9 @@ function SignupCompleteContent() {
                         name="signup-first-name"
                         autoComplete="off"
                         value={firstName}
-                        onChange={(e) => { setFirstName(e.target.value); localStorage.setItem("signup-firstName", e.target.value); }}
+                        onChange={(e) => { setFirstName(e.target.value.slice(0, 50)); localStorage.setItem("signup-firstName", e.target.value.slice(0, 50)); }}
                         disabled={loading}
+                        maxLength={50}
                         required
                     />
                     <Input
@@ -302,8 +303,9 @@ function SignupCompleteContent() {
                         name="signup-last-name"
                         autoComplete="off"
                         value={lastName}
-                        onChange={(e) => { setLastName(e.target.value); localStorage.setItem("signup-lastName", e.target.value); }}
+                        onChange={(e) => { setLastName(e.target.value.slice(0, 50)); localStorage.setItem("signup-lastName", e.target.value.slice(0, 50)); }}
                         disabled={loading}
+                        maxLength={50}
                         required
                     />
                 </div>

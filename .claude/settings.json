@@ -3,7 +3,11 @@
     "allow": [
       "Bash(npm run lint -- --max-warnings=0)",
       "Read(//c/Users/marva/.claude/projects/c--Users-marva-Documents-Boldo-AI/e851d195-5b49-49d5-9dd9-4c1b7f790386/tool-results/**)",
-      "Read(//c/Users/marva/Documents/Boldo/ AI/app/api/internal/process-message/**)"
+      "Read(//c/Users/marva/Documents/Boldo/ AI/app/api/internal/process-message/**)",
+      "Bash(ls -la /c/Users/marva/Documents/\"Boldo AI\"/app/\\\\\\(dashboard\\\\\\)/settings/)",
+      "Bash(xargs grep -l \"team_id\\\\|organisation_id\\\\|no team\")",
+      "Bash(wc -l /c/Users/marva/Documents/\"Boldo AI\"/app/api/auth/complete-signup/route.ts /c/Users/marva/Documents/\"Boldo AI\"/app/api/auth/delete-account/route.ts /c/Users/marva/Documents/\"Boldo AI\"/app/api/tasks/[taskId]/route.ts /c/Users/marva/Documents/\"Boldo AI\"/lib/hierarchy.ts)",
+      "Bash(xargs ls -lt)"
     ]
   }
 }

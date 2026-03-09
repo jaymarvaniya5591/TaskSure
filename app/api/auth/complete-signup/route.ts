@@ -43,8 +43,14 @@ export async function POST(request: NextRequest) {
     if (!firstName?.trim()) {
         return NextResponse.json({ error: 'First name is required' }, { status: 400 })
     }
+    if (firstName.trim().length > 50) {
+        return NextResponse.json({ error: 'First name must be 50 characters or fewer' }, { status: 400 })
+    }
     if (!lastName?.trim()) {
         return NextResponse.json({ error: 'Last name is required' }, { status: 400 })
+    }
+    if (lastName.trim().length > 50) {
+        return NextResponse.json({ error: 'Last name must be 50 characters or fewer' }, { status: 400 })
     }
     if (!action || !['create', 'join'].includes(action)) {
         return NextResponse.json({ error: 'Action must be create or join' }, { status: 400 })
@@ -77,6 +83,28 @@ export async function POST(request: NextRequest) {
             const companyName = body.companyName?.trim()
             if (!companyName) {
                 return NextResponse.json({ error: 'Company name is required' }, { status: 400 })
+            }
+            if (companyName.length > 100) {
+                return NextResponse.json({ error: 'Company name must be 100 characters or fewer' }, { status: 400 })
+            }
+
+            // Guard: if this phone already has a pending join request, block company creation
+            // to prevent orphaned pending requests.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: pendingRequest } = await (supabase as any)
+                .from('join_requests')
+                .select('id')
+                .eq('requester_phone', phone)
+                .eq('status', 'pending')
+                .maybeSingle()
+
+            if (pendingRequest) {
+                return NextResponse.json(
+                    {
+                        error: 'You have a pending join request awaiting approval. Please wait for it to be accepted or rejected before creating a new company.',
+                    },
+                    { status: 409 }
+                )
             }
 
             // Check company uniqueness (case-insensitive)

@@ -107,7 +107,9 @@ export default function ProfilePage() {
     // Name Update
     const handleSaveName = async () => {
         if (!editFirstName.trim()) return alert("First name cannot be empty");
+        if (editFirstName.trim().length > 50) return alert("First name must be 50 characters or fewer");
         if (!editLastName.trim()) return alert("Last name cannot be empty");
+        if (editLastName.trim().length > 50) return alert("Last name must be 50 characters or fewer");
 
         const newFullName = `${editFirstName.trim()} ${editLastName.trim()}`;
 
@@ -255,7 +257,7 @@ export default function ProfilePage() {
                                         <input
                                             type="text"
                                             value={editFirstName}
-                                            onChange={(e) => setEditFirstName(e.target.value)}
+                                            onChange={(e) => setEditFirstName(e.target.value.slice(0, 50))}
                                             className={inputBase}
                                             placeholder="First Name"
                                             autoComplete="new-password"
@@ -263,11 +265,12 @@ export default function ProfilePage() {
                                             autoCapitalize="words"
                                             spellCheck={false}
                                             inputMode="text"
+                                            maxLength={50}
                                         />
                                         <input
                                             type="text"
                                             value={editLastName}
-                                            onChange={(e) => setEditLastName(e.target.value)}
+                                            onChange={(e) => setEditLastName(e.target.value.slice(0, 50))}
                                             className={inputBase}
                                             placeholder="Last Name"
                                             autoComplete="new-password"
@@ -275,6 +278,7 @@ export default function ProfilePage() {
                                             autoCapitalize="words"
                                             spellCheck={false}
                                             inputMode="text"
+                                            maxLength={50}
                                         />
                                         <div className="flex items-center gap-2">
                                             <button onClick={handleSaveName} className={`${btnPrimary} flex-1 bg-blue-600 text-white hover:bg-blue-700`}>Save</button>
