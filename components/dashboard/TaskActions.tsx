@@ -131,7 +131,7 @@ interface TaskActionsProps {
 export const TaskActions = memo(function TaskActions({ task, currentUserId }: TaskActionsProps) {
     const router = useRouter();
     const queryClient = useQueryClient();
-    const { orgUsers, allOrgUsers, orgId, allOrgTasks } = useUserContext();
+    const { allOrgUsers, orgId, allOrgTasks } = useUserContext();
     const [open, setOpen] = useState(false);
     const [modal, setModal] = useState<
         | "accept"
