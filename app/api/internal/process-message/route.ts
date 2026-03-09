@@ -96,6 +96,10 @@ async function sendWhatsAppReply(phone: string, message: string): Promise<void> 
     }
 }
 
+function isValidDate(dateStr: string): boolean {
+    return !isNaN(new Date(dateStr).getTime())
+}
+
 /**
  * Fuzzy + phonetic match a person name within the organisation.
  */
@@ -187,12 +191,12 @@ export async function processMessageInline(
                     await sendSignupLinkTemplate(intlPhone, tokenResult.token)
                 } else {
                     await sendWhatsAppMessage(intlPhone,
-                        '🚦 *Not Registered*\n\nThis phone number is not registered with Boldo.\n\nPlease sign up first.')
+                        '🚦 *Not Registered*\n\nThis phone number is not registered with Boldo.\n\nPlease sign up using the link above.\n\n_Previously had an account? Ask your admin to update your phone number in team settings._')
                 }
             } catch (signupErr) {
                 console.error('[ProcessMessage] Error sending signup link:', signupErr)
                 await sendWhatsAppMessage(intlPhone,
-                    '🚦 *Not Registered*\n\nThis phone number is not registered with Boldo.\n\nPlease sign up first.')
+                    '🚦 *Not Registered*\n\nThis phone number is not registered with Boldo.\n\nPlease sign up using the link above.\n\n_Previously had an account? Ask your admin to update your phone number in team settings._')
             }
             await markProcessed(supabase, messageId, 'auth_signup', `User not found for phone: ${msg.phone}`)
             return { status: 'user_not_found' }
@@ -229,6 +233,13 @@ export async function processMessageInline(
                 )
                 return { status: 'transcription_error' }
             }
+        }
+
+        // ── Truncate oversized text to prevent Gemini token overrun / timeout ──
+        const MAX_AI_TEXT_LENGTH = 4000
+        if (textForAI.length > MAX_AI_TEXT_LENGTH) {
+            console.warn(`[ProcessMessage] Text truncated: ${textForAI.length} → ${MAX_AI_TEXT_LENGTH} chars`)
+            textForAI = textForAI.substring(0, MAX_AI_TEXT_LENGTH)
         }
 
         // =====================================================================
@@ -545,6 +556,17 @@ async function handleTodoCreate(
     // ── VALIDATION: WHEN — deadline is mandatory for to-dos ──
     let deadline = analysis.when.date
 
+    // ── Apply T-append + validate in one guarded block to catch LLM hallucinations ──
+    if (deadline) {
+        if (!deadline.includes('T')) {
+            deadline = `${deadline}T20:00:00+05:30`
+        }
+        if (!isValidDate(deadline)) {
+            console.warn(`[ProcessMessage] Invalid date from LLM: "${deadline}" — treating as missing deadline`)
+            deadline = null
+        }
+    }
+
     if (!deadline) {
         // Create session to wait for deadline
         await createSession(phone, 'awaiting_todo_deadline', {
@@ -559,11 +581,6 @@ async function handleTodoCreate(
             `⏰ *Deadline Needed*\n\n*To-do:*\n"${analysis.what}"\n\nWhen should this be done?\n\n*Examples:*\n"tomorrow 3pm", "Friday", "March 10"`)
         await markProcessed(supabase, messageId, 'todo_create', 'Awaiting deadline via session')
         return
-    }
-
-    // ── Default time to 08:00 PM IST if only date/day is given (no time component) ──
-    if (deadline && !deadline.includes('T')) {
-        deadline = `${deadline}T20:00:00+05:30`
     }
 
     // ── Reject past deadlines — ask for a future date via session ──
