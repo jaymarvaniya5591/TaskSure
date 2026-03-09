@@ -359,9 +359,8 @@ async function handleAwaitingTodoDeadline(
         return { handled: true, intent: 'todo_create' }
     }
 
-    // Create the to-do
-    await resolveSession(session.id, supabase)
-
+    // Create the to-do — resolve session only AFTER successful insert so the
+    // user can retry if the DB write fails (session context is preserved).
     const { data: createdTodo, error: todoError } = await supabase
         .from('tasks')
         .insert({
@@ -380,9 +379,12 @@ async function handleAwaitingTodoDeadline(
 
     if (todoError) {
         console.error('[SessionReply] Todo insert failed:', todoError.message)
+        // Keep the session alive so the user can retry with the same to-do context.
         await sendReply(session.phone, '❌ *Error*\n\nSomething went wrong while creating the to-do.\n\nPlease try again.')
         return { handled: true, intent: 'todo_create' }
     }
+
+    await resolveSession(session.id, supabase)
 
     const d = new Date(normalizedDeadline)
     const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })

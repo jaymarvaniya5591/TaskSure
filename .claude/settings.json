@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run lint -- --max-warnings=0)"
+      "Bash(npm run lint -- --max-warnings=0)",
+      "Read(//c/Users/marva/.claude/projects/c--Users-marva-Documents-Boldo-AI/e851d195-5b49-49d5-9dd9-4c1b7f790386/tool-results/**)",
+      "Read(//c/Users/marva/Documents/Boldo/ AI/app/api/internal/process-message/**)"
     ]
   }
 }

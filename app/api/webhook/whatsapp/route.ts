@@ -805,11 +805,17 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                             phone: senderPhone10,
                             raw_text: textBody || `[${messageType}]`,
                             payload: body,
+                            whatsapp_message_id: messageId,
                         })
                         .select('id')
                         .single()
 
                     if (insertError) {
+                        // 23505 = unique_violation: Meta retried a webhook we already processed — skip silently.
+                        if (insertError.code === '23505') {
+                            console.log(`[Webhook] Duplicate wamid skipped: ${messageId}`)
+                            continue
+                        }
                         console.error('[Webhook] Failed to log message:', insertError.message)
                         await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
                     } else if (insertedMsg?.id) {

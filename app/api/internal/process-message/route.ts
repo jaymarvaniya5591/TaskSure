@@ -35,6 +35,7 @@ interface IncomingMessage {
     processed: boolean
     processing_error: string | null
     intent_type: string | null
+    whatsapp_message_id: string | null
 }
 
 interface SenderUser {
