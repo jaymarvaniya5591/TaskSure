@@ -31,7 +31,13 @@
       "Bash(node -e \"const l = require\\(''c:/Users/marva/Documents/Boldo AI/node_modules/lamejs/lame.all.js''\\); console.log\\(Object.keys\\(l\\)\\)\")",
       "Bash(ffmpeg -version)",
       "Bash(node -e \":*)",
-      "Bash(curl -s -X POST \"https://boldoai.in/api/internal/test-call\" -H \"x-internal-secret: boldo_internal_processor_8f3k92nfa923nf923\" -H \"Content-Type: application/json\" -d '{\"\"phone\"\":\"\"919727731867\"\",\"\"message\"\":\"\"नमस्ते! आपको एक नया काम दिया है, Rahul ने। काम है: नए client के लिए proposal document तैयार करना है, कल दोपहर 2 बजे तक। कृपया इसे WhatsApp पर स्वीकार करें।\"\",\"\"language\"\":\"\"hi-IN\"\"}')"
+      "Bash(curl -s -X POST \"https://boldoai.in/api/internal/test-call\" -H \"x-internal-secret: boldo_internal_processor_8f3k92nfa923nf923\" -H \"Content-Type: application/json\" -d '{\"\"phone\"\":\"\"919727731867\"\",\"\"message\"\":\"\"नमस्ते! आपको एक नया काम दिया है, Rahul ने। काम है: नए client के लिए proposal document तैयार करना है, कल दोपहर 2 बजे तक। कृपया इसे WhatsApp पर स्वीकार करें।\"\",\"\"language\"\":\"\"hi-IN\"\"}')",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" -X POST \"https://boldoai.in/api/internal/test-call\" -H \"x-internal-secret: boldo_internal_processor_8f3k92nfa923nf923\" -H \"Content-Type: application/json\" -d '{\"\"phone\"\":\"\"919727731867\"\",\"\"message\"\":\"\"नमस्ते! आपको एक नया काम दिया है Rahul ने। काम है: नए client के साथ meeting prepare करना है, कल सुबह 10 बजे तक। हमने आपको WhatsApp पर मैसेज भेजा है।\"\",\"\"language\"\":\"\"hi-IN\"\"}')",
+      "Bash(curl -v -X POST \"https://boldoai.in/api/internal/test-call\" -H \"x-internal-secret: boldo_internal_processor_8f3k92nfa923nf923\" -H \"Content-Type: application/json\" -d '{\"\"\"\"phone\"\"\"\":\"\"\"\"919727731867\"\"\"\",\"\"\"\"message\"\"\"\":\"\"\"\"test\"\"\"\",\"\"\"\"language\"\"\"\":\"\"\"\"hi-IN\"\"\"\"}')",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" \"https://boldoai.in/api/internal/call-audio/test-id-that-doesnt-exist\")",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" -o /dev/null \"https://boldoai.in/api/internal/sarvam-audio.wav?text=test&language=hi-IN\")",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" -X POST \"https://boldoai.in/api/internal/test-call\" -H \"x-internal-secret: boldo_internal_processor_8f3k92nfa923nf923\" -H \"Content-Type: application/json\" -d '{\"\"phone\"\":\"\"919727731867\"\",\"\"message\"\":\"\"नमस्ते! यह एक टेस्ट कॉल है।\"\",\"\"language\"\":\"\"hi-IN\"\",\"\"skipTts\"\":true}')",
+      "Bash(find 'c:\\\\Users\\\\marva\\\\Documents\\\\Boldo AI' -type f -path *call-audio* -name *.ts)"
     ],
     "additionalDirectories": [
       "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\internal\\call-audio"

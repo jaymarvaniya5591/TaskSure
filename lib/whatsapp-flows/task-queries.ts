@@ -444,6 +444,7 @@ export async function executeTaskAction(
         newDeadline?: string    // ISO date string from DatePicker
         selectedEmployee?: string  // userId of new assignee
         employeeSearch?: string    // search string (triggers re-query instead of commit)
+        rejectReason?: string      // string from text input
     }
 ): Promise<ActionResult> {
     const supabase = createAdminClient()
@@ -878,8 +879,11 @@ export async function executeTaskAction(
                 return { success: false, message: 'Task can only be rejected when pending.' }
             }
 
-            // Flow currently doesn't prompt for a reject reason string, so use null
-            const rejectReason = null
+            // We now get rejectReason from the WhatsApp Flow UI TextInput
+            if (!payload.rejectReason || payload.rejectReason.trim() === '') {
+                return { success: false, message: 'Please provide a reason for rejecting the task.' }
+            }
+            const rejectReason = payload.rejectReason.trim()
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { data: rejectData, error } = await (supabase as any)

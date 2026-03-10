@@ -131,7 +131,7 @@ export async function handleLoadTask(
 
 // ─── PREPARE_ACTION → (commit immediately OR collect input) ───────────────────
 //
-// Simple actions (complete, delete, reject, send_followup):
+// Simple actions (complete, delete, send_followup):
 //   Execute immediately → return SUCCESS screen.
 // Deadline actions (edit_deadline, accept):
 //   Return DEADLINE_SCREEN so user can pick a date.
@@ -205,10 +205,22 @@ export async function handlePrepareAction(
             }
         }
 
+        // ── Reason input required ───────────────────────────────────────────
+        case 'reject': {
+            const detail = await getTaskDetail(taskId, user.id, user.organisation_id)
+            return {
+                screen: 'REJECT_SCREEN',
+                data: {
+                    task_id: taskId,
+                    task_title: detail?.title ?? 'Task',
+                    view_state: viewState || '',
+                },
+            }
+        }
+
         // ── Simple 1-click actions — commit immediately ─────────────────────
         case 'complete':
         case 'delete':
-        case 'reject':
         case 'send_followup': {
             if (isDuplicateCommit(phone10, selectedAction, taskId)) {
                 return {
@@ -239,6 +251,7 @@ export async function handleCommitAction(
         new_deadline_time?: string
         selectedEmployee?: string
         employeeSearch?: string
+        reject_reason?: string
     },
     viewState?: string
 ): Promise<ScreenResponse> {
@@ -278,7 +291,8 @@ export async function handleCommitAction(
         {
             newDeadline: mergedDeadline,
             selectedEmployee: payload.selectedEmployee,
-            employeeSearch: payload.employeeSearch
+            employeeSearch: payload.employeeSearch,
+            rejectReason: payload.reject_reason
         },
         viewState
     )
@@ -291,7 +305,7 @@ async function commitAndRespond(
     userId: string,
     orgId: string,
     actionType: string,
-    payload: { newDeadline?: string; selectedEmployee?: string; employeeSearch?: string },
+    payload: { newDeadline?: string; selectedEmployee?: string; employeeSearch?: string; rejectReason?: string },
     viewState?: string
 ): Promise<ScreenResponse> {
     const result = await executeTaskAction(taskId, userId, orgId, actionType, payload)
