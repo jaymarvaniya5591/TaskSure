@@ -116,6 +116,7 @@ export async function POST(req: Request) {
                                 new_deadline_time: flowData.new_deadline_time as string | undefined,
                                 selectedEmployee: flowData.selected_employee as string | undefined,
                                 employeeSearch: flowData.employee_search as string | undefined,
+                                reject_reason: flowData.reject_reason as string | undefined,
                             },
                             flowData.view as string
                         );
