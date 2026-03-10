@@ -13,6 +13,42 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const lamejs = require('lamejs')
+
+// ---------------------------------------------------------------------------
+// WAV → MP3 Conversion
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert a WAV buffer to MP3 using lamejs.
+ * WAV from Sarvam TTS is ~720KB for a 15s clip; MP3 @64kbps is ~120KB.
+ * Twilio downloads the entire file before playing, so 6x smaller = 6x faster start.
+ */
+function convertWavToMp3(wavBuffer: Buffer): Buffer {
+    // Parse WAV header fields (standard RIFF layout)
+    const channels = wavBuffer.readUInt16LE(22)
+    const sampleRate = wavBuffer.readUInt32LE(24)
+
+    // PCM data starts at byte 44 (44-byte standard RIFF header)
+    const pcmData = wavBuffer.subarray(44)
+    const samples = new Int16Array(pcmData.buffer, pcmData.byteOffset, pcmData.byteLength / 2)
+
+    const encoder = new lamejs.Mp3Encoder(channels, sampleRate, 64) // 64 kbps — good for speech
+    const mp3Chunks: Buffer[] = []
+    const blockSize = 1152 // lamejs standard block size
+
+    for (let i = 0; i < samples.length; i += blockSize) {
+        const chunk = samples.subarray(i, i + blockSize)
+        const mp3buf = encoder.encodeBuffer(chunk)
+        if (mp3buf.length > 0) mp3Chunks.push(Buffer.from(mp3buf))
+    }
+
+    const finalBuf = encoder.flush()
+    if (finalBuf.length > 0) mp3Chunks.push(Buffer.from(finalBuf))
+
+    return Buffer.concat(mp3Chunks)
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -327,14 +363,15 @@ export async function makeAutomatedCall(
         console.log(`[CallingService] Pre-generating Sarvam TTS...`)
         const tts = await generateTTS(message, language)
         if (tts && tts.audioBase64) {
-            const fileName = `${Date.now()}-${phone.replace('+', '')}.wav`
-            const audioBuffer = Buffer.from(tts.audioBase64, 'base64')
+            const wavBuffer = Buffer.from(tts.audioBase64, 'base64')
+            const mp3Buffer = convertWavToMp3(wavBuffer)
+            const fileName = `${Date.now()}-${phone.replace('+', '')}.mp3`
             const sb = createAdminClient()
 
             const { error: uploadError } = await sb.storage
                 .from('call-audio')
-                .upload(fileName, audioBuffer, {
-                    contentType: 'audio/wav',
+                .upload(fileName, mp3Buffer, {
+                    contentType: 'audio/mpeg',
                     upsert: true
                 })
 
@@ -342,6 +379,9 @@ export async function makeAutomatedCall(
                 const { data } = sb.storage.from('call-audio').getPublicUrl(fileName)
                 audioUrl = data.publicUrl
                 console.log(`[CallingService] Pre-generated TTS ready at: ${audioUrl}`)
+                // Warm the Cloudflare CDN edge cache so Twilio gets a cached response (<100ms)
+                // instead of a cold-origin fetch (which caused the ~4s playback delay)
+                await fetch(audioUrl, { method: 'HEAD' }).catch(() => {})
             } else {
                 console.error(`[CallingService] Failed to upload TTS to Supabase:`, uploadError)
             }

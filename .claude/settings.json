@@ -26,7 +26,8 @@
       "Bash(find 'c:\\\\Users\\\\marva\\\\Documents\\\\Boldo AI' -name *.sql -type f)",
       "Bash(find '/c/Users/marva/Documents/Boldo AI' -path ./node_modules -prune -o -name *.sql -print)",
       "Bash(xargs grep:*)",
-      "Bash(ls -la /c/Users/marva/Documents/Boldo AI/*.md)"
+      "Bash(ls -la /c/Users/marva/Documents/Boldo AI/*.md)",
+      "Bash(npm install:*)"
     ]
   }
 }
