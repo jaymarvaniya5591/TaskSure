@@ -9,7 +9,7 @@
  * The actual sending is handled by the cron-driven processor.
  */
 
-import { adjustToBusinessHours, setToFixed8AM, getISTDate } from './business-hours'
+import { adjustToBusinessHours, setToFixed8_01AM, getISTDate } from './business-hours'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,6 +29,57 @@ interface NotificationRow {
     scheduled_at: string
     status: 'pending'
     metadata?: Record<string, unknown>
+    dedup_key?: string
+}
+
+// ---------------------------------------------------------------------------
+// Dedup Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a deduplication key for a notification row.
+ * Format: {task_id}:{stage}:{stage_number}:{target_role}:{channel}[:suffix]
+ *
+ * The partial unique index on dedup_key (WHERE status NOT IN ('cancelled','failed'))
+ * ensures that only one active notification exists per dedup_key. Cancelled or
+ * failed notifications don't block new ones for the same key.
+ */
+function buildDedupKey(
+    taskId: string,
+    stage: string,
+    stageNumber: number,
+    targetRole: string,
+    channel: string,
+    suffix?: string,
+): string {
+    const base = `${taskId}:${stage}:${stageNumber}:${targetRole}:${channel}`
+    return suffix ? `${base}:${suffix}` : base
+}
+
+/**
+ * Insert notification rows one-by-one, gracefully handling unique constraint
+ * violations (code 23505) from the dedup_key index. A duplicate is not an error
+ * — it means the notification was already scheduled.
+ */
+async function safeInsertNotifications(
+    sb: SupabaseAdmin,
+    rows: NotificationRow[],
+    label: string,
+): Promise<number> {
+    let inserted = 0
+    for (const row of rows) {
+        const { error } = await sb.from('task_notifications').insert(row)
+        if (error) {
+            if (error.code === '23505') {
+                console.log(`[Scheduler] Dedup (${label}): notification already exists for ${row.dedup_key}`)
+            } else {
+                console.error(`[Scheduler] Insert failed (${label}):`, error.message)
+            }
+        } else {
+            inserted++
+        }
+    }
+    return inserted
 }
 
 // ---------------------------------------------------------------------------
@@ -88,6 +139,7 @@ export async function scheduleAcceptanceFollowups(
                 scheduled_at: scheduledAt.toISOString(),
                 status: 'pending',
                 metadata: { task_title: taskTitle, owner_name: ownerName, owner_id: ownerId },
+                dedup_key: buildDedupKey(taskId, 'acceptance', i + 1, 'assignee', 'both'),
             })
 
             // Owner notification: status update about the call (same time as assignee notification)
@@ -101,21 +153,17 @@ export async function scheduleAcceptanceFollowups(
                 scheduled_at: scheduledAt.toISOString(),
                 status: 'pending',
                 metadata: { task_title: taskTitle, assignee_id: assigneeId },
+                dedup_key: buildDedupKey(taskId, 'acceptance', i + 1, 'owner', 'whatsapp'),
             })
         }
 
-        const { error } = await sb
-            .from('task_notifications')
-            .insert(rows)
-
-        if (error) {
-            console.error('[Scheduler] Failed to schedule acceptance followups:', error.message)
-        } else {
+        const inserted = await safeInsertNotifications(sb, rows, 'acceptance')
+        if (inserted > 0) {
             const times = rows
                 .filter(r => r.target_role === 'assignee')
                 .map((r, i) => `  F${i + 1}: ${r.scheduled_at}`)
                 .join('\n')
-            console.log(`[Scheduler] Scheduled ${rows.length} acceptance followup notifications for task ${taskId}:\n${times}`)
+            console.log(`[Scheduler] Scheduled ${inserted}/${rows.length} acceptance followup notifications for task ${taskId}:\n${times}`)
         }
     } catch (err) {
         console.error('[Scheduler] Error scheduling acceptance followups:', err instanceof Error ? err.message : err)
@@ -152,7 +200,11 @@ function computeReminderDays(createdAt: Date, deadline: Date): Date[] {
     const deadlineDayStart = new Date(Date.UTC(deadlineIST.year, deadlineIST.month, deadlineIST.day) - (5.5 * 60 * 60 * 1000))
 
     while (currentDay.getTime() < deadlineDayStart.getTime()) {
-        eligibleDays.push(new Date(currentDay.getTime()))
+        // Skip Sundays — mid-task reminders should not be sent on Sundays
+        const istDow = new Date(currentDay.getTime() + 5.5 * 60 * 60 * 1000).getUTCDay()
+        if (istDow !== 0) {
+            eligibleDays.push(new Date(currentDay.getTime()))
+        }
         currentDay = new Date(currentDay.getTime() + oneDayMs)
     }
 
@@ -166,7 +218,7 @@ function computeReminderDays(createdAt: Date, deadline: Date): Date[] {
     if (maxReminders === 1) {
         // Single reminder: pick the middle day
         const mid = Math.floor(eligibleDays.length / 2)
-        return [setToFixed8AM(eligibleDays[mid])]
+        return [setToFixed8_01AM(eligibleDays[mid])]
     }
 
     // For multiple reminders: distribute evenly
@@ -194,7 +246,7 @@ function computeReminderDays(createdAt: Date, deadline: Date): Date[] {
         }
     }
 
-    return filtered.map(d => setToFixed8AM(d))
+    return filtered.map(d => setToFixed8_01AM(d))
 }
 
 /**
@@ -240,16 +292,12 @@ export async function scheduleTaskReminders(
                 owner_id: ownerId,
                 deadline: deadline.toISOString(),
             },
+            dedup_key: buildDedupKey(taskId, 'reminder', i + 1, 'assignee', 'whatsapp'),
         }))
 
-        const { error } = await sb
-            .from('task_notifications')
-            .insert(rows)
-
-        if (error) {
-            console.error('[Scheduler] Failed to schedule task reminders:', error.message)
-        } else {
-            console.log(`[Scheduler] Scheduled ${rows.length} reminder(s) for task ${taskId}`)
+        const inserted = await safeInsertNotifications(sb, rows, 'reminder')
+        if (inserted > 0) {
+            console.log(`[Scheduler] Scheduled ${inserted}/${rows.length} reminder(s) for task ${taskId}`)
         }
     } catch (err) {
         console.error('[Scheduler] Error scheduling task reminders:', err instanceof Error ? err.message : err)
@@ -290,12 +338,13 @@ export async function scheduleDeadlineApproaching(
 
         const isTodo = ownerId === assigneeId
 
+        const targetRole = isTodo ? 'owner' : 'assignee'
         const row: NotificationRow = {
             task_id: taskId,
             stage: 'deadline_approaching',
             stage_number: 1,
             target_user_id: isTodo ? ownerId : assigneeId,
-            target_role: isTodo ? 'owner' : 'assignee',
+            target_role: targetRole,
             channel: 'whatsapp',
             scheduled_at: scheduledAt.toISOString(),
             status: 'pending',
@@ -307,15 +356,11 @@ export async function scheduleDeadlineApproaching(
                 owner_id: ownerId,
                 owner_name: ownerName,
             },
+            dedup_key: buildDedupKey(taskId, 'deadline_approaching', 1, targetRole, 'whatsapp'),
         }
 
-        const { error } = await sb
-            .from('task_notifications')
-            .insert(row)
-
-        if (error) {
-            console.error('[Scheduler] Failed to schedule deadline approaching:', error.message)
-        } else {
+        const inserted = await safeInsertNotifications(sb, [row], 'deadline_approaching')
+        if (inserted > 0) {
             console.log(`[Scheduler] Scheduled deadline approaching notification for task ${taskId} at ${scheduledAt.toISOString()}`)
         }
     } catch (err) {
@@ -361,6 +406,7 @@ export async function scheduleEscalations(
 
         const isTodo = ownerId === assigneeId
 
+        const escalationTargetRole = isTodo ? 'assignee' : 'owner'
         const rows: NotificationRow[] = offsets.map((offset, i) => {
             const scheduledAt = new Date(now.getTime() + offset)
 
@@ -370,7 +416,7 @@ export async function scheduleEscalations(
                 stage_number: i + 1,
                 // To-Dos go to the assignee (who is the owner). Regular tasks go to the owner.
                 target_user_id: isTodo ? assigneeId : ownerId,
-                target_role: isTodo ? 'assignee' : 'owner',
+                target_role: escalationTargetRole,
                 channel: 'whatsapp' as const,
                 scheduled_at: scheduledAt.toISOString(),
                 status: 'pending' as const,
@@ -381,17 +427,13 @@ export async function scheduleEscalations(
                     deadline: deadline.toISOString(),
                     is_todo: isTodo,
                 },
+                dedup_key: buildDedupKey(taskId, 'escalation', i + 1, escalationTargetRole, 'whatsapp'),
             }
         })
 
-        const { error } = await sb
-            .from('task_notifications')
-            .insert(rows)
-
-        if (error) {
-            console.error('[Scheduler] Failed to schedule escalations:', error.message)
-        } else {
-            console.log(`[Scheduler] Scheduled ${rows.length} escalation(s) for task ${taskId}`)
+        const inserted = await safeInsertNotifications(sb, rows, 'escalation')
+        if (inserted > 0) {
+            console.log(`[Scheduler] Scheduled ${inserted}/${rows.length} escalation(s) for task ${taskId}`)
         }
     } catch (err) {
         console.error('[Scheduler] Error scheduling escalations:', err instanceof Error ? err.message : err)
@@ -455,23 +497,21 @@ export async function scheduleReminderCallEscalation(
     try {
         const callTime = adjustToBusinessHours(new Date(Date.now() + 5 * 60 * 1000)) // +5 min (already 1hr has passed)
 
-        const { error } = await sb
-            .from('task_notifications')
-            .insert({
-                task_id: taskId,
-                stage: 'reminder',
-                stage_number: stageNumber,
-                target_user_id: assigneeId,
-                target_role: 'assignee',
-                channel: 'call',
-                scheduled_at: callTime.toISOString(),
-                status: 'pending',
-                metadata: { task_title: taskTitle, owner_name: ownerName, deadline, is_call_escalation: true },
-            })
+        const dedupKey = buildDedupKey(taskId, 'reminder', stageNumber, 'assignee', 'call', 'call_escalation')
+        const inserted = await safeInsertNotifications(sb, [{
+            task_id: taskId,
+            stage: 'reminder',
+            stage_number: stageNumber,
+            target_user_id: assigneeId,
+            target_role: 'assignee',
+            channel: 'call',
+            scheduled_at: callTime.toISOString(),
+            status: 'pending',
+            metadata: { task_title: taskTitle, owner_name: ownerName, deadline, is_call_escalation: true },
+            dedup_key: dedupKey,
+        }], 'call_escalation')
 
-        if (error) {
-            console.error('[Scheduler] Failed to schedule reminder call escalation:', error.message)
-        } else {
+        if (inserted > 0) {
             console.log(`[Scheduler] Scheduled reminder call escalation for task ${taskId}`)
         }
     } catch (err) {
@@ -497,27 +537,25 @@ export async function scheduleOwnerNoReplyNotification(
         // Schedule for now + 5 min (the 2 hours have already passed by the time this is called)
         const notifyTime = new Date(Date.now() + 5 * 60 * 1000)
 
-        const { error } = await sb
-            .from('task_notifications')
-            .insert({
-                task_id: taskId,
-                stage: 'reminder',
-                stage_number: stageNumber,
-                target_user_id: ownerId,
-                target_role: 'owner',
-                channel: 'whatsapp',
-                scheduled_at: notifyTime.toISOString(),
-                status: 'pending',
-                metadata: {
-                    task_title: taskTitle,
-                    assignee_name: assigneeName,
-                    is_owner_no_reply: true,
-                },
-            })
+        const dedupKey = buildDedupKey(taskId, 'reminder', stageNumber, 'owner', 'whatsapp', 'owner_no_reply')
+        const inserted = await safeInsertNotifications(sb, [{
+            task_id: taskId,
+            stage: 'reminder',
+            stage_number: stageNumber,
+            target_user_id: ownerId,
+            target_role: 'owner',
+            channel: 'whatsapp',
+            scheduled_at: notifyTime.toISOString(),
+            status: 'pending',
+            metadata: {
+                task_title: taskTitle,
+                assignee_name: assigneeName,
+                is_owner_no_reply: true,
+            },
+            dedup_key: dedupKey,
+        }], 'owner_no_reply')
 
-        if (error) {
-            console.error('[Scheduler] Failed to schedule owner no-reply notification:', error.message)
-        } else {
+        if (inserted > 0) {
             console.log(`[Scheduler] Scheduled owner no-reply notification for task ${taskId}`)
         }
     } catch (err) {

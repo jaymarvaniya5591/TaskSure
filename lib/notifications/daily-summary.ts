@@ -31,28 +31,21 @@ export async function processDailySummaries(supabaseAdmin?: SupabaseAdmin): Prom
         const todayStart = new Date(Date.UTC(istNow.year, istNow.month, istNow.day) - (5.5 * 60 * 60 * 1000))
         const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
 
-        // 1. Check if already run today
-        const { data: existing } = await sb
-            .from('audit_log')
-            .select('id')
-            .eq('action', 'daily_summary_run')
-            .eq('metadata->>date', todayStr)
-            .limit(1)
-
-        if (existing && existing.length > 0) {
-            console.log(`[DailySummary] Already run today (${todayStr}), skipping`)
-            return stats
-        }
-
-        // Insert lock record BEFORE sending any messages.
-        // If this fails, abort rather than risk sending duplicate messages.
+        // Atomic insert-as-lock: try to insert the audit record first.
+        // A unique index on (action, metadata->>'date') WHERE action='daily_summary_run'
+        // ensures only ONE row per date. If the insert fails with code 23505
+        // (unique violation), another run already claimed today — skip.
         const { error: insertError } = await sb.from('audit_log').insert({
             action: 'daily_summary_run',
             metadata: { date: todayStr }
         })
 
         if (insertError) {
-            console.error(`[DailySummary] Failed to mark run in audit_log — aborting to prevent duplicate sends:`, insertError)
+            if (insertError.code === '23505') {
+                console.log(`[DailySummary] Already run today (${todayStr}), skipping (unique constraint)`)
+            } else {
+                console.error(`[DailySummary] Failed to mark run in audit_log — aborting to prevent duplicate sends:`, insertError)
+            }
             return stats
         }
 

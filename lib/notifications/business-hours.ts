@@ -114,6 +114,24 @@ export function setToFixed8AM(date: Date): Date {
 }
 
 /**
+ * Set a date to 8:01 AM IST on the same calendar day.
+ * Mid-task reminders use 8:01 AM (not 8:00) to guarantee they are
+ * processed AFTER the daily summary (which runs at 8:00 AM IST).
+ */
+export function setToFixed8_01AM(date: Date): Date {
+    const istTime = new Date(date.getTime() + IST_OFFSET_MS)
+    istTime.setUTCHours(8, 1, 0, 0) // 8:01 AM IST
+    return new Date(istTime.getTime() - IST_OFFSET_MS)
+}
+
+/**
+ * Check if a date falls on a Sunday in IST.
+ */
+export function isSundayIST(date: Date): boolean {
+    return getISTDayOfWeek(date) === 0
+}
+
+/**
  * Get the IST calendar date components for a Date object.
  */
 export function getISTDate(date: Date): { year: number; month: number; day: number } {

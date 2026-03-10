@@ -21,7 +21,12 @@
       "WebFetch(domain:railway.com)",
       "Bash(npm run lint -- --quiet)",
       "Read(//c/Users/marva/Documents/Boldo/**)",
-      "Bash(grep -A 30 \"cancelPendingNotifications\\\\|cron\" app/api/tasks/[taskId]/route.ts)"
+      "Bash(grep -A 30 \"cancelPendingNotifications\\\\|cron\" app/api/tasks/[taskId]/route.ts)",
+      "Bash(grep -r scheduled_notifications '/c/Users/marva/Documents/Boldo AI' --include=*.ts --include=*.tsx)",
+      "Bash(find 'c:\\\\Users\\\\marva\\\\Documents\\\\Boldo AI' -name *.sql -type f)",
+      "Bash(find '/c/Users/marva/Documents/Boldo AI' -path ./node_modules -prune -o -name *.sql -print)",
+      "Bash(xargs grep:*)",
+      "Bash(ls -la /c/Users/marva/Documents/Boldo AI/*.md)"
     ]
   }
 }

@@ -1,0 +1,20 @@
+﻿Create, delete or link an environment
+
+Usage: railway.exe environment [OPTIONS] [ENVIRONMENT] [COMMAND]
+
+Commands:
+  link    Link an environment to the current project
+  new     Create a new environment
+  delete  Delete an environment
+  edit    Edit an environment's configuration
+  config  Show environment configuration
+  help    Print this message or the help of the given subcommand(s)
+
+Arguments:
+  [ENVIRONMENT]  The environment to link to
+
+Options:
+      --json     Output in JSON format
+  -h, --help     Print help
+  -V, --version  Print version
+

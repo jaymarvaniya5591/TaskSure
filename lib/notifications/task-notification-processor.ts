@@ -123,6 +123,34 @@ async function markNotificationFailed(
         .eq('id', notifId)
 }
 
+/**
+ * Mark a notification for retry: reset to 'pending' and increment retry_count.
+ * Used for transient errors (network issues, temporary API failures).
+ * After 3 retries, the main loop will mark it as permanently failed.
+ */
+async function markNotificationForRetry(
+    supabase: SupabaseAdmin,
+    notifId: string,
+    reason: string,
+): Promise<void> {
+    // Use raw RPC to increment retry_count atomically
+    const { error } = await supabase.rpc('increment_notification_retry', {
+        notif_id: notifId,
+        fail_reason: reason,
+    })
+    // Fallback: if RPC doesn't exist yet, just reset to pending
+    if (error) {
+        await supabase
+            .from('task_notifications')
+            .update({
+                status: 'pending',
+                failure_reason: reason,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', notifId)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Stage 1: Acceptance Followup Processing
 // ---------------------------------------------------------------------------
@@ -381,7 +409,7 @@ async function checkReminderAcknowledgmentTimeouts(supabase: SupabaseAdmin): Pro
             .eq('stage', 'reminder')
             .eq('stage_number', reminder.stage_number)
             .eq('channel', 'call')
-            .in('status', ['pending', 'sent'])  // failed/cancelled → allow retry
+            .in('status', ['pending', 'processing', 'sent'])  // include processing to prevent race
             .limit(1)
 
         if (!existingCall || existingCall.length === 0) {
@@ -407,6 +435,7 @@ async function checkReminderAcknowledgmentTimeouts(supabase: SupabaseAdmin): Pro
                 .eq('stage', 'reminder')
                 .eq('stage_number', reminder.stage_number)
                 .eq('target_role', 'owner')
+                .in('status', ['pending', 'processing', 'sent'])  // exclude cancelled/failed
                 .limit(1)
 
             if (!existingOwnerNotify || existingOwnerNotify.length === 0) {
@@ -640,7 +669,7 @@ export async function processTaskNotifications(
         // Any notification stuck in 'processing' for >10 minutes is safe to retry —
         // normal processing takes well under a minute and the cron runs every 5 minutes.
         const staleThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString()
-        const { error: recoveryError, count: recoveredCount } = await sb
+        const { error: recoveryError } = await sb
             .from('task_notifications')
             .update({ status: 'pending', updated_at: new Date().toISOString() })
             .eq('status', 'processing')
@@ -648,57 +677,83 @@ export async function processTaskNotifications(
 
         if (recoveryError) {
             console.error('[Processor] Failed to recover stale processing notifications:', recoveryError.message)
-        } else if (recoveredCount && recoveredCount > 0) {
-            console.log(`[Processor] Recovered ${recoveredCount} stale processing notification(s) to pending`)
         }
 
-        // 1. Atomically claim due notifications by marking them 'processing'.
-        // This prevents a server restart mid-run from re-sending already-dispatched
-        // notifications on the next cron tick.
-        const { data: notifications, error } = await sb
+        // 1. Find due notifications (SELECT first, then UPDATE by IDs).
+        // The previous chained .update().lte().order().limit().select() had
+        // PostgREST compatibility issues that caused notifications to be stuck
+        // as 'pending' forever. Splitting into two queries fixes this.
+        const nowISO = new Date().toISOString()
+        const { data: dueNotifs, error: selectError } = await sb
             .from('task_notifications')
-            .update({ status: 'processing', updated_at: new Date().toISOString() })
+            .select('id')
             .eq('status', 'pending')
-            .lte('scheduled_at', new Date().toISOString())
+            .lte('scheduled_at', nowISO)
             .order('scheduled_at', { ascending: true })
             .limit(50)
-            .select('*')
 
-        if (error) {
-            console.error('[Processor] Failed to fetch notifications:', error.message)
+        if (selectError) {
+            console.error('[Processor] Failed to find due notifications:', selectError.message)
             return stats
         }
 
-        if (notifications && notifications.length > 0) {
-            console.log(`[Processor] Processing ${notifications.length} due notification(s)`)
+        if (dueNotifs && dueNotifs.length > 0) {
+            const ids = dueNotifs.map((n: { id: string }) => n.id)
+            console.log(`[Processor] Found ${ids.length} due notification(s), claiming...`)
 
-            for (const notif of notifications as TaskNotification[]) {
-                try {
-                    switch (notif.stage) {
-                        case 'acceptance':
-                            await processAcceptanceFollowup(sb, notif)
-                            break
-                        case 'reminder':
-                            await processTaskReminder(sb, notif)
-                            break
-                        case 'deadline_approaching':
-                            await processDeadlineApproaching(sb, notif)
-                            break
-                        case 'escalation':
-                            await processEscalation(sb, notif)
-                            break
-                        default:
-                            console.warn(`[Processor] Unknown stage: ${notif.stage}`)
-                            await markNotificationFailed(sb, notif.id, `Unknown stage: ${notif.stage}`)
-                            stats.failed++
-                            continue
+            // Atomically claim by updating status to 'processing' (re-check pending to prevent race)
+            const { data: notifications, error: claimError } = await sb
+                .from('task_notifications')
+                .update({ status: 'processing', updated_at: new Date().toISOString() })
+                .in('id', ids)
+                .eq('status', 'pending')
+                .select('*')
+
+            if (claimError) {
+                console.error('[Processor] Failed to claim notifications:', claimError.message)
+                return stats
+            }
+
+            if (notifications && notifications.length > 0) {
+                console.log(`[Processor] Claimed ${notifications.length} notification(s), processing...`)
+
+                for (const notif of notifications as TaskNotification[]) {
+                    // Skip notifications that have exceeded max retries
+                    const retryCount = (notif as TaskNotification & { retry_count?: number }).retry_count || 0
+                    if (retryCount >= 3) {
+                        console.warn(`[Processor] Notification ${notif.id} exceeded max retries (${retryCount}), marking failed permanently`)
+                        await markNotificationFailed(sb, notif.id, 'Max retries exceeded')
+                        stats.failed++
+                        continue
                     }
-                    stats.processed++
-                } catch (err) {
-                    const errMsg = err instanceof Error ? err.message : 'Unknown error'
-                    console.error(`[Processor] Failed to process notification ${notif.id}:`, errMsg)
-                    await markNotificationFailed(sb, notif.id, errMsg)
-                    stats.failed++
+
+                    try {
+                        switch (notif.stage) {
+                            case 'acceptance':
+                                await processAcceptanceFollowup(sb, notif)
+                                break
+                            case 'reminder':
+                                await processTaskReminder(sb, notif)
+                                break
+                            case 'deadline_approaching':
+                                await processDeadlineApproaching(sb, notif)
+                                break
+                            case 'escalation':
+                                await processEscalation(sb, notif)
+                                break
+                            default:
+                                console.warn(`[Processor] Unknown stage: ${notif.stage}`)
+                                await markNotificationFailed(sb, notif.id, `Unknown stage: ${notif.stage}`)
+                                stats.failed++
+                                continue
+                        }
+                        stats.processed++
+                    } catch (err) {
+                        const errMsg = err instanceof Error ? err.message : 'Unknown error'
+                        console.error(`[Processor] Failed to process notification ${notif.id}:`, errMsg)
+                        await markNotificationForRetry(sb, notif.id, errMsg)
+                        stats.failed++
+                    }
                 }
             }
         }

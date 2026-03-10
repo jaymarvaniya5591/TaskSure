@@ -483,6 +483,22 @@ export async function notifyTaskCreated(
             opts.ownerName,
             supabase,
         ).catch(err => console.error('[Notifier] Failed to schedule acceptance followups:', err))
+
+        // Also schedule deadline approaching at task creation time using the
+        // suggested deadline. On acceptance, this will be cancelled and rescheduled
+        // with the committed_deadline. This ensures 30-min-before notifications
+        // exist even before the task is accepted.
+        if (opts.committedDeadline) {
+            await scheduleDeadlineApproaching(
+                opts.taskId,
+                opts.assigneeId,
+                opts.ownerId,
+                new Date(opts.committedDeadline),
+                opts.taskTitle,
+                opts.ownerName,
+                supabase,
+            ).catch(err => console.error('[Notifier] Failed to schedule delegated task deadline approaching:', err))
+        }
     }
 
     // Look up assignee name for richer messages
@@ -553,7 +569,11 @@ export async function notifyTaskAccepted(
             supabase,
         ).catch(err => console.error('[Notifier] Failed to schedule task reminders:', err))
 
-        // Schedule deadline approaching notification (30 min before)
+        // Cancel old deadline approaching (may have been scheduled at creation with suggested deadline)
+        // then reschedule with the committed_deadline
+        await cancelPendingNotifications(opts.taskId, 'deadline_approaching', supabase)
+            .catch(err => console.error('[Notifier] Failed to cancel old deadline_approaching:', err))
+
         await scheduleDeadlineApproaching(
             opts.taskId,
             opts.assigneeId,
