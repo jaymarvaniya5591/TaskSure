@@ -27,7 +27,13 @@
       "Bash(find '/c/Users/marva/Documents/Boldo AI' -path ./node_modules -prune -o -name *.sql -print)",
       "Bash(xargs grep:*)",
       "Bash(ls -la /c/Users/marva/Documents/Boldo AI/*.md)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(node -e \"const l = require\\(''c:/Users/marva/Documents/Boldo AI/node_modules/lamejs/lame.all.js''\\); console.log\\(Object.keys\\(l\\)\\)\")",
+      "Bash(ffmpeg -version)",
+      "Bash(node -e \":*)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\internal\\call-audio"
     ]
   }
 }

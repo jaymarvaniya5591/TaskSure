@@ -13,8 +13,22 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const lamejs = require('lamejs')
+import { storeAudio } from '@/lib/notifications/audio-store'
+// lamejs has a module scope bug (MPEGMode not in scope) when loaded via index.js.
+// Loading lame.all.js (the self-contained bundle) and injecting a collector object
+// is the only reliable way to get Mp3Encoder working in Node.js.
+/* eslint-disable @typescript-eslint/no-require-imports */
+const _lamejsSrc: string = require('fs').readFileSync(
+    require('path').join(process.cwd(), 'node_modules/lamejs/lame.all.js'),
+    'utf8'
+)
+/* eslint-enable @typescript-eslint/no-require-imports */
+// eslint-disable-next-line no-eval
+const lamejs: { Mp3Encoder: new (channels: number, sampleRate: number, kbps: number) => { encodeBuffer: (samples: Int16Array) => Int8Array; flush: () => Int8Array } } = eval(
+    '(function(){var lamejs={};' +
+    _lamejsSrc.replace('lamejs();', 'lamejs_fn(lamejs);').replace('function lamejs()', 'function lamejs_fn(lamejs)') +
+    ';return lamejs;})()'
+)
 
 // ---------------------------------------------------------------------------
 // WAV → MP3 Conversion
@@ -365,26 +379,15 @@ export async function makeAutomatedCall(
         if (tts && tts.audioBase64) {
             const wavBuffer = Buffer.from(tts.audioBase64, 'base64')
             const mp3Buffer = convertWavToMp3(wavBuffer)
-            const fileName = `${Date.now()}-${phone.replace('+', '')}.mp3`
-            const sb = createAdminClient()
 
-            const { error: uploadError } = await sb.storage
-                .from('call-audio')
-                .upload(fileName, mp3Buffer, {
-                    contentType: 'audio/mpeg',
-                    upsert: true
-                })
-
-            if (!uploadError) {
-                const { data } = sb.storage.from('call-audio').getPublicUrl(fileName)
-                audioUrl = data.publicUrl
-                console.log(`[CallingService] Pre-generated TTS ready at: ${audioUrl}`)
-                // Warm the Cloudflare CDN edge cache so Twilio gets a cached response (<100ms)
-                // instead of a cold-origin fetch (which caused the ~4s playback delay)
-                await fetch(audioUrl, { method: 'HEAD' }).catch(() => {})
-            } else {
-                console.error(`[CallingService] Failed to upload TTS to Supabase:`, uploadError)
-            }
+            // Store in Railway process memory — serving from our own server gives Twilio
+            // ~100ms TTFB vs 3s+ from Supabase CDN cold cache. Twilio plays MP3 progressively
+            // so audio starts within ~300ms of call connect.
+            const audioId = crypto.randomUUID()
+            storeAudio(audioId, mp3Buffer)
+            const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
+            audioUrl = `${baseUrl}/api/internal/call-audio/${audioId}`
+            console.log(`[CallingService] Pre-generated TTS stored in memory: ${audioUrl}`)
         }
     } catch (err) {
         console.error(`[CallingService] TTS pre-generation error:`, err)
