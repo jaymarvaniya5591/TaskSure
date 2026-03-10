@@ -10,20 +10,20 @@ export async function GET(
     _request: NextRequest,
     { params }: { params: { id: string } }
 ) {
-    const buffer = getAudio(params.id)
+    const audio = getAudio(params.id)
 
-    if (!buffer) {
+    if (!audio) {
         return new NextResponse('Not found', { status: 404 })
     }
 
     // Serve once then clean up
     deleteAudio(params.id)
 
-    return new NextResponse(new Uint8Array(buffer), {
+    return new NextResponse(new Uint8Array(audio.buffer), {
         status: 200,
         headers: {
-            'Content-Type': 'audio/mpeg',
-            'Content-Length': buffer.length.toString(),
+            'Content-Type': audio.mimeType,
+            'Content-Length': audio.buffer.length.toString(),
             'Cache-Control': 'no-store',
         },
     })

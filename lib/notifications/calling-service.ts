@@ -14,54 +14,64 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { storeAudio } from '@/lib/notifications/audio-store'
-// lamejs has a module scope bug (MPEGMode not in scope) when loaded via index.js.
-// Loading lame.all.js (the self-contained bundle) and injecting a collector object
-// is the only reliable way to get Mp3Encoder working in Node.js.
-/* eslint-disable @typescript-eslint/no-require-imports */
-const _lamejsSrc: string = require('fs').readFileSync(
-    require('path').join(process.cwd(), 'lib/vendor/lame.all.js'),
-    'utf8'
-)
-/* eslint-enable @typescript-eslint/no-require-imports */
-// eslint-disable-next-line no-eval
-const lamejs: { Mp3Encoder: new (channels: number, sampleRate: number, kbps: number) => { encodeBuffer: (samples: Int16Array) => Int8Array; flush: () => Int8Array } } = eval(
-    '(function(){var lamejs={};' +
-    _lamejsSrc.replace('lamejs();', 'lamejs_fn(lamejs);').replace('function lamejs()', 'function lamejs_fn(lamejs)') +
-    ';return lamejs;})()'
-)
 
 // ---------------------------------------------------------------------------
-// WAV → MP3 Conversion
+// WAV → MP3 Conversion (lazy — never crashes the server on startup)
 // ---------------------------------------------------------------------------
+
+type LamejsEncoder = { encodeBuffer: (s: Int16Array) => Int8Array; flush: () => Int8Array }
+type LamejsLib = { Mp3Encoder: new (channels: number, sampleRate: number, kbps: number) => LamejsEncoder }
+
+// null = not yet loaded, false = failed to load
+let _lamejs: LamejsLib | null | false = null
+
+function getLamejs(): LamejsLib | null {
+    if (_lamejs === false) return null
+    if (_lamejs) return _lamejs
+    try {
+        // @breezystack/lamejs is listed in serverExternalPackages so Next.js
+        // won't bundle it — it's require()'d at runtime from node_modules.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        _lamejs = require('@breezystack/lamejs') as LamejsLib
+        return _lamejs
+    } catch (err) {
+        console.warn('[CallingService] @breezystack/lamejs unavailable — MP3 encoding disabled:', err)
+        _lamejs = false
+        return null
+    }
+}
 
 /**
- * Convert a WAV buffer to MP3 using lamejs.
- * WAV from Sarvam TTS is ~720KB for a 15s clip; MP3 @64kbps is ~120KB.
- * Twilio downloads the entire file before playing, so 6x smaller = 6x faster start.
+ * Convert a WAV buffer to MP3 at 64 kbps.
+ * Returns null if lamejs is unavailable (caller falls back to serving WAV).
  */
-function convertWavToMp3(wavBuffer: Buffer): Buffer {
-    // Parse WAV header fields (standard RIFF layout)
-    const channels = wavBuffer.readUInt16LE(22)
-    const sampleRate = wavBuffer.readUInt32LE(24)
+function convertWavToMp3(wavBuffer: Buffer): Buffer | null {
+    const lame = getLamejs()
+    if (!lame) return null
+    try {
+        const channels = wavBuffer.readUInt16LE(22)
+        const sampleRate = wavBuffer.readUInt32LE(24)
+        const pcmData = wavBuffer.subarray(44)
+        const samples = new Int16Array(pcmData.buffer, pcmData.byteOffset, pcmData.byteLength / 2)
 
-    // PCM data starts at byte 44 (44-byte standard RIFF header)
-    const pcmData = wavBuffer.subarray(44)
-    const samples = new Int16Array(pcmData.buffer, pcmData.byteOffset, pcmData.byteLength / 2)
+        const encoder = new lame.Mp3Encoder(channels, sampleRate, 64)
+        const mp3Chunks: Buffer[] = []
+        const blockSize = 1152
 
-    const encoder = new lamejs.Mp3Encoder(channels, sampleRate, 64) // 64 kbps — good for speech
-    const mp3Chunks: Buffer[] = []
-    const blockSize = 1152 // lamejs standard block size
+        for (let i = 0; i < samples.length; i += blockSize) {
+            const chunk = samples.subarray(i, i + blockSize)
+            const mp3buf = encoder.encodeBuffer(chunk)
+            if (mp3buf.length > 0) mp3Chunks.push(Buffer.from(mp3buf))
+        }
 
-    for (let i = 0; i < samples.length; i += blockSize) {
-        const chunk = samples.subarray(i, i + blockSize)
-        const mp3buf = encoder.encodeBuffer(chunk)
-        if (mp3buf.length > 0) mp3Chunks.push(Buffer.from(mp3buf))
+        const finalBuf = encoder.flush()
+        if (finalBuf.length > 0) mp3Chunks.push(Buffer.from(finalBuf))
+
+        return Buffer.concat(mp3Chunks)
+    } catch (err) {
+        console.error('[CallingService] WAV→MP3 conversion failed:', err)
+        return null
     }
-
-    const finalBuf = encoder.flush()
-    if (finalBuf.length > 0) mp3Chunks.push(Buffer.from(finalBuf))
-
-    return Buffer.concat(mp3Chunks)
 }
 
 // ---------------------------------------------------------------------------
@@ -379,12 +389,14 @@ export async function makeAutomatedCall(
         if (tts && tts.audioBase64) {
             const wavBuffer = Buffer.from(tts.audioBase64, 'base64')
             const mp3Buffer = convertWavToMp3(wavBuffer)
+            // Fall back to WAV if MP3 encoding unavailable — still fast since served from memory
+            const audioBuffer = mp3Buffer ?? wavBuffer
+            const mimeType = mp3Buffer ? 'audio/mpeg' : 'audio/wav'
 
             // Store in Railway process memory — serving from our own server gives Twilio
-            // ~100ms TTFB vs 3s+ from Supabase CDN cold cache. Twilio plays MP3 progressively
-            // so audio starts within ~300ms of call connect.
+            // ~100ms TTFB vs 3s+ from Supabase CDN cold cache.
             const audioId = crypto.randomUUID()
-            storeAudio(audioId, mp3Buffer)
+            storeAudio(audioId, audioBuffer, mimeType)
             const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
             audioUrl = `${baseUrl}/api/internal/call-audio/${audioId}`
             console.log(`[CallingService] Pre-generated TTS stored in memory: ${audioUrl}`)

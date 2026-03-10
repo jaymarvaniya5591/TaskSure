@@ -10,6 +10,7 @@
 
 interface AudioEntry {
     buffer: Buffer
+    mimeType: string
     expires: number
 }
 
@@ -18,18 +19,18 @@ const store = new Map<string, AudioEntry>()
 
 const TTL_MS = 5 * 60 * 1000 // 5 minutes — more than enough for a call to connect
 
-export function storeAudio(id: string, buffer: Buffer): void {
-    store.set(id, { buffer, expires: Date.now() + TTL_MS })
+export function storeAudio(id: string, buffer: Buffer, mimeType: string = 'audio/mpeg'): void {
+    store.set(id, { buffer, mimeType, expires: Date.now() + TTL_MS })
 }
 
-export function getAudio(id: string): Buffer | null {
+export function getAudio(id: string): { buffer: Buffer; mimeType: string } | null {
     const entry = store.get(id)
     if (!entry) return null
     if (entry.expires < Date.now()) {
         store.delete(id)
         return null
     }
-    return entry.buffer
+    return { buffer: entry.buffer, mimeType: entry.mimeType }
 }
 
 export function deleteAudio(id: string): void {

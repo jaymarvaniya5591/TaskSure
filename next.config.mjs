@@ -2,9 +2,9 @@
 const nextConfig = {
     output: 'standalone',
     poweredByHeader: false,
-    // lamejs is loaded via fs.readFileSync at runtime — must be listed here so
-    // Next.js traces it and copies it into the standalone node_modules output
-    serverExternalPackages: ['lamejs'],
+    // @breezystack/lamejs is require()'d at runtime — listing here tells Next.js
+    // to exclude it from webpack bundling and include it in standalone node_modules
+    serverExternalPackages: ['@breezystack/lamejs'],
     experimental: {
         optimizePackageImports: [
             'lucide-react',
