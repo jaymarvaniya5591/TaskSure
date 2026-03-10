@@ -19,7 +19,7 @@ import { storeAudio } from '@/lib/notifications/audio-store'
 // WAV → MP3 Conversion (lazy — never crashes the server on startup)
 // ---------------------------------------------------------------------------
 
-type LamejsEncoder = { encodeBuffer: (s: Int16Array) => Int8Array; flush: () => Int8Array }
+type LamejsEncoder = { encodeBuffer: (left: Int16Array, right?: Int16Array) => Int8Array; flush: () => Int8Array }
 type LamejsLib = { Mp3Encoder: new (channels: number, sampleRate: number, kbps: number) => LamejsEncoder }
 
 // null = not yet loaded, false = failed to load
@@ -52,7 +52,24 @@ function getLamejs(): LamejsLib | null {
 }
 
 /**
+ * Find the 'data' chunk in a WAV buffer.
+ * Standard RIFF WAV has data at byte 44, but extra chunks (LIST, fact, etc.)
+ * can push it further. This scans for the actual 'data' chunk ID.
+ */
+function findWavDataOffset(wav: Buffer): number {
+    let offset = 12 // Skip RIFF header (4) + file size (4) + WAVE (4)
+    while (offset < wav.length - 8) {
+        const chunkId = wav.toString('ascii', offset, offset + 4)
+        const chunkSize = wav.readUInt32LE(offset + 4)
+        if (chunkId === 'data') return offset + 8
+        offset += 8 + chunkSize
+    }
+    return 44 // Fallback to standard offset
+}
+
+/**
  * Convert a WAV buffer to MP3 at 64 kbps.
+ * Handles mono/stereo, non-standard WAV headers, and buffer alignment.
  * Returns null if lamejs is unavailable (caller falls back to serving WAV).
  */
 function convertWavToMp3(wavBuffer: Buffer): Buffer | null {
@@ -61,17 +78,39 @@ function convertWavToMp3(wavBuffer: Buffer): Buffer | null {
     try {
         const channels = wavBuffer.readUInt16LE(22)
         const sampleRate = wavBuffer.readUInt32LE(24)
-        const pcmData = wavBuffer.subarray(44)
+        const dataOffset = findWavDataOffset(wavBuffer)
+
+        // Copy PCM data to a fresh buffer — ensures Int16Array byte alignment
+        // (Node.js pooled Buffers can have odd byteOffset → RangeError)
+        const pcmData = Buffer.from(wavBuffer.subarray(dataOffset))
         const samples = new Int16Array(pcmData.buffer, pcmData.byteOffset, pcmData.byteLength / 2)
 
         const encoder = new lame.Mp3Encoder(channels, sampleRate, 64)
         const mp3Chunks: Buffer[] = []
         const blockSize = 1152
 
-        for (let i = 0; i < samples.length; i += blockSize) {
-            const chunk = samples.subarray(i, i + blockSize)
-            const mp3buf = encoder.encodeBuffer(chunk)
-            if (mp3buf.length > 0) mp3Chunks.push(Buffer.from(mp3buf))
+        if (channels === 1) {
+            for (let i = 0; i < samples.length; i += blockSize) {
+                const chunk = samples.subarray(i, i + blockSize)
+                const mp3buf = encoder.encodeBuffer(chunk)
+                if (mp3buf.length > 0) mp3Chunks.push(Buffer.from(mp3buf))
+            }
+        } else {
+            // Stereo: deinterleave into L/R channels for lamejs
+            const samplesPerChannel = Math.floor(samples.length / channels)
+            const left = new Int16Array(samplesPerChannel)
+            const right = new Int16Array(samplesPerChannel)
+            for (let i = 0; i < samplesPerChannel; i++) {
+                left[i] = samples[i * 2]
+                right[i] = samples[i * 2 + 1]
+            }
+            for (let i = 0; i < samplesPerChannel; i += blockSize) {
+                const mp3buf = encoder.encodeBuffer(
+                    left.subarray(i, i + blockSize),
+                    right.subarray(i, i + blockSize),
+                )
+                if (mp3buf.length > 0) mp3Chunks.push(Buffer.from(mp3buf))
+            }
         }
 
         const finalBuf = encoder.flush()
@@ -180,8 +219,109 @@ export async function getUserLanguage(
 const SARVAM_TTS_URL = 'https://api.sarvam.ai/text-to-speech'
 
 /**
+ * Split text into chunks at sentence boundaries, respecting a max character limit.
+ * Sarvam API has a per-request text limit (~500 chars). For long messages (500+ words),
+ * we split into chunks and concatenate the resulting WAV audio.
+ */
+const SARVAM_CHUNK_LIMIT = 500
+
+function splitTextIntoChunks(text: string, maxChars: number = SARVAM_CHUNK_LIMIT): string[] {
+    if (text.length <= maxChars) return [text]
+
+    const chunks: string[] = []
+    let remaining = text
+
+    while (remaining.length > 0) {
+        if (remaining.length <= maxChars) {
+            chunks.push(remaining)
+            break
+        }
+        // Find the last sentence boundary (।, ., !, ?) within the limit
+        let splitAt = -1
+        for (let i = maxChars - 1; i >= maxChars / 2; i--) {
+            if ('।.?!'.includes(remaining[i])) {
+                splitAt = i + 1
+                break
+            }
+        }
+        // Fallback: split at last space within limit
+        if (splitAt === -1) {
+            splitAt = remaining.lastIndexOf(' ', maxChars)
+            if (splitAt <= 0) splitAt = maxChars // Hard split as last resort
+        }
+        chunks.push(remaining.substring(0, splitAt).trim())
+        remaining = remaining.substring(splitAt).trim()
+    }
+
+    return chunks.filter(c => c.length > 0)
+}
+
+/**
+ * Concatenate multiple WAV buffers (same format) into one.
+ * Copies the first WAV's header and appends all PCM data sections.
+ */
+function concatenateWavBuffers(buffers: Buffer[]): Buffer {
+    if (buffers.length === 1) return buffers[0]
+
+    // Collect PCM data from each WAV (skip headers)
+    const pcmParts: Buffer[] = []
+    const headerBuf = buffers[0].subarray(0, 44) // Use first WAV's header as template
+
+    for (const wav of buffers) {
+        const dataOffset = findWavDataOffset(wav)
+        pcmParts.push(wav.subarray(dataOffset))
+    }
+
+    const totalPcmSize = pcmParts.reduce((sum, p) => sum + p.length, 0)
+
+    // Build new WAV: header + all PCM data
+    const header = Buffer.from(headerBuf)
+    // Update RIFF chunk size (file size - 8)
+    header.writeUInt32LE(36 + totalPcmSize, 4)
+    // Update data chunk size
+    header.writeUInt32LE(totalPcmSize, 40)
+
+    return Buffer.concat([header, ...pcmParts])
+}
+
+/**
+ * Call Sarvam TTS API for a single text chunk.
+ */
+async function callSarvamChunk(
+    text: string,
+    language: string,
+    apiKey: string,
+): Promise<string | null> {
+    const response = await fetch(SARVAM_TTS_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'api-subscription-key': apiKey,
+        },
+        body: JSON.stringify({
+            inputs: [text],
+            target_language_code: language,
+            model: 'bulbul:v3',
+            speaker: 'sunny',
+            pace: 1.0,
+            enable_preprocessing: true,
+        }),
+    })
+
+    if (!response.ok) {
+        const errorBody = await response.text()
+        console.error(`[CallingService] Sarvam TTS failed (${response.status}):`, errorBody)
+        return null
+    }
+
+    const data = await response.json()
+    return data?.audios?.[0] || null
+}
+
+/**
  * Generate speech audio from text using Sarvam Bulbul v3.
- * Returns a base64-encoded audio string.
+ * Automatically chunks long text (>500 chars) and concatenates the audio.
+ * Returns a base64-encoded WAV audio string.
  */
 export async function generateTTS(
     text: string,
@@ -194,37 +334,32 @@ export async function generateTTS(
     }
 
     try {
-        const response = await fetch(SARVAM_TTS_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'api-subscription-key': apiKey,
-            },
-            body: JSON.stringify({
-                inputs: [text],
-                target_language_code: language,
-                model: 'bulbul:v3',
-                speaker: 'sunny',
-                pace: 1.0,
-                enable_preprocessing: true,
-            }),
-        })
+        const chunks = splitTextIntoChunks(text)
 
-        if (!response.ok) {
-            const errorBody = await response.text()
-            console.error(`[CallingService] Sarvam TTS failed (${response.status}):`, errorBody)
-            return null
+        if (chunks.length === 1) {
+            // Single chunk — simple path
+            const audioBase64 = await callSarvamChunk(chunks[0], language, apiKey)
+            if (!audioBase64) {
+                console.error('[CallingService] Sarvam TTS returned no audio')
+                return null
+            }
+            return { audioBase64, mimeType: 'audio/wav' }
         }
 
-        const data = await response.json()
-        const audioBase64 = data?.audios?.[0]
-
-        if (!audioBase64) {
-            console.error('[CallingService] Sarvam TTS returned no audio')
-            return null
+        // Multiple chunks — generate each, concatenate WAV buffers
+        console.warn(`[CallingService] Long text (${text.length} chars) → ${chunks.length} TTS chunks`)
+        const wavBuffers: Buffer[] = []
+        for (const chunk of chunks) {
+            const audioBase64 = await callSarvamChunk(chunk, language, apiKey)
+            if (!audioBase64) {
+                console.error(`[CallingService] Sarvam TTS chunk failed: "${chunk.substring(0, 50)}..."`)
+                return null
+            }
+            wavBuffers.push(Buffer.from(audioBase64, 'base64'))
         }
 
-        return { audioBase64, mimeType: 'audio/wav' }
+        const combined = concatenateWavBuffers(wavBuffers)
+        return { audioBase64: combined.toString('base64'), mimeType: 'audio/wav' }
     } catch (err) {
         console.error('[CallingService] Sarvam TTS error:', err instanceof Error ? err.message : err)
         return null
