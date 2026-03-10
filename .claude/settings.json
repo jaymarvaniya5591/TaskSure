@@ -37,7 +37,10 @@
       "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" \"https://boldoai.in/api/internal/call-audio/test-id-that-doesnt-exist\")",
       "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" -o /dev/null \"https://boldoai.in/api/internal/sarvam-audio.wav?text=test&language=hi-IN\")",
       "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\" -X POST \"https://boldoai.in/api/internal/test-call\" -H \"x-internal-secret: boldo_internal_processor_8f3k92nfa923nf923\" -H \"Content-Type: application/json\" -d '{\"\"phone\"\":\"\"919727731867\"\",\"\"message\"\":\"\"नमस्ते! यह एक टेस्ट कॉल है।\"\",\"\"language\"\":\"\"hi-IN\"\",\"\"skipTts\"\":true}')",
-      "Bash(find 'c:\\\\Users\\\\marva\\\\Documents\\\\Boldo AI' -type f -path *call-audio* -name *.ts)"
+      "Bash(find 'c:\\\\Users\\\\marva\\\\Documents\\\\Boldo AI' -type f -path *call-audio* -name *.ts)",
+      "Bash(npm list:*)",
+      "Bash(node -e \"const l = require\\(''@breezystack/lamejs''\\); console.log\\(''keys:'', Object.keys\\(l\\).join\\('', ''\\)\\); console.log\\(''Mp3Encoder:'', typeof l.Mp3Encoder\\)\")",
+      "Bash(node -e \"console.log\\(require\\(''next/package.json''\\).version\\)\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\internal\\call-audio"

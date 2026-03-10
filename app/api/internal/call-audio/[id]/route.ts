@@ -1,26 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAudio, deleteAudio } from '@/lib/notifications/audio-store'
+import { getAudio } from '@/lib/notifications/audio-store'
 
 /**
- * Streams a pre-generated MP3 directly from Railway process memory.
- * Serving from our own server gives Twilio ~100ms TTFB, vs 3s+ from Supabase CDN cold cache.
- * Twilio plays MP3 progressively as it receives frames, so audio starts in ~300ms.
+ * Serves pre-generated audio from Railway process memory.
+ * Twilio's <Play> fetches this URL — serving from our own server
+ * gives ~100ms TTFB vs 3s+ from Supabase CDN cold cache.
  */
 export async function GET(
     _request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
-    const audio = getAudio(params.id)
+    const { id } = await params
+    const audio = getAudio(id)
 
     if (!audio) {
         return new NextResponse('Not found', { status: 404 })
     }
 
-    // Serve once then clean up
-    deleteAudio(params.id)
-
+    // Uint8Array wrapper needed for TypeScript BodyInit compatibility
     return new NextResponse(new Uint8Array(audio.buffer), {
-        status: 200,
         headers: {
             'Content-Type': audio.mimeType,
             'Content-Length': audio.buffer.length.toString(),

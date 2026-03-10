@@ -2,9 +2,6 @@
 const nextConfig = {
     output: 'standalone',
     poweredByHeader: false,
-    // @breezystack/lamejs is require()'d at runtime — listing here tells Next.js
-    // to exclude it from webpack bundling and include it in standalone node_modules
-    serverExternalPackages: ['@breezystack/lamejs'],
     experimental: {
         optimizePackageImports: [
             'lucide-react',

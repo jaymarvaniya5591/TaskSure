@@ -29,13 +29,23 @@ function getLamejs(): LamejsLib | null {
     if (_lamejs === false) return null
     if (_lamejs) return _lamejs
     try {
-        // @breezystack/lamejs is listed in serverExternalPackages so Next.js
-        // won't bundle it — it's require()'d at runtime from node_modules.
+        // Use vendored lame.all.js (self-contained IIFE bundle).
+        // require('@breezystack/lamejs') fails with ERR_REQUIRE_ESM (ESM-only package).
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        _lamejs = require('@breezystack/lamejs') as LamejsLib
+        const fs = require('fs')
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const path = require('path')
+        const src = fs.readFileSync(path.join(process.cwd(), 'lib', 'vendor', 'lame.all.js'), 'utf8')
+        // eslint-disable-next-line no-eval
+        _lamejs = eval(
+            '(function(){var lamejs={};' +
+            src.replace('lamejs();', 'lamejs_fn(lamejs);').replace('function lamejs()', 'function lamejs_fn(lamejs)') +
+            ';return lamejs;})()'
+        ) as LamejsLib
+        console.warn('[CallingService] lamejs loaded via vendored file')
         return _lamejs
     } catch (err) {
-        console.warn('[CallingService] @breezystack/lamejs unavailable — MP3 encoding disabled:', err)
+        console.warn('[CallingService] lamejs unavailable — MP3 disabled:', err)
         _lamejs = false
         return null
     }
@@ -399,7 +409,7 @@ export async function makeAutomatedCall(
             storeAudio(audioId, audioBuffer, mimeType)
             const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
             audioUrl = `${baseUrl}/api/internal/call-audio/${audioId}`
-            console.log(`[CallingService] Pre-generated TTS stored in memory: ${audioUrl}`)
+            console.warn(`[CallingService] Audio stored: ${mimeType}, ${audioBuffer.length} bytes, id=${audioId}`)
         }
     } catch (err) {
         console.error(`[CallingService] TTS pre-generation error:`, err)
