@@ -2,6 +2,9 @@
 const nextConfig = {
     output: 'standalone',
     poweredByHeader: false,
+    // lamejs is loaded via fs.readFileSync at runtime — must be listed here so
+    // Next.js traces it and copies it into the standalone node_modules output
+    serverExternalPackages: ['lamejs'],
     experimental: {
         optimizePackageImports: [
             'lucide-react',

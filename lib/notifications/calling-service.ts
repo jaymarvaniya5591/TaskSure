@@ -19,7 +19,7 @@ import { storeAudio } from '@/lib/notifications/audio-store'
 // is the only reliable way to get Mp3Encoder working in Node.js.
 /* eslint-disable @typescript-eslint/no-require-imports */
 const _lamejsSrc: string = require('fs').readFileSync(
-    require('path').join(process.cwd(), 'node_modules/lamejs/lame.all.js'),
+    require('path').join(process.cwd(), 'lib/vendor/lame.all.js'),
     'utf8'
 )
 /* eslint-enable @typescript-eslint/no-require-imports */
