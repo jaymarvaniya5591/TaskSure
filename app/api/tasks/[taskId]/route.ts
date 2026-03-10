@@ -298,6 +298,11 @@ export async function PATCH(
                 updated_at: new Date().toISOString(),
             };
 
+            // Reset overdue status if the deadline is extended to the future
+            if (task.status === "overdue") {
+                updateData.status = "accepted";
+            }
+
             // If the task has a committed_deadline, update that too
             if (task.committed_deadline) {
                 updateData.committed_deadline = new_deadline;

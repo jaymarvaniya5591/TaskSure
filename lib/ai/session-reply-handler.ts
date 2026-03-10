@@ -600,11 +600,22 @@ async function handleAwaitingEditDeadline(
         return { handled: true, intent: 'edit_deadline' }
     }
 
+    // Determine if we need to reset the status from 'overdue' to 'accepted'
+    let newStatus = task.status;
+    if (task.status === 'overdue') {
+        const currentNow = new Date().getTime();
+        const newDeadlineTime = new Date(deadline).getTime();
+        if (newDeadlineTime > currentNow) {
+            newStatus = 'accepted';
+        }
+    }
+
     // Update the deadline
     const { error } = await supabase
         .from('tasks')
         .update({
             committed_deadline: deadline,
+            ...(newStatus !== task.status && { status: newStatus }),
             updated_at: new Date().toISOString(),
         })
         .eq('id', taskId)
