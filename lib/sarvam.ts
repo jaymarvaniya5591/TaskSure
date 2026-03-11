@@ -105,7 +105,7 @@ export async function translateText(
 
     const payload = {
         input: text,
-        source_language_code: 'unknown',
+        source_language_code: 'auto',
         target_language_code: 'en-IN',
         speaker_gender: 'Male',
         mode: 'formal',
