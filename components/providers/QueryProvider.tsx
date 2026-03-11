@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function QueryProvider({ children }: { children: React.ReactNode }) {
     const [queryClient] = useState(
@@ -22,22 +22,20 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
             })
     );
 
-    const [persister, setPersister] = useState<ReturnType<typeof createSyncStoragePersister> | null>(null);
-
-    useEffect(() => {
+    const [persister] = useState<ReturnType<typeof createSyncStoragePersister> | null>(() => {
         // Only safely initialize localStorage on the client
         if (typeof window !== "undefined") {
-            const syncPersister = createSyncStoragePersister({
+            return createSyncStoragePersister({
                 storage: window.localStorage,
                 key: "REACT_QUERY_OFFLINE_CACHE",
             });
-            setPersister(syncPersister);
         }
-    }, []);
+        return null;
+    });
 
     // Render children IMMEDIATELY. Previously this returned null,
     // blocking the entire dashboard UI for ~50-100ms.
-    // Once persister loads, upgrade to PersistQueryClientProvider.
+    // Upgrade to PersistQueryClientProvider if persister exists.
     if (!persister) {
         return (
             <QueryClientProvider client={queryClient}>

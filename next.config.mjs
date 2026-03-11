@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    compress: true,
     output: 'standalone',
     poweredByHeader: false,
     experimental: {
@@ -19,6 +20,18 @@ const nextConfig = {
     },
     async headers() {
         return [
+            {
+                source: '/',
+                headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
+            },
+            {
+                source: '/login',
+                headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
+            },
+            {
+                source: '/signup',
+                headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
+            },
             {
                 source: '/(.*)\\.svg',
                 headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
