@@ -33,6 +33,13 @@ const nextConfig = {
                 headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' }],
             },
             {
+                // /auth/callback skeleton is pure HTML with zero user-specific content.
+                // The token is in the query string and handled client-side by inline script.
+                // s-maxage=30 lets Cloudflare cache and serve from Indian edge nodes (<50ms).
+                source: '/auth/callback',
+                headers: [{ key: 'Cache-Control', value: 'public, s-maxage=30, stale-while-revalidate=120' }],
+            },
+            {
                 source: '/(.*)\\.svg',
                 headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
             },
