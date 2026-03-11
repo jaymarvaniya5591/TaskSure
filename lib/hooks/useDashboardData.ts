@@ -79,7 +79,7 @@ export function useDashboardData(
                         "*, created_by:users!tasks_created_by_fkey(id, name), assigned_to:users!tasks_assigned_to_fkey(id, name)"
                     )
                     .eq("created_by", userId)
-                    .not("status", "in", '("completed","cancelled")')
+                    .not("status", "in", '("completed","cancelled","rejected")')
                     .then((r: { data: Task[] | null; error: unknown }) => {
                         debugLog("QUERY_1_CREATED_TASKS", `elapsed=${Date.now() - t0}ms rows=${r.data?.length ?? 0} err=${r.error ?? "none"}`);
                         return r;
@@ -90,7 +90,7 @@ export function useDashboardData(
                         "*, created_by:users!tasks_created_by_fkey(id, name), assigned_to:users!tasks_assigned_to_fkey(id, name)"
                     )
                     .eq("assigned_to", userId)
-                    .not("status", "in", '("completed","cancelled")')
+                    .not("status", "in", '("completed","cancelled","rejected")')
                     .then((r: { data: Task[] | null; error: unknown }) => {
                         debugLog("QUERY_2_ASSIGNED_TASKS", `elapsed=${Date.now() - t0}ms rows=${r.data?.length ?? 0} err=${r.error ?? "none"}`);
                         return r;
@@ -124,7 +124,7 @@ export function useDashboardData(
                         "*, created_by:users!tasks_created_by_fkey(id, name), assigned_to:users!tasks_assigned_to_fkey(id, name)"
                     )
                     .eq("organisation_id", orgId)
-                    .not("status", "eq", "cancelled")
+                    .not("status", "in", '("cancelled","rejected")')
                     .then((r: { data: Task[] | null; error: unknown }) => {
                         debugLog("QUERY_4_ALL_ORG_TASKS", `elapsed=${Date.now() - t1}ms rows=${r.data?.length ?? 0} err=${r.error ?? "none"}`);
                         return r;
