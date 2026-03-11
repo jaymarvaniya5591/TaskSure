@@ -29,7 +29,7 @@ interface SarvamResponse {
 export async function transcribeAudio(
     audioBuffer: Buffer,
     mimeType: string
-): Promise<string> {
+): Promise<{ text: string, languageCode: string }> {
     const apiKey = process.env.SARVAM_API_KEY
     if (!apiKey) {
         throw new Error('Missing SARVAM_API_KEY environment variable')
@@ -86,9 +86,12 @@ export async function transcribeAudio(
         throw new Error('Empty transcript from Sarvam — audio may be silent or too noisy')
     }
 
-    console.log(`[Sarvam] Transcription completed in ${Date.now() - t0}ms — language: ${data.language_code || 'unknown'}, length: ${transcript.length} chars`)
+    console.log(`[Sarvam] Transcription completed in ${Date.now() - t0}ms — language: ${data.language_code || 'hi-IN'}, length: ${transcript.length} chars`)
 
-    return transcript
+    return {
+        text: transcript,
+        languageCode: data.language_code || 'hi-IN'
+    }
 }
 
 /**
@@ -96,7 +99,8 @@ export async function transcribeAudio(
  * Output is English by default.
  */
 export async function translateText(
-    text: string
+    text: string,
+    sourceLanguageCode: string
 ): Promise<string> {
     const apiKey = process.env.SARVAM_API_KEY
     if (!apiKey) {
@@ -105,7 +109,7 @@ export async function translateText(
 
     const payload = {
         input: text,
-        source_language_code: 'auto',
+        source_language_code: sourceLanguageCode,
         target_language_code: 'en-IN',
         speaker_gender: 'Male',
         mode: 'formal',

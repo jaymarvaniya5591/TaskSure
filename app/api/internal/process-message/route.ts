@@ -213,11 +213,11 @@ export async function processMessageInline(
                 const { buffer, mimeType } = await downloadWhatsAppMedia(audioMediaId)
 
                 // 4a. Transcribe Audio (to native language, e.g. Gujarati)
-                const transcript = await transcribeAudio(buffer, audioMimeType || mimeType)
+                const { text: transcript, languageCode } = await transcribeAudio(buffer, audioMimeType || mimeType)
                 console.log(`[ProcessMessage] Native Transcription: "${transcript.substring(0, 100)}${transcript.length > 100 ? '...' : ''}"`)
 
                 // 4b. Translate to English using Sarvam
-                const englishTranslation = await translateText(transcript)
+                const englishTranslation = await translateText(transcript, languageCode)
                 console.log(`[ProcessMessage] English Translation: "${englishTranslation.substring(0, 100)}${englishTranslation.length > 100 ? '...' : ''}"`)
 
                 // 4c. Ensure character limits bounds for AI processing downstream
