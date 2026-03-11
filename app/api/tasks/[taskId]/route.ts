@@ -90,20 +90,30 @@ export async function PATCH(
                 return NextResponse.json({ error: "Deadline cannot be in the past" }, { status: 400 });
             }
 
-            // Run update, audit log, and notification in parallel
             const adminDb = createAdminClient();
-            const [updateResult] = await Promise.allSettled([
-                // BUG 2.1: Add .eq("status","pending") to prevent simultaneous accept/reject split-brain
-                supabase
-                    .from("tasks")
-                    .update({
-                        status: "accepted",
-                        committed_deadline,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq("id", taskId)
-                    .eq("status", "pending")
-                    .select("id"),
+            
+            // 1. Perform database update FIRST
+            const { data: updateData, error: updateError } = await supabase
+                .from("tasks")
+                .update({
+                    status: "accepted",
+                    committed_deadline,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", taskId)
+                .eq("status", "pending")
+                .select("id");
+
+            // BUG 2.1: If zero rows updated, another request already changed the status (race condition)
+            if (updateError) {
+                return NextResponse.json({ error: updateError.message }, { status: 500 });
+            }
+            if (!updateData || updateData.length === 0) {
+                return NextResponse.json({ error: "Task state has already changed" }, { status: 409 });
+            }
+
+            // 2. Run audit log and notification in parallel only after successful update
+            await Promise.allSettled([
                 supabase.from("audit_log").insert({
                     user_id: userId,
                     organisation_id: task.organisation_id,
@@ -123,15 +133,6 @@ export async function PATCH(
                 }).catch(err => console.error('[TaskPatch] Notification error (accept):', err)),
             ]);
 
-            // BUG 2.1: If zero rows updated, another request already changed the status (race condition)
-            if (updateResult.status === 'fulfilled' && !updateResult.value?.error && updateResult.value?.data?.length === 0) {
-                return NextResponse.json({ error: "Task state has already changed" }, { status: 409 });
-            }
-            if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
-                const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
-                return NextResponse.json({ error: errMsg }, { status: 500 });
-            }
-
             return NextResponse.json({ success: true, status: "accepted" });
         }
 
@@ -150,19 +151,29 @@ export async function PATCH(
 
             const { reject_reason } = body;
 
-            // Run update, comment, audit log, and notification in parallel
             const adminDb = createAdminClient();
-            const [updateResult] = await Promise.allSettled([
-                // BUG 2.1: Add .eq("status","pending") to prevent simultaneous accept/reject split-brain
-                supabase
-                    .from("tasks")
-                    .update({
-                        status: "rejected",
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq("id", taskId)
-                    .eq("status", "pending")
-                    .select("id"),
+
+            // 1. Perform database update FIRST
+            const { data: updateData, error: updateError } = await supabase
+                .from("tasks")
+                .update({
+                    status: "rejected",
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", taskId)
+                .eq("status", "pending")
+                .select("id");
+
+            // BUG 2.1: If zero rows updated, another request already changed the status (race condition)
+            if (updateError) {
+                return NextResponse.json({ error: updateError.message }, { status: 500 });
+            }
+            if (!updateData || updateData.length === 0) {
+                return NextResponse.json({ error: "Task state has already changed" }, { status: 409 });
+            }
+
+            // 2. Run comment, audit log, and notification in parallel only after successful update
+            await Promise.allSettled([
                 reject_reason
                     ? supabase.from("task_comments").insert({
                         task_id: taskId,
@@ -189,15 +200,6 @@ export async function PATCH(
                 }).catch(err => console.error('[TaskPatch] Notification error (reject):', err)),
             ]);
 
-            // BUG 2.1: If zero rows updated, another request already changed the status (race condition)
-            if (updateResult.status === 'fulfilled' && !updateResult.value?.error && updateResult.value?.data?.length === 0) {
-                return NextResponse.json({ error: "Task state has already changed" }, { status: 409 });
-            }
-            if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
-                const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
-                return NextResponse.json({ error: errMsg }, { status: 500 });
-            }
-
             return NextResponse.json({ success: true, status: "rejected" });
         }
 
@@ -223,18 +225,29 @@ export async function PATCH(
                 }
             }
 
-            // Run notification, update, and audit logs in parallel
             const adminDb = createAdminClient();
-            const [updateResult] = await Promise.allSettled([
-                supabase
-                    .from("tasks")
-                    .update({
-                        status: "completed",
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq("id", taskId)
-                    .in("status", ["accepted", "overdue"])
-                    .select("id"),
+
+            // 1. Perform database update FIRST
+            const { data: updateData, error: updateError } = await supabase
+                .from("tasks")
+                .update({
+                    status: "completed",
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", taskId)
+                .in("status", ["accepted", "overdue"])
+                .select("id");
+
+            // If zero rows updated, task was not in an acceptable state (race condition or bad state)
+            if (updateError) {
+                return NextResponse.json({ error: updateError.message }, { status: 500 });
+            }
+            if (!updateData || updateData.length === 0) {
+                return NextResponse.json({ error: "Task cannot be completed in its current state" }, { status: 409 });
+            }
+
+            // 2. Run notification and audit logs in parallel only after successful update
+            await Promise.allSettled([
                 supabase.from("audit_log").insert({
                     user_id: userId,
                     organisation_id: task.organisation_id,
@@ -265,15 +278,6 @@ export async function PATCH(
                     source: 'dashboard',
                 }).catch(err => console.error('[TaskPatch] Notification error (complete):', err)),
             ]);
-
-            // If zero rows updated, task was not in an acceptable state (race condition or bad state)
-            if (updateResult.status === 'fulfilled' && !updateResult.value?.error && updateResult.value?.data?.length === 0) {
-                return NextResponse.json({ error: "Task cannot be completed in its current state" }, { status: 409 });
-            }
-            if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
-                const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
-                return NextResponse.json({ error: errMsg }, { status: 500 });
-            }
 
             return NextResponse.json({ success: true, status: "completed" });
         }
@@ -309,15 +313,26 @@ export async function PATCH(
             }
             updateData.deadline = new_deadline;
 
-            // Run update, audit log, and notification in parallel
             const adminDb = createAdminClient();
-            const [updateResult] = await Promise.allSettled([
-                supabase
-                    .from("tasks")
-                    .update(updateData)
-                    .eq("id", taskId)
-                    .not("status", "eq", "cancelled") // Bug 1.1: prevent editing a deleted task
-                    .select("id"),                     // Bug 1.1: enables row-count check
+
+            // 1. Perform database update FIRST
+            const { data: deadlineUpdateData, error: deadlineUpdateError } = await supabase
+                .from("tasks")
+                .update(updateData)
+                .eq("id", taskId)
+                .not("status", "eq", "cancelled") // Bug 1.1: prevent editing a deleted task
+                .select("id");                     // Bug 1.1: enables row-count check
+
+            // Bug 1.1: Zero rows = task was cancelled/deleted before this write landed
+            if (deadlineUpdateError) {
+                return NextResponse.json({ error: deadlineUpdateError.message }, { status: 500 });
+            }
+            if (!deadlineUpdateData || deadlineUpdateData.length === 0) {
+                return NextResponse.json({ error: "Task is no longer active and cannot be edited" }, { status: 409 });
+            }
+
+            // 2. Run audit log and notification in parallel only after successful update
+            await Promise.allSettled([
                 supabase.from("audit_log").insert({
                     user_id: userId,
                     organisation_id: task.organisation_id,
@@ -337,15 +352,6 @@ export async function PATCH(
                     source: 'dashboard',
                 }).catch(err => console.error('[TaskPatch] Notification error (edit_deadline):', err)),
             ]);
-
-            // Bug 1.1: Zero rows = task was cancelled/deleted before this write landed
-            if (updateResult.status === 'fulfilled' && !updateResult.value?.error && updateResult.value?.data?.length === 0) {
-                return NextResponse.json({ error: "Task is no longer active and cannot be edited" }, { status: 409 });
-            }
-            if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
-                const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
-                return NextResponse.json({ error: errMsg }, { status: 500 });
-            }
 
             return NextResponse.json({ success: true, deadline: new_deadline });
         }
@@ -409,13 +415,19 @@ export async function PATCH(
                 updateData.created_at = new Date().toISOString();
             }
 
-            // Run update, audit log, and notification in parallel.
+            // 1. Perform database update FIRST
             // Use adminDb when nowBecomesTask so the service role can write created_at.
-            const [updateResult] = await Promise.allSettled([
-                (nowBecomesTask ? adminDb : supabase)
-                    .from("tasks")
-                    .update(updateData)
-                    .eq("id", taskId),
+            const { error: personsUpdateError } = await (nowBecomesTask ? adminDb : supabase)
+                .from("tasks")
+                .update(updateData)
+                .eq("id", taskId);
+
+            if (personsUpdateError) {
+                return NextResponse.json({ error: personsUpdateError.message }, { status: 500 });
+            }
+
+            // 2. Run audit log, and notification in parallel only after successful update.
+            await Promise.allSettled([
                 supabase.from("audit_log").insert({
                     user_id: userId,
                     organisation_id: task.organisation_id,
@@ -440,11 +452,6 @@ export async function PATCH(
                     source: 'dashboard',
                 }).catch(err => console.error('[TaskPatch] Notification error (edit_persons):', err)),
             ]);
-
-            if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value?.error)) {
-                const errMsg = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value?.error?.message;
-                return NextResponse.json({ error: errMsg }, { status: 500 });
-            }
 
             return NextResponse.json({ success: true, assigned_to: new_assigned_to });
         }
@@ -482,18 +489,23 @@ export async function PATCH(
                 }
             };
 
-            // Run subtask cancellation, audit log, notification, and pending notification
-            // cancellation in parallel. Cancelling scheduled notifications prevents the
-            // cron worker from processing stale reminders for a deleted task (Bug 1.3).
-            const [, cancelResult] = await Promise.allSettled([
+            // 1. Perform database update for main task FIRST
+            const { error: updateError } = await supabase
+                .from("tasks")
+                .update({
+                    status: "cancelled",
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", taskId);
+
+            if (updateError) {
+                return NextResponse.json({ error: updateError.message }, { status: 500 });
+            }
+
+            // 2. Run subtask cancellation, audit log, notification, and pending notification
+            // cancellation in parallel only after successful update.
+            await Promise.allSettled([
                 cancelSubtasks(taskId),
-                supabase
-                    .from("tasks")
-                    .update({
-                        status: "cancelled",
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq("id", taskId),
                 supabase.from("audit_log").insert({
                     user_id: userId,
                     organisation_id: task.organisation_id,
@@ -514,11 +526,6 @@ export async function PATCH(
                 cancelPendingNotifications(taskId, undefined, adminDb)
                     .catch(err => console.error('[TaskPatch] Failed to cancel notifications on delete:', err)),
             ]);
-
-            if (cancelResult.status === 'rejected' || (cancelResult.status === 'fulfilled' && cancelResult.value?.error)) {
-                const errMsg = cancelResult.status === 'rejected' ? cancelResult.reason : cancelResult.value?.error?.message;
-                return NextResponse.json({ error: errMsg }, { status: 500 });
-            }
 
             return NextResponse.json({ success: true, status: "cancelled" });
         }
