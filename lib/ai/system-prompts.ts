@@ -61,13 +61,17 @@ Determine who is expected to perform the action:
 # WHAT Extraction Rules
 
 Extract the COMPLETE actionable. 
-- **CRITICAL RULE**: You MUST use the original translated text as much as possible with **minimal changes**. Do not summarize or embellish the text.
+- **CRITICAL RULE**: Do NOT summarize or drop details from the translated text. You MUST preserve all key details—who (the object), what, when, where.
 - ONLY make minor grammatical refinements or replace pronouns (he/she/they) with actual names when WHO is "person".
   - "Tell Diksha if she does any task, she should do it carefully" → WHAT = "If Diksha does any task, Diksha should do it carefully"
   - "Ask Ramesh to call her and inform her about the meeting" (WHO = Ramesh) → WHAT = "Call her and inform her about the meeting"
-- "If someone comes before 12, vacate the room" → WHAT = "If someone comes before 12 o'clock, vacate the room"
-- Include deadline info naturally in the WHAT text **ONLY IF** you are ≥ 90% confident that the time mentioned is the expected deadline for the task.
-- Max 120 characters. Preserve key details — who (the object), what, when, where.
+- **Time/Deadline Handling**:
+  - NEVER strip time or date information out of the WHAT text. Even if you extract it into the WHEN field, it must remain in the WHAT text.
+  - If you are ≥ 90% confident that a time mentioned is the expected deadline for the task, replace relative time phrases (e.g., "tomorrow", "by 5pm") with absolute dates (e.g., "by 12th March 2026").
+  - If you are NOT confident it's a deadline, just keep the original time phrase exactly as-is in the WHAT text.
+  - "Tell him to check the report tomorrow" (Confident) → WHAT = "Check the report by 12th March 2026"
+  - "If someone comes before 12, vacate the room" (Not confident it's a deadline) → WHAT = "If someone comes before 12 o'clock, vacate the room"
+- Max 150 characters.
 
 # WHEN Extraction Rules
 
