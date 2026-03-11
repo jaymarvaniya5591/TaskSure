@@ -186,7 +186,7 @@ async function processAcceptanceFollowup(
     if (notif.target_role === 'assignee') {
         // --- ASSIGNEE: Make call + send acceptance template ---
         const ownerName = (meta.owner_name as string) || 'your manager'
-        let callResult: { success: boolean; status: 'connected' | 'not_connected' | 'error'; durationSeconds?: number; error?: string } = {
+        let callResult: { success: boolean; callId?: string; status: 'connected' | 'not_connected' | 'error'; durationSeconds?: number; error?: string } = {
             success: false, status: 'error', durationSeconds: 0, error: 'Call not attempted',
         }
 
@@ -221,10 +221,11 @@ async function processAcceptanceFollowup(
         await markNotificationSent(supabase, notif.id, {
             call_status: callResult.status,
             call_duration_seconds: callResult.durationSeconds || 0,
+            metadata: { ...notif.metadata, call_id: callResult.callId }
         })
 
-        // Now find and process the paired owner notification
-        // (owner gets a status update about the call)
+        // Now find the paired owner notification and place it in 'pending_call_status'
+        // The Twilio webhook will pick this up when the call finishes and send it.
         const { data: ownerNotifs } = await supabase
             .from('task_notifications')
             .select('id, target_user_id')
@@ -232,40 +233,99 @@ async function processAcceptanceFollowup(
             .eq('stage', 'acceptance')
             .eq('stage_number', notif.stage_number)
             .eq('target_role', 'owner')
-            .eq('status', 'pending')
+            .in('status', ['pending', 'processing'])
             .limit(1)
 
         if (ownerNotifs && ownerNotifs.length > 0) {
             const ownerNotif = ownerNotifs[0]
-            const owner = await lookupUser(supabase, ownerNotif.target_user_id)
-
-            if (owner?.phone_number) {
-                // Build status message for owner
-                const callStatusEmoji = callResult.status === 'connected' ? '✅' : callResult.status === 'not_connected' ? '❌' : '⚠️'
-                const callStatusText = callResult.status === 'connected'
-                    ? `Connected (${callResult.durationSeconds || 0}s)`
-                    : callResult.status === 'not_connected'
-                        ? 'Not connected'
-                        : `Error: ${callResult.error || 'Unknown'}`
-
-                const ownerMessage =
-                    `📞 *Acceptance Followup #${notif.stage_number}*\n\n*Task:*\n"${taskTitle}"\n\n*Call to:*\n${targetUser.name || 'assignee'}\n\n*Call Status:*\n${callStatusEmoji} ${callStatusText}\n\n_Task acceptance reminder has been re-sent._`
-
-                try {
-                    await sendWhatsAppMessage(toIntlPhone(owner.phone_number), ownerMessage)
-                } catch (err) {
-                    console.error(`[Processor] Failed to send owner status:`, err)
-                }
-            }
-
-            await markNotificationSent(supabase, ownerNotif.id)
+            await supabase
+                .from('task_notifications')
+                .update({
+                    status: 'pending_call_status',
+                    metadata: { ...ownerNotif.metadata, call_id: callResult.callId, target_user_name: targetUser.name },
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', ownerNotif.id)
         }
 
     } else if (notif.target_role === 'owner') {
-        // Owner notifications are processed as part of the assignee flow above.
-        // If we reach here, it means the assignee notification was already processed
-        // or this is an orphaned owner notification. Just mark as sent.
+        const { data: dbNotif } = await supabase.from('task_notifications').select('status').eq('id', notif.id).single()
+        if (dbNotif && dbNotif.status === 'pending_call_status') {
+             // Webhook handles this, skip cron processing.
+             return
+        }
         await markNotificationSent(supabase, notif.id)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Twilio Webhook / Call Status Callback Processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Handle a call status callback from a telephony provider (e.g. Twilio)
+ * Unlocks the 'pending_call_status' owner notifications and sends them with true duration.
+ */
+export async function finalizeCallStatus(
+    supabase: SupabaseAdmin,
+    callId: string,
+    status: 'connected' | 'not_connected' | 'error',
+    durationSeconds: number,
+    errorReason?: string,
+): Promise<void> {
+    // 1. Update any 'sent' assignee notification that initiated this call (to backfill duration)
+    // We look for notifications with this call_id
+    const { data: assigneeNotifs } = await supabase
+        .from('task_notifications')
+        .select('id')
+        .contains('metadata', { call_id: callId })
+        .eq('target_role', 'assignee')
+        .limit(1)
+
+    if (assigneeNotifs && assigneeNotifs.length > 0) {
+        await supabase
+            .from('task_notifications')
+            .update({
+                call_status: status,
+                call_duration_seconds: durationSeconds,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', assigneeNotifs[0].id)
+    }
+
+    // 2. Find any 'pending_call_status' owner notification that requires sending
+    const { data: ownerNotifs, error: fetchErr } = await supabase
+        .from('task_notifications')
+        .select('id, task_id, target_user_id, stage, stage_number, metadata')
+        .eq('status', 'pending_call_status')
+        .contains('metadata', { call_id: callId })
+
+    if (fetchErr || !ownerNotifs || ownerNotifs.length === 0) return
+
+    for (const ownerNotif of ownerNotifs) {
+        const owner = await lookupUser(supabase, ownerNotif.target_user_id)
+        if (owner?.phone_number) {
+            const meta = ownerNotif.metadata || {}
+            const taskTitle = (meta.task_title as string) || 'a task'
+            const targetUserName = (meta.target_user_name as string) || 'assignee'
+
+            const callStatusEmoji = status === 'connected' ? '✅' : status === 'not_connected' ? '❌' : '⚠️'
+            const callStatusText = status === 'connected'
+                ? `Connected (${durationSeconds}s)`
+                : status === 'not_connected'
+                    ? 'Not connected'
+                    : `Error: ${errorReason || 'Unknown'}`
+
+            const ownerMessage =
+                `📞 *Acceptance Followup #${ownerNotif.stage_number}*\n\n*Task:*\n"${taskTitle}"\n\n*Call to:*\n${targetUserName}\n\n*Call Status:*\n${callStatusEmoji} ${callStatusText}\n\n_Task acceptance reminder has been re-sent._`
+
+            try {
+                await sendWhatsAppMessage(toIntlPhone(owner.phone_number), ownerMessage)
+            } catch (err) {
+                console.error(`[Processor] Failed to send owner status via webhook:`, err)
+            }
+        }
+        await markNotificationSent(supabase, ownerNotif.id)
     }
 }
 
@@ -717,7 +777,15 @@ export async function processTaskNotifications(
             if (notifications && notifications.length > 0) {
                 console.log(`[Processor] Claimed ${notifications.length} notification(s), processing...`)
 
-                for (const notif of notifications as TaskNotification[]) {
+                // Sort to process assignee notifications before owner notifications so that
+                // owner notifications are not prematurely marked as 'sent' by the fallback.
+                const sortedNotifs = [...(notifications as TaskNotification[])].sort((a, b) => {
+                    if (a.target_role === 'assignee' && b.target_role !== 'assignee') return -1;
+                    if (a.target_role !== 'assignee' && b.target_role === 'assignee') return 1;
+                    return 0;
+                });
+
+                for (const notif of sortedNotifs) {
                     // Skip notifications that have exceeded max retries
                     const retryCount = (notif as TaskNotification & { retry_count?: number }).retry_count || 0
                     if (retryCount >= 3) {

@@ -1,0 +1,5 @@
+﻿[dotenv@17.3.1] injecting env (19) from .env.local -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
+Sending request to Sarvam Translate...
+Status: 400
+Latency: 331.36 ms
+Response: {"error":{"message":"Invalid language code 'auto'.","code":"invalid_request_error","request_id":"20260311_9bb5e69f-cb0a-4a48-9358-41676553a626"}}

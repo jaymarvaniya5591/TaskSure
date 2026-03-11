@@ -1,0 +1,11 @@
+﻿  Γû▓ Next.js 14.2.35
+  - Local:        http://localhost:8080
+  - Network:      http://0.0.0.0:8080
+
+ Γ£ô Starting...
+ Γ£ô Ready in 54ms
+Starting Container
+ΓÜá∩╕Å  Node.js 18 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 20 or later. For more information, visit: https://github.com/orgs/supabase/discussions/37217
+(node:1) ExperimentalWarning: buffer.File is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+[ProcessMessage] Audio transcription failed: Sarvam Translation API error (400): {"error":{"message":"Invalid language code 'auto'.","code":"invalid_request_error","request_id":"20260311_fdab0a54-9881-4439-9f30-a8d64d66f701"}}

@@ -1,0 +1,5 @@
+﻿[dotenv@17.3.1] injecting env (19) from .env.local -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
+Sending request to Sarvam Translate...
+Status: 200
+Latency: 1257.14 ms
+Response: {"request_id":"20260311_3e03ad7d-9a9c-40bb-a7eb-64089c9c985b","translated_text":"This task is to be completed by tomorrow evening.","source_language_code":"gu-IN"}

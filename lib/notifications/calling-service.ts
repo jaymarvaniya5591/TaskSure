@@ -393,6 +393,7 @@ const twilioProvider: CallingProvider = {
             formParams.append('To', to)
             formParams.append('From', from)
 
+            const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
             if (audioUrl) {
                 // Use inline TwiML with pre-generated Supabase audio URL
                 // This eliminates the webhook roundtrip entirely = 0 latency
@@ -401,10 +402,11 @@ const twilioProvider: CallingProvider = {
                 console.log(`[CallingService] Using inline TwiML with audio: ${audioUrl}`)
             } else {
                 // Fallback: use webhook to generate TTS on-the-fly
-                const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://boldoai.in'
                 const answerUrl = `${baseUrl}/api/internal/twilio-answer?text=${encodeURIComponent(text)}&language=${encodeURIComponent(language)}`
                 formParams.append('Url', answerUrl)
             }
+            formParams.append('StatusCallback', `${baseUrl}/api/internal/twilio-status`)
+            formParams.append('StatusCallbackEvent', 'completed')
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
