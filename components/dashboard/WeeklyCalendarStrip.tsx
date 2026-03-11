@@ -29,7 +29,9 @@ export default function WeeklyCalendarStrip({ tasks, selectedDate, onSelectDate 
         const isDateToday = checkIsToday(date);
         const dayTasks = tasks.filter(t => {
             const dl = t.committed_deadline || t.deadline;
-            if (!dl) return false;
+            if (!dl) {
+                return isDateToday;
+            }
             const d = new Date(dl);
             // Today: include overdue tasks (deadline ≤ end of today)
             if (isDateToday) {
