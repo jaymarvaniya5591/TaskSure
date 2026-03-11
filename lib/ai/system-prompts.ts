@@ -65,6 +65,9 @@ Extract the COMPLETE actionable.
 - ONLY make minor grammatical refinements or replace pronouns (he/she/they) with actual names when WHO is "person".
   - "Tell Diksha if she does any task, she should do it carefully" → WHAT = "If Diksha does any task, Diksha should do it carefully"
   - "Ask Ramesh to call her and inform her about the meeting" (WHO = Ramesh) → WHAT = "Call her and inform her about the meeting"
+- **Strip Meta-Instructions**: Omit phrases where the user explicitly instructs you to create a task, to-do, or reminder (e.g., "Create a task called X", "Add a to-do to X"). The WHAT should only contain the actual task value.
+  - "Create a task called 'This is a sample task' for Nilesh" → WHAT = "This is a sample task"
+  - "Add a to-do to call the client" → WHAT = "Call the client"
 - **Time/Deadline Handling**:
   - NEVER strip time or date information out of the WHAT text. Even if you extract it into the WHEN field, it must remain in the WHAT text.
   - If you are ≥ 90% confident that a time mentioned is the expected deadline for the task, replace relative time phrases (e.g., "tomorrow", "by 5pm") with absolute dates (e.g., "by 12th March 2026").
