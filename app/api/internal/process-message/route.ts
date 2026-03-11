@@ -4,7 +4,7 @@ export const preferredRegion = 'sin1'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
-import { transcribeAudio } from '@/lib/sarvam'
+import { transcribeAudio, translateText } from '@/lib/sarvam'
 import { normalizePhone } from '@/lib/phone'
 
 // AI modules
@@ -211,19 +211,28 @@ export async function processMessageInline(
             console.log(`[ProcessMessage] Audio detected — downloading media ${audioMediaId}`)
             try {
                 const { buffer, mimeType } = await downloadWhatsAppMedia(audioMediaId)
+
+                // 4a. Transcribe Audio (to native language, e.g. Gujarati)
                 const transcript = await transcribeAudio(buffer, audioMimeType || mimeType)
+                console.log(`[ProcessMessage] Native Transcription: "${transcript.substring(0, 100)}${transcript.length > 100 ? '...' : ''}"`)
 
-                console.log(`[ProcessMessage] Transcription: "${transcript.substring(0, 100)}${transcript.length > 100 ? '...' : ''}"`)
+                // 4b. Translate to English using Sarvam
+                const englishTranslation = await translateText(transcript)
+                console.log(`[ProcessMessage] English Translation: "${englishTranslation.substring(0, 100)}${englishTranslation.length > 100 ? '...' : ''}"`)
 
-                // Fire-and-forget: update DB with transcribed text
+                // 4c. Ensure character limits bounds for AI processing downstream
+                // Limit to 2000 chars roughly - Sarvam translates up to large tokens but we bounds check just in case
+                const safeTranslation = englishTranslation.substring(0, 3000)
+
+                // Fire-and-forget: update DB with translated text to persist the English standard form
                 supabase
                     .from('incoming_messages')
-                    .update({ raw_text: `[audio] ${transcript}` })
+                    .update({ raw_text: `[audio] ${safeTranslation}` })
                     .eq('id', messageId)
                     .then(() => { /* ignore */ })
                     .catch((err: unknown) => console.error('[ProcessMessage] Failed to update raw_text:', err))
 
-                textForAI = transcript
+                textForAI = safeTranslation
             } catch (transcribeErr) {
                 const errMsg = transcribeErr instanceof Error ? transcribeErr.message : 'Unknown transcription error'
                 await sendErrorAndMark(

@@ -60,15 +60,13 @@ Determine who is expected to perform the action:
 
 # WHAT Extraction Rules
 
-Extract the COMPLETE actionable including all details. Never truncate conditional sentences.
-- IMPORTANT: When WHO is "person", replace ALL pronouns (she/he/her/him/they) that refer to the assignee with the assignee's actual name.
-  The WHAT must be written in third person so it reads clearly for BOTH the task owner AND the assignee.
+Extract the COMPLETE actionable. 
+- **CRITICAL RULE**: You MUST use the original translated text as much as possible with **minimal changes**. Do not summarize or embellish the text.
+- ONLY make minor grammatical refinements or replace pronouns (he/she/they) with actual names when WHO is "person".
   - "Tell Diksha if she does any task, she should do it carefully" → WHAT = "If Diksha does any task, Diksha should do it carefully"
-  - "From now on, if she does any task, she should do it carefully" (WHO = Diksha) → WHAT = "From now on, if Diksha does any task, Diksha should do it carefully"
-  - "Ask Ramesh to call her and inform her about the meeting" (WHO = Ramesh) → WHAT = "Call her and inform her about the meeting" (only replace pronouns referring to the assignee, not other people)
-- "Tell Ramesh to send the invoice by Friday" → WHAT = "Send the invoice by Friday"
+  - "Ask Ramesh to call her and inform her about the meeting" (WHO = Ramesh) → WHAT = "Call her and inform her about the meeting"
 - "If someone comes before 12, vacate the room" → WHAT = "If someone comes before 12 o'clock, vacate the room"
-- Include deadline info naturally in the WHAT text.
+- Include deadline info naturally in the WHAT text **ONLY IF** you are ≥ 90% confident that the time mentioned is the expected deadline for the task.
 - Max 120 characters. Preserve key details — who (the object), what, when, where.
 
 # WHEN Extraction Rules
@@ -79,9 +77,10 @@ Extract any time references:
 - "by Friday" → next Friday at 20:00:00+05:30.
 - If only a date/day is mentioned (no time), default to 20:00:00+05:30 (8 PM IST).
 - If only a time is mentioned (no date), assume today if the time hasn't passed, otherwise tomorrow.
-- If multiple dates appear, use the MOST RELEVANT one as the deadline (usually the last date mentioned as a deadline).
+- If multiple dates appear, use the MOST RELEVANT one as the deadline.
 - Set "raw" to the original time reference from the user's text.
-- Set both to null if no time reference exists.
+- Set both to null if no time reference exists. 
+**NOTE**: Do NOT automatically assume any time mentioned in the audio is a deadline. It should only be categorized as a deadline if it represents WHEN the task should be completed.
 
 # INTENT Classification
 

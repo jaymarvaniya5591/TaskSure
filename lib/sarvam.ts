@@ -56,10 +56,10 @@ export async function transcribeAudio(
     const blob = new Blob([new Uint8Array(audioBuffer)], { type: cleanMimeType })
     formData.append('file', blob, `audio.${ext}`)
     formData.append('model', SARVAM_MODEL)
-    formData.append('mode', 'translate')          // Always output English
+    formData.append('mode', 'transcribe')          // Output native text
     formData.append('language_code', 'unknown')    // Auto-detect spoken language
 
-    console.log(`[Sarvam] Transcribing ${audioBuffer.length} bytes (${mimeType}) with model=${SARVAM_MODEL}, mode=translate`)
+    console.log(`[Sarvam] Transcribing ${audioBuffer.length} bytes (${mimeType}) with model=${SARVAM_MODEL}, mode=transcribe`)
     const t0 = Date.now()
 
     const response = await fetch(SARVAM_API_URL, {
@@ -89,4 +89,54 @@ export async function transcribeAudio(
     console.log(`[Sarvam] Transcription completed in ${Date.now() - t0}ms — language: ${data.language_code || 'unknown'}, length: ${transcript.length} chars`)
 
     return transcript
+}
+
+/**
+ * Translate text using Sarvam AI Translation API.
+ * Output is English by default.
+ */
+export async function translateText(
+    text: string
+): Promise<string> {
+    const apiKey = process.env.SARVAM_API_KEY
+    if (!apiKey) {
+        throw new Error('Missing SARVAM_API_KEY environment variable')
+    }
+
+    const payload = {
+        input: text,
+        source_language_code: 'unknown',
+        target_language_code: 'en-IN',
+        speaker_gender: 'Male',
+        mode: 'formal',
+        model: 'sarvam-translate:v1'
+    }
+
+    console.log(`[Sarvam] Translating text of length: ${text.length} chars`)
+    const t0 = Date.now()
+
+    const response = await fetch('https://api.sarvam.ai/translate', {
+        method: 'POST',
+        headers: {
+            'api-subscription-key': apiKey,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+        const errorBody = await response.text()
+        throw new Error(`Sarvam Translation API error (${response.status}): ${errorBody}`)
+    }
+
+    const data = await response.json()
+
+    // We expect { translated_text: "..." }
+    const translatedText = data.translated_text?.trim()
+    if (!translatedText) {
+        throw new Error('Empty translated text from Sarvam')
+    }
+
+    console.log(`[Sarvam] Translation completed in ${Date.now() - t0}ms`)
+    return translatedText
 }
