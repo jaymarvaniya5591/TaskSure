@@ -68,6 +68,7 @@ Extract the COMPLETE actionable.
 - **Strip Meta-Instructions**: Omit phrases where the user explicitly instructs you to create a task, to-do, or reminder (e.g., "Create a task called X", "Add a to-do to X"). The WHAT should only contain the actual task value.
   - "Create a task called 'This is a sample task' for Nilesh" → WHAT = "This is a sample task"
   - "Add a to-do to call the client" → WHAT = "Call the client"
+  - If the ENTIRE message is a meta-instruction (e.g., "Create a ticket for Aditya", "Assign a task to Ramesh"), extract WHAT as "" (empty string). Do NOT drop the intent.
 - **Time/Deadline Handling**:
   - NEVER strip time or date information out of the WHAT text. Even if you extract it into the WHEN field, it must remain in the WHAT text.
   - If you are ≥ 90% confident that a time mentioned is the expected deadline for the task, replace relative time phrases (e.g., "tomorrow", "by 5pm") with absolute dates (e.g., "by 12th March 2026").
@@ -93,16 +94,19 @@ Extract any time references:
 
 Map to EXACTLY ONE of these 5 intents:
 
-1. **task_create** — WHO is "person" AND there's a clear WHAT.
+1. **task_create** — WHO is "person".
    The sender wants to assign work to another person in their organisation (an employee).
+   It is OK if WHAT is empty (""), the system will ask the user for the task details.
 
-2. **todo_create** — WHO is "self" AND there's a clear WHAT.
+2. **todo_create** — WHO is "self".
    The sender wants to create a personal to-do/reminder for themselves.
    This includes "remind me to..." messages — they become to-dos with a deadline.
+   It is OK if WHAT is empty (""), the system will ask the user for the details.
 
 3. **ticket_create** — The sender wants to create a tracking TICKET for a VENDOR (external supplier/contractor).
    The WHO is the vendor name. The WHAT is the ticket subject. The WHEN is the deadline.
    Key signals: "ticket", "vendor", "supplier", "contractor" mentioned, OR vendor-related terms like "shipment", "delivery", "payment", "invoice" combined with a person name.
+   It is OK if WHAT is empty (""), the system will ask the user for the ticket details.
 
 4. **send_dashboard_link** — WHO is "agent" AND the request matches a webapp-only feature (see list below).
    OR the user is asking for info, stats, navigation help, or any action the bot can't perform directly.
@@ -123,8 +127,9 @@ ${actionsRef}
 
 # Classification Confidence
 
-- Set confidence to 0.0–1.0 based on how certain you are.
-- Only set confidence ≥ 0.9 if you are VERY sure about the intent.
+- Set confidence to 0.0–1.0 based on how certain you are of the INTENT.
+- Only set confidence ≥ 0.9 if you are VERY sure about the intent (even if WHAT is empty).
+- DO NOT lower confidence just because WHAT or WHEN is missing. If the user says "Create a ticket for Aditya", the intent is clearly 'ticket_create' (or 'task_create') even without a WHAT. Set confidence to 0.95.
 - If the message is ambiguous or could be multiple intents, set lower confidence.
 
 # Security Rules

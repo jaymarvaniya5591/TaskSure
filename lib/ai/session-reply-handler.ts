@@ -344,21 +344,14 @@ async function handleAwaitingTodoDeadline(
 ): Promise<SessionResult> {
     const ctx = session.context_data
 
-    // First, check if the message is actually a deadline response or a new intent.
-    const looksLikeDeadline = await isDeadlineResponse(userText)
-    if (!looksLikeDeadline) {
-        // The user sent a different intent — resolve session and fall through.
-        await resolveSession(session.id, supabase)
-        return { handled: false, fallThrough: true }
-    }
-
     // Parse date from the user's reply
     const deadline = await parseDateFromText(userText)
 
     if (!deadline) {
-        // Not a date — resolve session and fall through to normal pipeline.
-        await resolveSession(session.id, supabase)
-        return { handled: false, fallThrough: true }
+        // Not a date — ask again, keep session alive
+        await sendReply(session.phone,
+            `I couldn't detect a time in your message.\n\nPlease enter a valid date and time.\n\n*Examples:*\n"tomorrow 3pm", "Friday", "March 10"`)
+        return { handled: true, intent: 'todo_create' }
     }
 
     let normalizedDeadline = deadline
@@ -446,24 +439,14 @@ async function handleAwaitingAcceptDeadline(
         return { handled: false, fallThrough: true }
     }
 
-    // First, check if the message is actually a deadline response or a new intent.
-    // If it looks like a full sentence with a subject/verb/action, treat it as a
-    // new intent rather than a deadline reply.
-    const looksLikeDeadline = await isDeadlineResponse(userText)
-    if (!looksLikeDeadline) {
-        // The user sent a different intent — resolve session and fall through.
-        await resolveSession(session.id, supabase)
-        return { handled: false, fallThrough: true }
-    }
-
     // Try to parse a date
     const deadline = await parseDateFromText(userText)
 
     if (!deadline) {
-        // Not a date — resolve session and fall through to normal pipeline.
-        // The process-message handler will send the clarification message.
-        await resolveSession(session.id, supabase)
-        return { handled: false, fallThrough: true }
+        // Not a date — ask again, keep session alive
+        await sendReply(session.phone,
+            `I couldn't detect a time in your message.\n\nPlease reply with a valid date and time.\n\n*Examples:*\n"tomorrow", "Friday 3pm", "March 10"`)
+        return { handled: true, intent: 'task_accept' }
     }
 
     // Date parsed — accept the task
@@ -569,21 +552,14 @@ async function handleAwaitingEditDeadline(
         return { handled: false, fallThrough: true }
     }
 
-    // Check if the message is a date response or a new intent
-    const looksLikeDeadline = await isDeadlineResponse(userText)
-    if (!looksLikeDeadline) {
-        // Not a date — resolve session and fall through
-        await resolveSession(session.id, supabase)
-        return { handled: false, fallThrough: true }
-    }
-
     // Try to parse a date
     const deadline = await parseDateFromText(userText)
 
     if (!deadline) {
-        // Couldn't parse — resolve session and fall through
-        await resolveSession(session.id, supabase)
-        return { handled: false, fallThrough: true }
+        // Couldn't parse — ask again, keep session alive
+        await sendReply(session.phone,
+            `I couldn't detect a time in your message.\n\nPlease reply with a valid date and time.\n\n*Examples:*\n"tomorrow", "Friday", "March 10"`)
+        return { handled: true, intent: 'edit_deadline' }
     }
 
     // Reject past deadlines — keep session alive for retry
@@ -1263,18 +1239,11 @@ async function handleAwaitingTicketDeadline(
 ): Promise<SessionResult> {
     const ctx = session.context_data
 
-    // Guard: if reply doesn't look like a deadline, fall through
-    const looksLikeDeadline = await isDeadlineResponse(userText)
-    if (!looksLikeDeadline) {
-        await resolveSession(session.id, supabase)
-        return { handled: false, fallThrough: true }
-    }
-
     const deadline = await parseDateFromText(userText)
 
     if (!deadline) {
         await sendReply(session.phone,
-            "I couldn't understand that date.\n\nPlease try again.\n\n_Example: 'by Friday', 'March 25th', 'in 3 days'_")
+            "I couldn't detect a time in your message.\n\nPlease try again.\n\n_Example: 'by Friday', 'March 25th', 'in 3 days'_")
         return { handled: true, intent: 'ticket_create' }
     }
 
@@ -1512,42 +1481,6 @@ Return ONLY a JSON object: { "is_new_intent": true } or { "is_new_intent": false
     }
 }
 
-/**
- * Determine if a message is genuinely a deadline response (e.g. "tomorrow",
- * "next Friday 5pm") vs. a new intent/sentence (e.g. "Ask beta tester to get
- * the file ready by tomorrow").
- *
- * Returns true only if the message's PRIMARY purpose is to communicate a date/time.
- */
-async function isDeadlineResponse(text: string): Promise<boolean> {
-    try {
-        const { callGemini } = await import('@/lib/gemini')
-
-        const prompt = `You are an intent classifier for a WhatsApp task-management bot.
-The bot asked the user: "When is your deadline for this task?"
-
-Determine if the user's reply is PURELY providing a deadline (date/time), or if it is
-a new/unrelated message that just happens to mention a time word (like "tomorrow").
-
-A reply is a DEADLINE RESPONSE if it:
-- Is just a date or time expression: "tomorrow", "Friday 5pm", "March 10", "next week"
-- Confirms a time: "by tomorrow", "end of day", "tonight"
-
-A reply is NOT a deadline response if it:
-- Contains a subject + verb + action: "Ask John to send the file by tomorrow"
-- Describes something to be done: "Get the report ready by Friday"
-- Is clearly a new instruction or task
-
-Return ONLY a JSON object: { "is_deadline": true } or { "is_deadline": false }`
-
-        const result = await callGemini(prompt, text)
-        const parsed = JSON.parse(result.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim())
-        return parsed.is_deadline === true
-    } catch {
-        // On error, be conservative: let parseDateFromText handle it
-        return true
-    }
-}
 
 /**
  * Parse a date from free-form text using Gemini.
