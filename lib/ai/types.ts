@@ -172,10 +172,12 @@ export interface ActionValidationResult {
 // NEW — Single-call pipeline types (MVP)
 // ===========================================================================
 
-/** The 4 intents the WhatsApp bot can match via Gemini */
+/** The intents the WhatsApp bot can match via Gemini */
 export type WhatsAppIntent =
     | 'task_create'
     | 'todo_create'
+    | 'vendor_add'
+    | 'ticket_create'
     | 'send_dashboard_link'
     | 'unknown'
 

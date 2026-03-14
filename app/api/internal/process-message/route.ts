@@ -303,6 +303,14 @@ export async function processMessageInline(
                 await handleTodoCreate(supabase, messageId, msg.phone, sender, analysis)
                 break
 
+            case 'vendor_add':
+                await handleVendorAdd(supabase, messageId, msg.phone, sender, analysis)
+                break
+
+            case 'ticket_create':
+                await handleTicketCreate(supabase, messageId, msg.phone, sender, analysis)
+                break
+
             case 'send_dashboard_link':
                 await handleSendDashboardLink(supabase, messageId, msg.phone, sender, analysis)
                 break
@@ -705,6 +713,295 @@ async function handleSendDashboardLink(
     }
 
     await markProcessed(supabase, messageId, 'send_dashboard_link', null)
+}
+
+// ---------------------------------------------------------------------------
+// vendor_add — Add a vendor to the organisation
+// ---------------------------------------------------------------------------
+
+async function handleVendorAdd(
+    supabase: SupabaseAdmin,
+    messageId: string,
+    phone: string,
+    sender: SenderUser,
+    analysis: AnalyzedMessage,
+): Promise<void> {
+    const {
+        extractPhoneFromText,
+        isVendorInOrg,
+        isEmployeeInOrg,
+        createVendorAndOnboarding,
+        getOrgName,
+    } = await import('@/lib/vendor-service')
+    const { sendVendorApprovalTemplate } = await import('@/lib/whatsapp')
+
+    // Try to extract a phone number from the message text
+    const vendorPhone = extractPhoneFromText(analysis.what || '')
+
+    if (!vendorPhone) {
+        // No phone found — ask for it via session
+        await createSession(phone, 'awaiting_vendor_phone', {
+            original_intent: 'vendor_add',
+            sender_id: sender.id,
+            sender_name: sender.name,
+            organisation_id: sender.organisation_id,
+        }, 10, supabase)
+
+        await sendWhatsAppReply(phone,
+            '📱 *Vendor Phone Number Needed*\n\nPlease send the vendor\'s phone number.\n\nYou can type the number or share a contact.')
+        await markProcessed(supabase, messageId, 'vendor_add', 'Awaiting vendor phone via session')
+        return
+    }
+
+    // Self-add prevention
+    const senderPhone10 = normalizePhone(sender.phone_number)
+    if (vendorPhone === senderPhone10) {
+        await sendWhatsAppReply(phone,
+            '❌ *Can\'t Add Yourself*\n\nYou can\'t add yourself as a vendor.')
+        await markProcessed(supabase, messageId, 'vendor_add', 'Self-add attempt blocked')
+        return
+    }
+
+    // Check if already a vendor in the org
+    const vendorCheck = await isVendorInOrg(sender.organisation_id, vendorPhone)
+    if (vendorCheck.exists) {
+        if (vendorCheck.status === 'active') {
+            await sendWhatsAppReply(phone,
+                `ℹ️ *Already Registered*\n\n${vendorCheck.vendor?.name || vendorPhone} is already a vendor in your organisation.`)
+        } else if (vendorCheck.status === 'pending') {
+            await sendWhatsAppReply(phone,
+                `⏳ *Request Already Pending*\n\nA vendor request is already pending for ${vendorPhone}.`)
+        } else {
+            // Inactive — allow re-adding by continuing the flow
+            // (handled by the EXCLUDE constraint on vendor_onboarding for pending only)
+        }
+        if (vendorCheck.status === 'active' || vendorCheck.status === 'pending') {
+            await markProcessed(supabase, messageId, 'vendor_add', `Vendor already exists: ${vendorCheck.status}`)
+            return
+        }
+    }
+
+    // Check if this phone is an employee in the same org (warn but allow)
+    const employeeCheck = await isEmployeeInOrg(sender.organisation_id, vendorPhone)
+    if (employeeCheck.exists) {
+        await sendWhatsAppReply(phone,
+            `ℹ️ *Note:* ${employeeCheck.user?.name} (${vendorPhone}) is already an employee in your organisation.\n\nProceeding with vendor addition anyway.`)
+    }
+
+    // Create vendor (pending) + onboarding request
+    try {
+        const { onboardingId } = await createVendorAndOnboarding(
+            sender.organisation_id, vendorPhone, sender.id
+        )
+
+        // Send approval template to vendor
+        const orgName = await getOrgName(sender.organisation_id)
+        const vendorPhoneIntl = `91${vendorPhone}`
+        await sendVendorApprovalTemplate(
+            vendorPhoneIntl,
+            sender.name,
+            orgName,
+            sender.phone_number,
+            onboardingId
+        )
+
+        // Confirm to the user
+        await sendWhatsAppReply(phone,
+            `✅ *Vendor Request Sent!*\n\nA request has been sent to ${vendorPhone}.\nWaiting for their approval.`)
+        await markProcessed(supabase, messageId, 'vendor_add', null)
+    } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error'
+        await sendErrorAndMark(supabase, messageId, phone,
+            '❌ *Error*\n\nSomething went wrong while adding the vendor.\n\nPlease try again.',
+            `Vendor add failed: ${errMsg}`,
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ticket_create — Create a ticket for a vendor
+// ---------------------------------------------------------------------------
+
+async function handleTicketCreate(
+    supabase: SupabaseAdmin,
+    messageId: string,
+    phone: string,
+    sender: SenderUser,
+    analysis: AnalyzedMessage,
+): Promise<void> {
+    const { createTicket } = await import('@/lib/ticket-service')
+    const { getOrgName } = await import('@/lib/vendor-service')
+    const { sendTicketAssignmentTemplate } = await import('@/lib/whatsapp')
+
+    // ── Fetch active vendors for the org ──
+    const { data: vendors } = await supabase
+        .from('org_vendors')
+        .select('id, name, first_name, last_name, phone_number')
+        .eq('organisation_id', sender.organisation_id)
+        .eq('status', 'active')
+
+    if (!vendors || vendors.length === 0) {
+        await sendWhatsAppReply(phone,
+            "❌ *No Vendors Found*\n\nYou don't have any vendors registered in your organisation yet.\n\nSay *'add vendor'* to register a vendor first.")
+        await markProcessed(supabase, messageId, 'ticket_create', 'No active vendors in org')
+        return
+    }
+
+    // ── STEP 1: Resolve vendor (WHO) ──
+    let vendorId: string | null = null
+    let vendorName: string | null = null
+    let vendorPhone: string | null = null
+
+    if (analysis.who.name) {
+        const vendorUsers = vendors.map((v: { id: string; name: string | null; first_name?: string; last_name?: string; phone_number?: string }) => ({
+            id: v.id,
+            name: v.name || '',
+            first_name: v.first_name,
+            last_name: v.last_name,
+            phone_number: v.phone_number,
+        })) as OrgUser[]
+
+        const phoneticResults = findPhoneticMatches(analysis.who.name, vendorUsers, 0.7)
+        const matches = phoneticResults.map(r => ({
+            id: r.user.id,
+            name: r.user.name,
+            phone_number: r.user.phone_number,
+        }))
+
+        if (matches.length === 0) {
+            await createSession(phone, 'awaiting_ticket_vendor', {
+                original_intent: 'ticket_create',
+                what: analysis.what,
+                when_date: analysis.when.date,
+                sender_id: sender.id,
+                sender_name: sender.name,
+                organisation_id: sender.organisation_id,
+            }, 10, supabase)
+
+            await sendWhatsAppReply(phone,
+                `🔍 *Vendor Not Found*\n\nI couldn't find a vendor named "${analysis.who.name}" in your organisation.\n\nPlease send the vendor's name or phone number.\n\n_To add a new vendor, say 'add vendor'._`)
+            await markProcessed(supabase, messageId, 'ticket_create', `Vendor not found: ${analysis.who.name}`)
+            return
+        }
+
+        if (matches.length > 1) {
+            const nameList = matches
+                .map((v, i) => `${i + 1}. ${v.name}${v.phone_number ? ` (${v.phone_number})` : ''}`)
+                .join('\n')
+
+            await createSession(phone, 'awaiting_ticket_vendor', {
+                original_intent: 'ticket_create',
+                what: analysis.what,
+                when_date: analysis.when.date,
+                candidates: matches.map(v => ({ id: v.id, name: v.name, phone_number: v.phone_number })),
+                sender_id: sender.id,
+                sender_name: sender.name,
+                organisation_id: sender.organisation_id,
+            }, 10, supabase)
+
+            await sendWhatsAppReply(phone,
+                `👥 *Multiple Vendors Found*\n\nWhich vendor did you mean?\n\n${nameList}\n\n_Reply with the number or name._`)
+            await markProcessed(supabase, messageId, 'ticket_create', 'Awaiting vendor selection via session')
+            return
+        }
+
+        // Single match
+        vendorId = matches[0].id
+        vendorName = matches[0].name
+        vendorPhone = matches[0].phone_number || null
+    } else {
+        // No vendor name mentioned — ask for it
+        await createSession(phone, 'awaiting_ticket_vendor', {
+            original_intent: 'ticket_create',
+            what: analysis.what,
+            when_date: analysis.when.date,
+            sender_id: sender.id,
+            sender_name: sender.name,
+            organisation_id: sender.organisation_id,
+        }, 10, supabase)
+
+        await sendWhatsAppReply(phone,
+            "👤 *Which Vendor?*\n\nPlease send the vendor's name or phone number for this ticket.")
+        await markProcessed(supabase, messageId, 'ticket_create', 'Awaiting vendor name via session')
+        return
+    }
+
+    // ── STEP 2: Validate subject (WHAT) ──
+    const subject = analysis.what
+    if (!subject || subject.length < 3) {
+        await createSession(phone, 'awaiting_ticket_subject', {
+            original_intent: 'ticket_create',
+            vendor_id: vendorId,
+            when_date: analysis.when.date,
+            sender_id: sender.id,
+            sender_name: sender.name,
+            organisation_id: sender.organisation_id,
+        }, 10, supabase)
+
+        await sendWhatsAppReply(phone,
+            "📋 *Ticket Subject Needed*\n\nWhat is this ticket about?\n\n_Example: 'Invoice #1234 follow-up' or 'Shipment tracking for Order 567'_")
+        await markProcessed(supabase, messageId, 'ticket_create', 'Awaiting ticket subject via session')
+        return
+    }
+
+    // ── STEP 3: Validate deadline (WHEN) — optional, but validate if present ──
+    const deadline = analysis.when.date
+    if (deadline && isValidDate(deadline) && new Date(deadline) <= new Date()) {
+        await createSession(phone, 'awaiting_ticket_deadline', {
+            original_intent: 'ticket_create',
+            vendor_id: vendorId,
+            ticket_subject: subject,
+            sender_id: sender.id,
+            sender_name: sender.name,
+            organisation_id: sender.organisation_id,
+        }, 10, supabase)
+
+        await sendWhatsAppReply(phone,
+            "⚠️ That deadline is in the past.\n\nPlease provide a future date.\n\n_Example: 'by Friday', 'next week'_")
+        await markProcessed(supabase, messageId, 'ticket_create', 'Deadline in the past — awaiting new deadline via session')
+        return
+    }
+
+    // ── STEP 4: All params ready — create ticket ──
+    try {
+        const ticket = await createTicket({
+            orgId: sender.organisation_id,
+            vendorId: vendorId!,
+            subject,
+            deadline: deadline || undefined,
+            createdBy: sender.id,
+            source: 'whatsapp',
+        })
+
+        // Format deadline for display
+        const deadlineStr = deadline
+            ? new Date(deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+            : 'No deadline'
+
+        // Notify vendor (fire-and-forget)
+        if (vendorPhone) {
+            const orgName = await getOrgName(sender.organisation_id)
+            sendTicketAssignmentTemplate(
+                `91${vendorPhone}`,
+                orgName,
+                subject,
+                sender.name,
+                deadlineStr,
+                ticket.id,
+            ).catch(err => console.error('[ProcessMessage] Ticket vendor notification error:', err))
+        }
+
+        // Confirm to user
+        const confirmMsg = `✅ *Ticket Created!*\n\nSubject: _${subject}_\nVendor: ${vendorName || vendorPhone}\nDeadline: ${deadlineStr}\n\nWaiting for vendor to accept.`
+        await sendWhatsAppReply(phone, confirmMsg)
+        await markProcessed(supabase, messageId, 'ticket_create', null)
+    } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error'
+        await sendErrorAndMark(supabase, messageId, phone,
+            '❌ *Error*\n\nSomething went wrong while creating the ticket.\n\nPlease try again.',
+            `Ticket create failed: ${errMsg}`,
+        )
+    }
 }
 
 // ---------------------------------------------------------------------------

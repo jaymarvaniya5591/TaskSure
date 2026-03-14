@@ -51,10 +51,26 @@
       "mcp__railway__get-logs",
       "Bash(railway link:*)",
       "Bash(railway logs:*)",
-      "Bash(railway domain:*)"
+      "Bash(railway domain:*)",
+      "Bash(find 'C:\\\\Users\\\\marva\\\\Documents\\\\Boldo AI' -maxdepth 1 -type f \\\\\\(-name *.md -o -name *.json -o -name *.mjs \\\\\\))",
+      "Bash(ls -la *.md)",
+      "Bash(ls -la \"c:/Users/marva/Documents/Boldo AI/app/\\(dashboard\\)/\")",
+      "Bash(ls \"c:/Users/marva/Documents/Boldo AI/app/\\(dashboard\\)/tasks/\")",
+      "Bash(ls \"c:/Users/marva/Documents/Boldo AI/app/\\(dashboard\\)/home/\")",
+      "Bash(grep -r update_updated_at_column '/c/Users/marva/Documents/Boldo AI' --include=*.ts --include=*.tsx --include=*.sql)",
+      "Read(//c/Users/marva/.claude/projects/c--Users-marva-Documents-Boldo-AI/5f83298c-b32b-4be6-bf5e-e516dfaf039e/tool-results/**)",
+      "Bash(find '/c/Users/marva/Documents/Boldo AI' -type f -name *.sql -o -name schema.ts -o -name database.ts)",
+      "Bash(grep -r \"CREATE TABLE\\\\|ALTER TABLE\" '/c/Users/marva/Documents/Boldo AI' --include=*.sql --include=*.ts --include=*.tsx)",
+      "WebSearch",
+      "Bash(claude mcp:*)",
+      "Bash(npx supabase:*)",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__apply_migration"
     ],
     "additionalDirectories": [
-      "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\internal\\call-audio"
+      "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\internal\\call-audio",
+      "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\vendors",
+      "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\tickets"
     ]
   }
 }

@@ -35,6 +35,28 @@ export const WHATSAPP_ACTIONS = [
             'Note to self: review the presentation before Monday',
         ],
     },
+    {
+        id: 'vendor_add',
+        label: 'Add a vendor',
+        description: 'Register a new vendor (supplier, contractor) in the organisation by phone number',
+        examples: [
+            'Add vendor 9876543210',
+            'Register new supplier Ramesh, his number is 98765 43210',
+            'Add a new vendor',
+            'I want to add a vendor to my organisation',
+        ],
+    },
+    {
+        id: 'ticket_create',
+        label: 'Create a ticket for a vendor',
+        description: 'Create a tracking ticket for a vendor (shipment, payment, invoice follow-up). Vendors are external suppliers/contractors, NOT employees.',
+        examples: [
+            'Create ticket for Ramesh about invoice pending by Friday',
+            'Track shipment from Kumar Supplies, deadline next week',
+            'New ticket: payment follow-up with Sharma ji by March 20th',
+            'Create a ticket for vendor Priya about the delayed order',
+        ],
+    },
 ] as const
 
 // ---------------------------------------------------------------------------

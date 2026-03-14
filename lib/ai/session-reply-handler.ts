@@ -83,6 +83,21 @@ export async function handleSessionReply(
         case 'awaiting_edit_deadline':
             return handleAwaitingEditDeadline(supabase, session, userText, sender, messageId)
 
+        case 'awaiting_vendor_phone':
+            return handleAwaitingVendorPhone(supabase, session, userText, sender, messageId)
+
+        case 'awaiting_vendor_name':
+            return handleAwaitingVendorName(supabase, session, userText)
+
+        case 'awaiting_ticket_vendor':
+            return handleAwaitingTicketVendor(supabase, session, userText, sender, messageId)
+
+        case 'awaiting_ticket_subject':
+            return handleAwaitingTicketSubject(supabase, session, userText, sender, messageId)
+
+        case 'awaiting_ticket_deadline':
+            return handleAwaitingTicketDeadline(supabase, session, userText, sender, messageId)
+
         default:
             console.warn(`[SessionReply] Unknown session type: ${session.session_type}`)
             return { handled: false, fallThrough: true }
@@ -805,6 +820,184 @@ async function handleAwaitingRejectReason(
 }
 
 // ---------------------------------------------------------------------------
+// awaiting_vendor_phone — user was asked for the vendor's phone number
+// ---------------------------------------------------------------------------
+
+async function handleAwaitingVendorPhone(
+    supabase: SupabaseAdmin,
+    session: ConversationSession,
+    userText: string,
+    sender: SenderUser,
+    messageId: string,
+): Promise<SessionResult> {
+    const {
+        extractPhoneFromText,
+        normalizePhone,
+        isVendorInOrg,
+        isEmployeeInOrg,
+        createVendorAndOnboarding,
+        getOrgName,
+    } = await import('@/lib/vendor-service')
+    const { sendVendorApprovalTemplate } = await import('@/lib/whatsapp')
+
+    const ctx = session.context_data
+    const orgId = ctx.organisation_id || sender.organisation_id
+
+    // Try to extract phone from text
+    const vendorPhone = extractPhoneFromText(userText)
+
+    if (!vendorPhone) {
+        await sendReply(session.phone,
+            'I couldn\'t find a phone number in your message.\n\nPlease send the vendor\'s 10-digit phone number or share a contact.')
+        // Keep session alive — don't resolve
+        return { handled: true, intent: 'vendor_add' }
+    }
+
+    // Self-add prevention
+    const senderPhone10 = normalizePhone(sender.phone_number)
+    if (vendorPhone === senderPhone10) {
+        await resolveSession(session.id, supabase)
+        await sendReply(session.phone, '❌ *Can\'t Add Yourself*\n\nYou can\'t add yourself as a vendor.')
+        await markProcessed(supabase, messageId, 'vendor_add', 'Self-add attempt blocked')
+        return { handled: true, intent: 'vendor_add' }
+    }
+
+    // Check if already a vendor
+    const vendorCheck = await isVendorInOrg(orgId, vendorPhone)
+    if (vendorCheck.exists && (vendorCheck.status === 'active' || vendorCheck.status === 'pending')) {
+        await resolveSession(session.id, supabase)
+        const msg = vendorCheck.status === 'active'
+            ? `ℹ️ *Already Registered*\n\n${vendorCheck.vendor?.name || vendorPhone} is already a vendor in your organisation.`
+            : `⏳ *Request Already Pending*\n\nA vendor request is already pending for ${vendorPhone}.`
+        await sendReply(session.phone, msg)
+        await markProcessed(supabase, messageId, 'vendor_add', `Vendor already exists: ${vendorCheck.status}`)
+        return { handled: true, intent: 'vendor_add' }
+    }
+
+    // Check for employee overlap (warn but allow)
+    const employeeCheck = await isEmployeeInOrg(orgId, vendorPhone)
+    if (employeeCheck.exists) {
+        await sendReply(session.phone,
+            `ℹ️ *Note:* ${employeeCheck.user?.name} (${vendorPhone}) is already an employee.\n\nProceeding with vendor addition anyway.`)
+    }
+
+    // Create vendor + onboarding
+    try {
+        const { onboardingId } = await createVendorAndOnboarding(orgId, vendorPhone, sender.id)
+        const orgName = await getOrgName(orgId)
+        const vendorPhoneIntl = `91${vendorPhone}`
+
+        await sendVendorApprovalTemplate(
+            vendorPhoneIntl, sender.name, orgName, sender.phone_number, onboardingId
+        )
+
+        await resolveSession(session.id, supabase)
+        await sendReply(session.phone,
+            `✅ *Vendor Request Sent!*\n\nA request has been sent to ${vendorPhone}.\nWaiting for their approval.`)
+        await markProcessed(supabase, messageId, 'vendor_add', null)
+    } catch (err) {
+        await resolveSession(session.id, supabase)
+        const errMsg = err instanceof Error ? err.message : 'Unknown error'
+        console.error('[SessionReply] Vendor add failed:', errMsg)
+        await sendReply(session.phone, '❌ *Error*\n\nSomething went wrong while adding the vendor.\n\nPlease try again.')
+        await markProcessed(supabase, messageId, 'vendor_add', `Vendor add failed: ${errMsg}`)
+    }
+
+    return { handled: true, intent: 'vendor_add' }
+}
+
+// ---------------------------------------------------------------------------
+// awaiting_vendor_name — vendor accepted, bot needs their name
+// ---------------------------------------------------------------------------
+
+async function handleAwaitingVendorName(
+    supabase: SupabaseAdmin,
+    session: ConversationSession,
+    userText: string,
+): Promise<SessionResult> {
+    const {
+        completeOnboarding,
+        getOrgName,
+        getUserInfo,
+    } = await import('@/lib/vendor-service')
+    const { sendVendorAddedConfirmation } = await import('@/lib/whatsapp')
+
+    const ctx = session.context_data
+    const onboardingId = ctx.onboarding_id
+    const orgId = ctx.organisation_id
+
+    if (!onboardingId || !orgId) {
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
+    const trimmed = userText.trim()
+    const words = trimmed.split(/\s+/)
+    const retries = ctx.name_retries || 0
+
+    // Validate name format: at least 2 words, each 2+ chars
+    // After 3 retries, accept whatever they sent
+    const isValidName = words.length >= 2 && words.every(w => w.length >= 2)
+
+    if (!isValidName && retries < 3) {
+        // Re-prompt — update session with incremented retry count
+        await supabase
+            .from('conversation_sessions')
+            .update({
+                context_data: { ...ctx, name_retries: retries + 1 },
+            })
+            .eq('id', session.id)
+
+        await sendReply(session.phone,
+            'Please send your name in *FirstName LastName* format.\n\n_Example: Ramesh Kumar_')
+        return { handled: true, intent: 'vendor_name_collection' }
+    }
+
+    // Parse name
+    const firstName = words[0]
+    const lastName = words.length > 1 ? words.slice(1).join(' ') : ''
+    const fullName = trimmed
+
+    // Complete onboarding
+    try {
+        await completeOnboarding(onboardingId, fullName, firstName, lastName)
+        await resolveSession(session.id, supabase)
+
+        const orgName = await getOrgName(orgId)
+
+        // Send welcome to vendor
+        await sendReply(session.phone,
+            `✅ *Welcome, ${firstName}!*\n\nYou're now registered as a vendor with ${orgName}.\nYou'll receive ticket notifications from this organisation.`)
+
+        // Notify the original user who requested the vendor addition
+        const { data: onboarding } = await supabase
+            .from('vendor_onboarding')
+            .select('requested_by, vendor_phone')
+            .eq('id', onboardingId)
+            .single()
+
+        if (onboarding?.requested_by) {
+            const requester = await getUserInfo(onboarding.requested_by)
+            if (requester) {
+                const requesterPhoneIntl = `91${requester.phone_number}`
+                await sendVendorAddedConfirmation(requesterPhoneIntl, fullName, orgName)
+            }
+        }
+
+        // No markProcessed here — vendor doesn't have incoming_messages rows
+        // (they're not a registered user, their messages aren't stored the same way)
+    } catch (err) {
+        await resolveSession(session.id, supabase)
+        const errMsg = err instanceof Error ? err.message : 'Unknown error'
+        console.error('[SessionReply] Vendor onboarding completion failed:', errMsg)
+        await sendReply(session.phone,
+            '❌ *Something went wrong*\n\nPlease contact the organisation that invited you.')
+    }
+
+    return { handled: true, intent: 'vendor_name_collection' }
+}
+
+// ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
 
@@ -866,6 +1059,349 @@ async function createTaskWithAssignee(
     }).catch(err => console.error('[SessionReply] Notification error (task_create):', err))
 
     return { handled: true, intent: 'task_create' }
+}
+
+// ---------------------------------------------------------------------------
+// awaiting_ticket_vendor — user was asked which vendor for the ticket
+// ---------------------------------------------------------------------------
+
+async function handleAwaitingTicketVendor(
+    supabase: SupabaseAdmin,
+    session: ConversationSession,
+    userText: string,
+    sender: SenderUser,
+    messageId: string,
+): Promise<SessionResult> {
+    const ctx = session.context_data
+    const orgId = ctx.organisation_id || sender.organisation_id
+
+    // Guard: if the reply looks like a new task/command, fall through
+    const looksLikeNewIntent = await isNewTaskIntent(userText)
+    if (looksLikeNewIntent) {
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
+    // If we had candidates (disambiguation), try number selection first
+    if (ctx.candidates && ctx.candidates.length > 0) {
+        const trimmed = userText.trim()
+
+        // Try number selection (1, 2, 3...)
+        const num = parseInt(trimmed, 10)
+        if (!isNaN(num) && num >= 1 && num <= ctx.candidates.length) {
+            const selected = ctx.candidates[num - 1]
+            return proceedAfterVendorResolved(supabase, session, sender, messageId, selected.id, selected.name, selected.phone_number)
+        }
+
+        // Try name substring match from candidates
+        const lower = trimmed.toLowerCase()
+        const nameMatch = ctx.candidates.find(c =>
+            c.name.toLowerCase().includes(lower) || lower.includes(c.name.toLowerCase())
+        )
+        if (nameMatch) {
+            return proceedAfterVendorResolved(supabase, session, sender, messageId, nameMatch.id, nameMatch.name, nameMatch.phone_number)
+        }
+
+        // Try phone number match from candidates
+        const digits = trimmed.replace(/\D/g, '').slice(-10)
+        if (digits.length === 10) {
+            const phoneMatch = ctx.candidates.find(c => c.phone_number === digits)
+            if (phoneMatch) {
+                return proceedAfterVendorResolved(supabase, session, sender, messageId, phoneMatch.id, phoneMatch.name, phoneMatch.phone_number)
+            }
+        }
+
+        await sendReply(session.phone,
+            "Please reply with a number (1, 2, 3...) or the vendor's name.")
+        return { handled: true, intent: 'ticket_create' }
+    }
+
+    // No candidates — try fuzzy match against all org vendors
+    const matches = await fuzzyMatchVendor(supabase, orgId, userText.trim())
+
+    // Also try phone number match
+    if (matches.length === 0) {
+        const digits = userText.trim().replace(/\D/g, '').slice(-10)
+        if (digits.length === 10) {
+            const { data: phoneVendor } = await supabase
+                .from('org_vendors')
+                .select('id, name, phone_number')
+                .eq('organisation_id', orgId)
+                .eq('status', 'active')
+                .eq('phone_number', digits)
+                .single()
+
+            if (phoneVendor) {
+                return proceedAfterVendorResolved(supabase, session, sender, messageId,
+                    phoneVendor.id, phoneVendor.name || phoneVendor.phone_number, phoneVendor.phone_number)
+            }
+        }
+    }
+
+    if (matches.length === 0) {
+        await sendReply(session.phone,
+            "I couldn't find that vendor.\n\nPlease try again with the vendor's name or phone number.\n\n_To add a new vendor, say 'add vendor'._")
+        return { handled: true, intent: 'ticket_create' }
+    }
+
+    if (matches.length > 1) {
+        const nameList = matches
+            .map((v, i) => `${i + 1}. ${v.name}${v.phone_number ? ` (${v.phone_number})` : ''}`)
+            .join('\n')
+
+        await createSession(session.phone, 'awaiting_ticket_vendor', {
+            ...ctx,
+            candidates: matches.map(v => ({ id: v.id, name: v.name, phone_number: v.phone_number })),
+        }, 10, supabase)
+
+        await sendReply(session.phone,
+            `👥 *Multiple Vendors Found*\n\nWhich vendor did you mean?\n\n${nameList}\n\n_Reply with the number or name._`)
+        await markProcessed(supabase, messageId, 'ticket_create', 'Awaiting vendor selection')
+        return { handled: true, intent: 'ticket_create' }
+    }
+
+    // Single match
+    const vendor = matches[0]
+    return proceedAfterVendorResolved(supabase, session, sender, messageId, vendor.id, vendor.name, vendor.phone_number)
+}
+
+/**
+ * After vendor is resolved, check remaining fields (subject, deadline) and chain.
+ */
+async function proceedAfterVendorResolved(
+    supabase: SupabaseAdmin,
+    session: ConversationSession,
+    sender: SenderUser,
+    messageId: string,
+    vendorId: string,
+    vendorName: string,
+    vendorPhone?: string,
+): Promise<SessionResult> {
+    const ctx = session.context_data
+    const subject = ctx.ticket_subject || ctx.what
+    const deadline = ctx.when_date
+
+    if (!subject || subject.length < 3) {
+        await resolveSession(session.id, supabase)
+        await createSession(session.phone, 'awaiting_ticket_subject', {
+            original_intent: 'ticket_create',
+            vendor_id: vendorId,
+            vendor_name: vendorName,
+            vendor_phone: vendorPhone || null,
+            when_date: deadline,
+            sender_id: ctx.sender_id || sender.id,
+            sender_name: ctx.sender_name || sender.name,
+            organisation_id: ctx.organisation_id || sender.organisation_id,
+        }, 10, supabase)
+
+        await sendReply(session.phone,
+            "📋 *Ticket Subject Needed*\n\nWhat is this ticket about?\n\n_Example: 'Invoice #1234 follow-up' or 'Shipment tracking for Order 567'_")
+        await markProcessed(supabase, messageId, 'ticket_create', 'Awaiting ticket subject')
+        return { handled: true, intent: 'ticket_create' }
+    }
+
+    // Subject exists — check deadline (optional, so proceed without it)
+    await resolveSession(session.id, supabase)
+    return createTicketAndNotify(supabase, session.phone, sender, messageId, vendorId, vendorName, vendorPhone || null, subject, deadline || null)
+}
+
+// ---------------------------------------------------------------------------
+// awaiting_ticket_subject — user was asked for the ticket subject
+// ---------------------------------------------------------------------------
+
+async function handleAwaitingTicketSubject(
+    supabase: SupabaseAdmin,
+    session: ConversationSession,
+    userText: string,
+    sender: SenderUser,
+    messageId: string,
+): Promise<SessionResult> {
+    const ctx = session.context_data
+
+    // Guard: if the reply looks like a new task/command, fall through
+    const looksLikeNewIntent = await isNewTaskIntent(userText)
+    if (looksLikeNewIntent) {
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
+    const subject = userText.trim()
+
+    if (subject.length < 3) {
+        await sendReply(session.phone,
+            "Please provide a more descriptive subject (at least 3 characters).")
+        return { handled: true, intent: 'ticket_create' }
+    }
+
+    if (subject.length > 200) {
+        await sendReply(session.phone,
+            "Subject must be 200 characters or less. Please shorten it.")
+        return { handled: true, intent: 'ticket_create' }
+    }
+
+    const deadline = ctx.when_date
+
+    // If no deadline in context, proceed without (deadline is optional)
+    await resolveSession(session.id, supabase)
+    return createTicketAndNotify(
+        supabase, session.phone, sender, messageId,
+        ctx.vendor_id!, ctx.vendor_name || '', ctx.vendor_phone || null,
+        subject, deadline || null,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// awaiting_ticket_deadline — user was asked for the ticket deadline
+// ---------------------------------------------------------------------------
+
+async function handleAwaitingTicketDeadline(
+    supabase: SupabaseAdmin,
+    session: ConversationSession,
+    userText: string,
+    sender: SenderUser,
+    messageId: string,
+): Promise<SessionResult> {
+    const ctx = session.context_data
+
+    // Guard: if reply doesn't look like a deadline, fall through
+    const looksLikeDeadline = await isDeadlineResponse(userText)
+    if (!looksLikeDeadline) {
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
+    const deadline = await parseDateFromText(userText)
+
+    if (!deadline) {
+        await sendReply(session.phone,
+            "I couldn't understand that date.\n\nPlease try again.\n\n_Example: 'by Friday', 'March 25th', 'in 3 days'_")
+        return { handled: true, intent: 'ticket_create' }
+    }
+
+    let normalizedDeadline = deadline
+    if (!normalizedDeadline.includes('T')) {
+        normalizedDeadline = `${normalizedDeadline}T20:00:00+05:30`
+    }
+
+    // Reject past deadlines
+    if (new Date(normalizedDeadline).getTime() < Date.now()) {
+        await sendReply(session.phone,
+            "⚠️ That deadline is in the past. Please provide a future date.")
+        return { handled: true, intent: 'ticket_create' }
+    }
+
+    await resolveSession(session.id, supabase)
+    return createTicketAndNotify(
+        supabase, session.phone, sender, messageId,
+        ctx.vendor_id!, ctx.vendor_name || '', ctx.vendor_phone || null,
+        ctx.ticket_subject!, normalizedDeadline,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Shared: create ticket and notify vendor
+// ---------------------------------------------------------------------------
+
+async function createTicketAndNotify(
+    supabase: SupabaseAdmin,
+    phone: string,
+    sender: SenderUser,
+    messageId: string,
+    vendorId: string,
+    vendorName: string,
+    vendorPhone: string | null,
+    subject: string,
+    deadline: string | null,
+): Promise<SessionResult> {
+    const { createTicket } = await import('@/lib/ticket-service')
+    const { getOrgName } = await import('@/lib/vendor-service')
+    const { sendTicketAssignmentTemplate } = await import('@/lib/whatsapp')
+
+    try {
+        const orgId = sender.organisation_id
+        const ticket = await createTicket({
+            orgId,
+            vendorId,
+            subject,
+            deadline: deadline || undefined,
+            createdBy: sender.id,
+            source: 'whatsapp',
+        })
+
+        const deadlineStr = deadline
+            ? new Date(deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+            : 'No deadline'
+
+        // Notify vendor (fire-and-forget)
+        if (vendorPhone) {
+            const orgName = await getOrgName(orgId)
+            sendTicketAssignmentTemplate(
+                `91${vendorPhone}`,
+                orgName,
+                subject,
+                sender.name,
+                deadlineStr,
+                ticket.id,
+            ).catch(err => console.error('[SessionReply] Ticket vendor notification error:', err))
+        }
+
+        // Confirm to user
+        await sendReply(phone,
+            `✅ *Ticket Created!*\n\nSubject: _${subject}_\nVendor: ${vendorName || vendorPhone}\nDeadline: ${deadlineStr}\n\nWaiting for vendor to accept.`)
+
+        await markProcessed(supabase, messageId, 'ticket_create', null)
+        return { handled: true, intent: 'ticket_create' }
+    } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error'
+        console.error('[SessionReply] Ticket create failed:', errMsg)
+        await sendReply(phone, '❌ *Error*\n\nSomething went wrong while creating the ticket.\n\nPlease try again.')
+        await markProcessed(supabase, messageId, 'ticket_create', `Ticket create failed: ${errMsg}`)
+        return { handled: true, intent: 'ticket_create' }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Vendor fuzzy match helper (for ticket creation)
+// ---------------------------------------------------------------------------
+
+async function fuzzyMatchVendor(
+    supabase: SupabaseAdmin,
+    orgId: string,
+    name: string,
+): Promise<{ id: string; name: string; phone_number?: string }[]> {
+    const { data: vendors } = await supabase
+        .from('org_vendors')
+        .select('id, name, first_name, last_name, phone_number')
+        .eq('organisation_id', orgId)
+        .eq('status', 'active')
+
+    if (!vendors || vendors.length === 0) return []
+
+    const vendorUsers = vendors.map((v: { id: string; name: string | null; first_name?: string; last_name?: string; phone_number?: string }) => ({
+        id: v.id,
+        name: v.name || '',
+        first_name: v.first_name,
+        last_name: v.last_name,
+        phone_number: v.phone_number,
+    })) as OrgUser[]
+
+    const results = findPhoneticMatches(name, vendorUsers, 0.7)
+    if (results.length === 0) return []
+
+    const exactMatches = results.filter(r => r.score >= 1.0)
+    if (exactMatches.length > 0) {
+        return exactMatches.map(r => ({
+            id: r.user.id,
+            name: r.user.name,
+            phone_number: r.user.phone_number,
+        }))
+    }
+
+    return results.map(r => ({
+        id: r.user.id,
+        name: r.user.name,
+        phone_number: r.user.phone_number,
+    }))
 }
 
 async function sendReply(phone: string, message: string): Promise<void> {

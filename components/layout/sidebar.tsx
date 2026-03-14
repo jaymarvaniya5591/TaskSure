@@ -17,6 +17,8 @@ import { debugLog } from "@/lib/debug-logger";
 import {
     Home,
     ListChecks,
+    Ticket,
+    Users,
     X,
     LogOut
 } from "lucide-react";
@@ -153,6 +155,44 @@ export function Sidebar() {
                             <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
                                 <ListChecks className={cn("w-4 h-4", pathname.startsWith("/tasks") ? "text-white" : "text-gray-400 group-hover:text-gray-600")} />
                                 All Tasks
+                            </span>
+                        </Link>
+                    </div>
+
+                    {/* ── SECTION 2: TICKETS ── */}
+                    <div className="mb-1">
+                        <Link
+                            href="/tickets"
+                            onClick={() => setIsMobileOpen(false)}
+                            className={cn(
+                                pathname.startsWith("/tickets")
+                                    ? "bg-gray-900 text-white"
+                                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                                "group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200"
+                            )}
+                        >
+                            <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                                <Ticket className={cn("w-4 h-4", pathname.startsWith("/tickets") ? "text-white" : "text-gray-400 group-hover:text-gray-600")} />
+                                Tickets
+                            </span>
+                        </Link>
+                    </div>
+
+                    {/* ── SECTION 3: VENDORS ── */}
+                    <div className="mb-4">
+                        <Link
+                            href="/vendors"
+                            onClick={() => setIsMobileOpen(false)}
+                            className={cn(
+                                pathname.startsWith("/vendors")
+                                    ? "bg-gray-900 text-white"
+                                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                                "group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200"
+                            )}
+                        >
+                            <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                                <Users className={cn("w-4 h-4", pathname.startsWith("/vendors") ? "text-white" : "text-gray-400 group-hover:text-gray-600")} />
+                                Vendors
                             </span>
                         </Link>
                     </div>

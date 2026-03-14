@@ -7,11 +7,23 @@ import {
     sendSignupLinkTemplate,
     sendSigninLinkTemplate,
     sendTaskManagerFlowTemplate,
+    sendVendorAddedConfirmation,
+    sendVendorRejectedNotification,
 } from '@/lib/whatsapp'
 import { generateAuthToken } from '@/lib/auth-links'
 import { normalizePhone } from '@/lib/phone'
 import { processMessageInline } from '@/app/api/internal/process-message/route'
-import { createSession } from '@/lib/ai/conversation-context'
+import { createSession, getActiveSession } from '@/lib/ai/conversation-context'
+import { handleSessionReply } from '@/lib/ai/session-reply-handler'
+import {
+    getPendingOnboarding,
+    completeOnboarding,
+    rejectOnboarding,
+    getUserByPhone,
+    getOrgName,
+    getUserInfo,
+    extractPhoneFromContact,
+} from '@/lib/vendor-service'
 
 // Co-locate this function with Supabase (ap-southeast-1 / Singapore)
 export const preferredRegion = 'sin1'
@@ -148,6 +160,71 @@ setInterval(() => {
 }, 5 * 60_000)
 
 // ---------------------------------------------------------------------------
+// In-memory known-vendors cache (10-minute TTL)
+// Mirrors the user cache pattern. One phone can be vendor in multiple orgs.
+// ---------------------------------------------------------------------------
+interface CachedVendor {
+    id: string
+    name: string | null
+    phone_number: string
+    organisation_id: string
+    organisation_name: string
+    status: string
+}
+
+const knownVendorsCache = new Map<string, { vendors: CachedVendor[]; cachedAt: number }>()
+
+async function getCachedVendor(
+    phone10: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    forceDbCheck: boolean = false
+): Promise<CachedVendor[] | null> {
+    const now = Date.now()
+    const cached = knownVendorsCache.get(phone10)
+
+    if (!forceDbCheck && cached !== undefined) {
+        if (now - cached.cachedAt < KNOWN_USERS_TTL_MS) return cached.vendors
+        knownVendorsCache.delete(phone10)
+    }
+
+    const { data } = await supabase
+        .from('org_vendors')
+        .select('id, name, phone_number, organisation_id, status, organisations(name)')
+        .eq('phone_number', phone10)
+        .eq('status', 'active')
+
+    if (!data || data.length === 0) return null // Don't cache negatives
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vendors: CachedVendor[] = data.map((v: any) => ({
+        id: v.id,
+        name: v.name,
+        phone_number: v.phone_number,
+        organisation_id: v.organisation_id,
+        organisation_name: v.organisations?.name || 'Unknown',
+        status: v.status,
+    }))
+
+    knownVendorsCache.set(phone10, { vendors, cachedAt: now })
+    return vendors
+}
+
+function isVendorSessionType(type: string): boolean {
+    return type === 'awaiting_vendor_name' || type === 'awaiting_vendor_phone'
+}
+
+// Periodically clean up expired vendor cache entries (every 5 min)
+setInterval(() => {
+    const now = Date.now()
+    for (const [phone, entry] of Array.from(knownVendorsCache.entries())) {
+        if (now - entry.cachedAt >= KNOWN_USERS_TTL_MS) {
+            knownVendorsCache.delete(phone)
+        }
+    }
+}, 5 * 60_000)
+
+// ---------------------------------------------------------------------------
 // GET — Meta webhook verification
 // ---------------------------------------------------------------------------
 export async function GET(request: NextRequest) {
@@ -225,6 +302,10 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                     text?: { body: string }
                     button?: { text: string; payload: string }
                     audio?: { id: string; mime_type: string }
+                    contacts?: Array<{
+                        name?: { formatted_name?: string; first_name?: string; last_name?: string }
+                        phones?: Array<{ phone?: string; type?: string }>
+                    }>
                 }>
                 statuses?: unknown[]
             }
@@ -747,6 +828,204 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         continue
                     }
 
+                    // Vendor payload: vendor taps "Approve" on vendor request
+                    if (buttonPayload.startsWith('approve_vendor_request::')) {
+                        const onboardingId = buttonPayload.replace('approve_vendor_request::', '')
+                        console.log(`[Webhook] Quick Reply: approve_vendor_request ${onboardingId} from ${senderPhone10}`)
+
+                        try {
+                            const onboarding = await getPendingOnboarding(onboardingId)
+                            if (!onboarding) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'This request has already been processed.')
+                                continue
+                            }
+
+                            // Check if vendor phone exists in users table (any org)
+                            const existingUser = await getUserByPhone(senderPhone10)
+
+                            if (existingUser) {
+                                // Auto-complete with existing user's name
+                                const nameParts = existingUser.name.split(' ')
+                                const firstName = nameParts[0]
+                                const lastName = nameParts.slice(1).join(' ') || ''
+
+                                await completeOnboarding(onboardingId, existingUser.name, firstName, lastName, existingUser.id)
+
+                                const orgName = await getOrgName(onboarding.organisation_id)
+                                await sendWhatsAppMessage(rawSenderPhone,
+                                    `✅ *Welcome!*\n\nYou're now registered as a vendor with ${orgName}.\nYou'll receive ticket notifications from this organisation.`)
+
+                                // Notify the requester
+                                const requester = await getUserInfo(onboarding.requested_by as string)
+                                if (requester) {
+                                    const requesterPhoneIntl = `91${requester.phone_number}`
+                                    await sendVendorAddedConfirmation(requesterPhoneIntl, existingUser.name, orgName)
+                                }
+                            } else {
+                                // No user account — need to collect name
+                                await createSession(senderPhone10, 'awaiting_vendor_name', {
+                                    onboarding_id: onboardingId,
+                                    organisation_id: onboarding.organisation_id,
+                                    vendor_phone: senderPhone10,
+                                }, 10, supabase)
+
+                                await sendWhatsAppMessage(rawSenderPhone,
+                                    '👋 *Almost there!*\n\nSince you\'re new to Boldo AI, please send your name in this format:\n\n*FirstName LastName*\n\n_Example: Ramesh Kumar_')
+                            }
+                        } catch (err) {
+                            console.error('[Webhook] Error in approve_vendor_request:', err)
+                            await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
+                        }
+
+                        continue
+                    }
+
+                    // Vendor payload: vendor taps "Reject" on vendor request
+                    if (buttonPayload.startsWith('reject_vendor_request::')) {
+                        const onboardingId = buttonPayload.replace('reject_vendor_request::', '')
+                        console.log(`[Webhook] Quick Reply: reject_vendor_request ${onboardingId} from ${senderPhone10}`)
+
+                        try {
+                            const onboarding = await getPendingOnboarding(onboardingId)
+                            if (!onboarding) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'This request has already been processed.')
+                                continue
+                            }
+
+                            await rejectOnboarding(onboardingId)
+
+                            const orgName = await getOrgName(onboarding.organisation_id)
+                            await sendWhatsAppMessage(rawSenderPhone, 'Got it. You\'ve declined the vendor request.')
+
+                            // Notify the requester
+                            const requester = await getUserInfo(onboarding.requested_by as string)
+                            if (requester) {
+                                const requesterPhoneIntl = `91${requester.phone_number}`
+                                await sendVendorRejectedNotification(requesterPhoneIntl, senderPhone10, orgName)
+                            }
+                        } catch (err) {
+                            console.error('[Webhook] Error in reject_vendor_request:', err)
+                            await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
+                        }
+
+                        continue
+                    }
+
+                    // Ticket payload: vendor taps "Accept" on ticket assignment
+                    if (buttonPayload.startsWith('ticket_accept_prompt::')) {
+                        const ticketId = buttonPayload.replace('ticket_accept_prompt::', '')
+                        console.log(`[Webhook] Quick Reply: ticket_accept_prompt ${ticketId} from ${senderPhone10}`)
+
+                        try {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: ticket } = await (supabase as any)
+                                .from('tickets')
+                                .select('id, subject, status, created_by, vendor_id, organisation_id')
+                                .eq('id', ticketId)
+                                .single()
+
+                            if (!ticket) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'This ticket could not be found.')
+                                continue
+                            }
+
+                            if (ticket.status !== 'pending') {
+                                await sendWhatsAppMessage(rawSenderPhone, 'This ticket has already been processed.')
+                                continue
+                            }
+
+                            // Update ticket status to accepted
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            await (supabase as any)
+                                .from('tickets')
+                                .update({ status: 'accepted' })
+                                .eq('id', ticketId)
+
+                            // Confirm to vendor
+                            await sendWhatsAppMessage(rawSenderPhone,
+                                `✅ You've accepted the ticket:\n\nSubject: _${ticket.subject}_\n\nThe ticket creator has been notified.`)
+
+                            // Notify ticket creator
+                            const creatorInfo = await getUserInfo(ticket.created_by)
+                            if (creatorInfo) {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const { data: vendor } = await (supabase as any)
+                                    .from('org_vendors')
+                                    .select('name, phone_number')
+                                    .eq('id', ticket.vendor_id)
+                                    .single()
+
+                                const vName = vendor?.name || vendor?.phone_number || 'Vendor'
+                                const { sendTicketAcceptedNotification } = await import('@/lib/whatsapp')
+                                await sendTicketAcceptedNotification(
+                                    `91${creatorInfo.phone_number}`, vName, ticket.subject
+                                )
+                            }
+                        } catch (err) {
+                            console.error('[Webhook] Error in ticket_accept_prompt:', err)
+                            await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
+                        }
+
+                        continue
+                    }
+
+                    // Ticket payload: vendor taps "Decline" on ticket assignment
+                    if (buttonPayload.startsWith('ticket_reject_prompt::')) {
+                        const ticketId = buttonPayload.replace('ticket_reject_prompt::', '')
+                        console.log(`[Webhook] Quick Reply: ticket_reject_prompt ${ticketId} from ${senderPhone10}`)
+
+                        try {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: ticket } = await (supabase as any)
+                                .from('tickets')
+                                .select('id, subject, status, created_by, vendor_id')
+                                .eq('id', ticketId)
+                                .single()
+
+                            if (!ticket) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'This ticket could not be found.')
+                                continue
+                            }
+
+                            if (ticket.status !== 'pending') {
+                                await sendWhatsAppMessage(rawSenderPhone, 'This ticket has already been processed.')
+                                continue
+                            }
+
+                            // Update ticket status to rejected
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            await (supabase as any)
+                                .from('tickets')
+                                .update({ status: 'rejected' })
+                                .eq('id', ticketId)
+
+                            // Confirm to vendor
+                            await sendWhatsAppMessage(rawSenderPhone, "Got it. You've declined the ticket.")
+
+                            // Notify ticket creator
+                            const creatorInfo = await getUserInfo(ticket.created_by)
+                            if (creatorInfo) {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const { data: vendor } = await (supabase as any)
+                                    .from('org_vendors')
+                                    .select('name, phone_number')
+                                    .eq('id', ticket.vendor_id)
+                                    .single()
+
+                                const vName = vendor?.name || vendor?.phone_number || 'Vendor'
+                                const { sendTicketRejectedNotification } = await import('@/lib/whatsapp')
+                                await sendTicketRejectedNotification(
+                                    `91${creatorInfo.phone_number}`, vName, ticket.subject
+                                )
+                            }
+                        } catch (err) {
+                            console.error('[Webhook] Error in ticket_reject_prompt:', err)
+                            await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
+                        }
+
+                        continue
+                    }
+
                     console.log(`[Webhook] Unknown button payload: ${buttonPayload}`)
                     continue
                 }
@@ -836,6 +1115,63 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         .catch((logErr: unknown) => console.error('[Webhook] Error logging:', logErr))
                     console.log(`[Webhook] List total time: ${Date.now() - t0}ms`)
                     continue
+                }
+
+                // --- CONTACTS MESSAGE TYPE: handle shared contacts ---
+                if (messageType === 'contacts' && message.contacts?.length) {
+                    const vendorSession = await getActiveSession(senderPhone10, supabase)
+                    if (vendorSession?.session_type === 'awaiting_vendor_phone') {
+                        const { phone: contactPhone } = extractPhoneFromContact(message.contacts)
+                        if (contactPhone) {
+                            // Inject the phone into session reply as text
+                            const sender = registeredUser ? {
+                                id: registeredUser.id,
+                                name: registeredUser.name,
+                                phone_number: senderPhone10,
+                                organisation_id: registeredUser.organisation_id || '',
+                            } : null
+
+                            if (sender) {
+                                await handleSessionReply(supabase, vendorSession, contactPhone, sender, messageId || '')
+                            }
+                        } else {
+                            await sendWhatsAppMessage(rawSenderPhone,
+                                'I couldn\'t find a valid phone number in that contact.\n\nPlease share a contact with a 10-digit Indian mobile number.')
+                        }
+                        continue
+                    }
+                    // If no relevant session, fall through to normal processing
+                }
+
+                // --- VENDOR ROUTING LAYER: before signup redirect ---
+                // Check for active vendor session (name collection etc.)
+                if (!registeredUser) {
+                    const vendorSession = await getActiveSession(senderPhone10, supabase)
+                    if (vendorSession && isVendorSessionType(vendorSession.session_type)) {
+                        console.log(`[Webhook] Vendor session found: ${vendorSession.session_type} for ${senderPhone10}`)
+                        // Construct a minimal sender for vendor session handling
+                        const vendorSender = {
+                            id: '',
+                            name: '',
+                            phone_number: senderPhone10,
+                            organisation_id: vendorSession.context_data.organisation_id || '',
+                        }
+                        await handleSessionReply(supabase, vendorSession, textBody, vendorSender, messageId || '')
+                        continue
+                    }
+
+                    // Check if this phone is a known vendor (but not a user)
+                    const vendorRecords = await getCachedVendor(senderPhone10, supabase)
+                    if (vendorRecords && vendorRecords.length > 0) {
+                        console.log(`[Webhook] Known vendor (not user): ${senderPhone10}`)
+                        // Allow signin/login keywords to pass through
+                        if (!isSignin) {
+                            const orgNames = vendorRecords.map(v => v.organisation_name).join(', ')
+                            await sendWhatsAppMessage(rawSenderPhone,
+                                `You're registered as a vendor with ${orgNames}.\n\nIf you need assistance, please contact your organisation directly.\n\n_Want to create your own Boldo AI account? Type "signup" to get started._`)
+                            continue
+                        }
+                    }
                 }
 
                 // --- STEP B: UNREGISTERED USER → send signup link ---

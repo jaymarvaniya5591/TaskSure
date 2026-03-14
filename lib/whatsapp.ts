@@ -496,6 +496,156 @@ export async function sendTodoOverdueTemplate(
 }
 
 // ---------------------------------------------------------------------------
+// Vendor management template wrappers
+// ---------------------------------------------------------------------------
+
+/**
+ * Vendor approval request — sent to vendor's phone when a user wants to add them.
+ * Template: vendor_approval_request
+ * Body {{1}} = requester name, {{2}} = org name, {{3}} = requester phone
+ * Quick Reply button 0 = "Approve" → approve_vendor_request::{onboardingId}
+ * Quick Reply button 1 = "Reject" → reject_vendor_request::{onboardingId}
+ */
+export async function sendVendorApprovalTemplate(
+    to: string,
+    requesterName: string,
+    orgName: string,
+    requesterPhone: string,
+    onboardingId: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppTemplate(to, 'vendor_approval_request', 'en', [
+        {
+            type: 'body',
+            parameters: [
+                { type: 'text', text: requesterName },
+                { type: 'text', text: orgName },
+                { type: 'text', text: requesterPhone },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '0',
+            parameters: [
+                { type: 'payload', payload: `approve_vendor_request::${onboardingId}` },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '1',
+            parameters: [
+                { type: 'payload', payload: `reject_vendor_request::${onboardingId}` },
+            ],
+        },
+    ])
+}
+
+/**
+ * Vendor added confirmation — sent to the original user after vendor approves.
+ */
+export async function sendVendorAddedConfirmation(
+    to: string,
+    vendorName: string,
+    orgName: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppMessage(
+        to,
+        `${vendorName} has accepted your vendor request and is now registered as a vendor in ${orgName}.`
+    )
+}
+
+/**
+ * Vendor rejected notification — sent to the original user after vendor rejects.
+ */
+export async function sendVendorRejectedNotification(
+    to: string,
+    vendorPhone: string,
+    orgName: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppMessage(
+        to,
+        `The vendor (${vendorPhone}) has declined your request to join ${orgName} as a vendor.`
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Ticket templates
+// ---------------------------------------------------------------------------
+
+/**
+ * Ticket assignment — sent to vendor's phone when a ticket is created for them.
+ * Template: ticket_assignment
+ * Body {{1}} = org name, {{2}} = subject, {{3}} = creator name, {{4}} = deadline
+ * Quick Reply button 0 = "Accept" → ticket_accept_prompt::{ticketId}
+ * Quick Reply button 1 = "Decline" → ticket_reject_prompt::{ticketId}
+ */
+export async function sendTicketAssignmentTemplate(
+    to: string,
+    orgName: string,
+    subject: string,
+    creatorName: string,
+    deadline: string,
+    ticketId: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppTemplate(to, 'ticket_assignment', 'en', [
+        {
+            type: 'body',
+            parameters: [
+                { type: 'text', text: orgName },
+                { type: 'text', text: subject },
+                { type: 'text', text: creatorName },
+                { type: 'text', text: deadline },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '0',
+            parameters: [
+                { type: 'payload', payload: `ticket_accept_prompt::${ticketId}` },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '1',
+            parameters: [
+                { type: 'payload', payload: `ticket_reject_prompt::${ticketId}` },
+            ],
+        },
+    ])
+}
+
+/**
+ * Ticket accepted notification — sent to the ticket creator when vendor accepts.
+ */
+export async function sendTicketAcceptedNotification(
+    to: string,
+    vendorName: string,
+    subject: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppMessage(
+        to,
+        `✅ *Ticket Accepted!*\n\n${vendorName} has accepted your ticket:\n\nSubject: _${subject}_\n\nThe ticket is now active.`
+    )
+}
+
+/**
+ * Ticket rejected notification — sent to the ticket creator when vendor rejects.
+ */
+export async function sendTicketRejectedNotification(
+    to: string,
+    vendorName: string,
+    subject: string
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppMessage(
+        to,
+        `❌ *Ticket Declined*\n\n${vendorName} has declined your ticket:\n\nSubject: _${subject}_`
+    )
+}
+
+// ---------------------------------------------------------------------------
 // Media download (for voice notes, images, etc.)
 // ---------------------------------------------------------------------------
 

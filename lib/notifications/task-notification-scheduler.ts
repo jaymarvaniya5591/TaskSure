@@ -20,11 +20,14 @@ type SupabaseAdmin = any
 // ---------------------------------------------------------------------------
 
 interface NotificationRow {
-    task_id: string
+    task_id?: string
+    ticket_id?: string
     stage: 'acceptance' | 'reminder' | 'escalation' | 'deadline_approaching'
+        | 'ticket_acceptance' | 'ticket_reminder' | 'ticket_deadline_approaching'
+        | 'ticket_deadline_crossed' | 'ticket_owner_update'
     stage_number: number
     target_user_id: string
-    target_role: 'assignee' | 'owner'
+    target_role: 'assignee' | 'owner' | 'vendor'
     channel: 'whatsapp' | 'call' | 'both'
     scheduled_at: string
     status: 'pending'
@@ -32,12 +35,35 @@ interface NotificationRow {
     dedup_key?: string
 }
 
+/**
+ * Metadata shape for ticket notification rows.
+ * Stored as JSONB in the metadata column.
+ */
+export interface TicketNotificationMetadata {
+    ticket_subject: string
+    vendor_id: string
+    vendor_name: string | null
+    vendor_phone: string
+    owner_id: string
+    owner_name: string
+    org_name: string
+    deadline: string                        // ISO 8601
+    attempt_number?: number
+    max_attempts?: number
+    daily_attempts_today?: number
+    call_recording_url?: string
+    vendor_response_transcript?: string
+    vendor_response_classification?: string
+    vendor_response_reason?: string
+    new_deadline?: string
+}
+
 // ---------------------------------------------------------------------------
 // Dedup Helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Build a deduplication key for a notification row.
+ * Build a deduplication key for a task notification row.
  * Format: {task_id}:{stage}:{stage_number}:{target_role}:{channel}[:suffix]
  *
  * The partial unique index on dedup_key (WHERE status NOT IN ('cancelled','failed'))
@@ -53,6 +79,24 @@ function buildDedupKey(
     suffix?: string,
 ): string {
     const base = `${taskId}:${stage}:${stageNumber}:${targetRole}:${channel}`
+    return suffix ? `${base}:${suffix}` : base
+}
+
+/**
+ * Build a deduplication key for a ticket notification row.
+ * Format: ticket:{ticket_id}:{stage}:{stage_number}:{target}:{channel}[:suffix]
+ *
+ * Prefixed with "ticket:" to avoid collisions with task dedup keys.
+ */
+export function buildTicketDedupKey(
+    ticketId: string,
+    stage: string,
+    stageNumber: number,
+    targetRole: string,
+    channel: string,
+    suffix?: string,
+): string {
+    const base = `ticket:${ticketId}:${stage}:${stageNumber}:${targetRole}:${channel}`
     return suffix ? `${base}:${suffix}` : base
 }
 
@@ -475,6 +519,40 @@ export async function cancelPendingNotifications(
         }
     } catch (err) {
         console.error('[Scheduler] Error cancelling notifications:', err instanceof Error ? err.message : err)
+    }
+}
+
+/**
+ * Cancel all pending notifications for a ticket.
+ * Optionally filter by stage (e.g., cancel only 'ticket_acceptance' followups).
+ */
+export async function cancelTicketNotifications(
+    ticketId: string,
+    stage?: string,
+    supabase?: SupabaseAdmin,
+): Promise<void> {
+    const sb = supabase || createAdminClient()
+
+    try {
+        let query = sb
+            .from('task_notifications')
+            .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .eq('ticket_id', ticketId)
+            .in('status', ['pending', 'processing'])
+
+        if (stage) {
+            query = query.eq('stage', stage)
+        }
+
+        const { error, count } = await query
+
+        if (error) {
+            console.error('[Scheduler] Failed to cancel ticket notifications:', error.message)
+        } else {
+            console.log(`[Scheduler] Cancelled ${count ?? '?'} pending/processing ticket notification(s) for ticket ${ticketId}${stage ? ` (stage: ${stage})` : ''}`)
+        }
+    } catch (err) {
+        console.error('[Scheduler] Error cancelling ticket notifications:', err instanceof Error ? err.message : err)
     }
 }
 

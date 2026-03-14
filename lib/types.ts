@@ -55,3 +55,50 @@ export interface Todo {
     created_at: string;
     updated_at?: string;
 }
+
+// ── Vendor Management Types ──
+
+export type VendorStatus = 'pending' | 'active' | 'inactive';
+export type TicketStatus = 'pending' | 'accepted' | 'completed' | 'rejected' | 'cancelled' | 'overdue';
+
+export interface Vendor {
+    id: string;
+    organisation_id: string;
+    phone_number: string;
+    name: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    status: VendorStatus;
+    added_by: TaskUser | string;
+    user_id: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface VendorOnboarding {
+    id: string;
+    organisation_id: string;
+    vendor_phone: string;
+    requested_by: TaskUser | string;
+    status: 'pending' | 'approved' | 'rejected';
+    vendor_name: string | null;
+    org_vendor_id: string | null;
+    created_at: string;
+    resolved_at: string | null;
+}
+
+export interface Ticket {
+    id: string;
+    organisation_id: string;
+    vendor_id: string;
+    vendor?: Vendor;
+    subject: string;
+    description: string | null;
+    deadline: string | null;
+    committed_deadline: string | null;
+    status: TicketStatus;
+    created_by: TaskUser | string;
+    source: 'whatsapp' | 'dashboard';
+    created_at: string;
+    updated_at: string;
+}

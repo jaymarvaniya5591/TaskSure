@@ -32,6 +32,12 @@ export type SessionType =
     | 'awaiting_accept_deadline'
     | 'awaiting_reject_reason'
     | 'awaiting_edit_deadline'
+    | 'awaiting_vendor_phone'
+    | 'awaiting_vendor_name'
+    | 'awaiting_ticket_vendor'
+    | 'awaiting_ticket_subject'
+    | 'awaiting_ticket_deadline'
+    | 'awaiting_ticket_new_deadline'
 
 export interface ConversationSession {
     id: string
@@ -67,6 +73,15 @@ export interface SessionContextData {
     sender_id?: string | null
     sender_name?: string | null
     organisation_id?: string | null
+    /** Vendor onboarding fields */
+    vendor_phone?: string | null
+    vendor_name?: string | null
+    onboarding_id?: string | null
+    /** Name collection retry count */
+    name_retries?: number
+    /** Ticket creation fields */
+    vendor_id?: string | null
+    ticket_subject?: string | null
 }
 
 const DEFAULT_TTL_MINUTES = 10
@@ -206,6 +221,21 @@ export function buildIntentChangeAcknowledgment(session: ConversationSession): s
 
         case 'awaiting_edit_deadline':
             return '↩️ *Deadline NOT Changed*\n\nI was waiting for a new deadline date.\n\n⚠️ The deadline has *not* been updated.\n\nYou can edit it by tapping "Edit Deadline" again.\n\n_Processing your new message now..._'
+
+        case 'awaiting_vendor_phone':
+            return '↩️ *Vendor Addition Cancelled*\n\nI was waiting for a vendor\'s phone number.\n\nSince you sent a new message, I\'ll process that instead.\n\n_You can add a vendor again anytime._'
+
+        case 'awaiting_vendor_name':
+            return '↩️ *Name Collection Cancelled*\n\nI was waiting for your name to complete vendor registration.\n\n_Processing your new message now..._'
+
+        case 'awaiting_ticket_vendor':
+            return `↩️ *Ticket Creation Cancelled*\n\nI was waiting for a vendor name for your ticket.\n\nSince you sent a new message, I'll process that instead.\n\n_You can create a ticket again anytime._`
+
+        case 'awaiting_ticket_subject':
+            return '↩️ *Ticket Creation Cancelled*\n\nI was waiting for a ticket subject.\n\nSince you sent a new message, I\'ll process that instead.\n\n_You can create a ticket again anytime._'
+
+        case 'awaiting_ticket_deadline':
+            return `↩️ *Ticket Creation Cancelled*\n\nI was waiting for a deadline for your ticket.\n\nSince you sent a new message, I'll process that instead.\n\n_You can create a ticket again anytime._`
 
         default:
             return '↩️ *Flow Interrupted*\n\nI was in the middle of something.\nI\'ll process your new message instead.'
