@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export const preferredRegion = 'sin1'
-
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveCurrentUser } from '@/lib/user'
