@@ -60,14 +60,7 @@ function addDays(date: Date, days: number): Date {
 export function adjustToBusinessHours(date: Date): Date {
     let adjusted = new Date(date.getTime())
 
-    // Step 1: Handle Sunday → move to Monday
-    const dayOfWeek = getISTDayOfWeek(adjusted)
-    if (dayOfWeek === 0) {
-        adjusted = setISTHour(addDays(adjusted, 1), BIZ_START_HOUR)
-        return adjusted
-    }
-
-    // Step 2: Handle time-of-day
+    // Step 1: Handle time-of-day
     const istHour = getISTHours(adjusted)
 
     if (istHour < BIZ_START_HOUR) {
@@ -76,11 +69,6 @@ export function adjustToBusinessHours(date: Date): Date {
     } else if (istHour >= BIZ_END_HOUR) {
         // After business hours → shift to 9 AM next day
         adjusted = setISTHour(addDays(adjusted, 1), BIZ_START_HOUR)
-
-        // If next day is Sunday, skip to Monday
-        if (getISTDayOfWeek(adjusted) === 0) {
-            adjusted = setISTHour(addDays(adjusted, 1), BIZ_START_HOUR)
-        }
     }
 
     return adjusted
@@ -90,8 +78,6 @@ export function adjustToBusinessHours(date: Date): Date {
  * Check if a given datetime is within business hours.
  */
 export function isWithinBusinessHours(date: Date): boolean {
-    const dayOfWeek = getISTDayOfWeek(date)
-    if (dayOfWeek === 0) return false // Sunday
 
     const istHour = getISTHours(date)
     return istHour >= BIZ_START_HOUR && istHour < BIZ_END_HOUR

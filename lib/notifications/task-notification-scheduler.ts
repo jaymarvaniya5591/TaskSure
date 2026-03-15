@@ -244,11 +244,7 @@ function computeReminderDays(createdAt: Date, deadline: Date): Date[] {
     const deadlineDayStart = new Date(Date.UTC(deadlineIST.year, deadlineIST.month, deadlineIST.day) - (5.5 * 60 * 60 * 1000))
 
     while (currentDay.getTime() < deadlineDayStart.getTime()) {
-        // Skip Sundays — mid-task reminders should not be sent on Sundays
-        const istDow = new Date(currentDay.getTime() + 5.5 * 60 * 60 * 1000).getUTCDay()
-        if (istDow !== 0) {
-            eligibleDays.push(new Date(currentDay.getTime()))
-        }
+        eligibleDays.push(new Date(currentDay.getTime()))
         currentDay = new Date(currentDay.getTime() + oneDayMs)
     }
 

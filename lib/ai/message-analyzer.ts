@@ -85,6 +85,8 @@ export async function analyzeMessage(
 const VALID_INTENTS: Set<string> = new Set([
     'task_create',
     'todo_create',
+    'vendor_add',
+    'ticket_create',
     'send_dashboard_link',
     'unknown',
 ])
