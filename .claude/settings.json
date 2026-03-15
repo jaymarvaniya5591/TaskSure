@@ -65,7 +65,11 @@
       "Bash(claude mcp:*)",
       "Bash(npx supabase:*)",
       "mcp__supabase__list_projects",
-      "mcp__supabase__apply_migration"
+      "mcp__supabase__apply_migration",
+      "mcp__railway__list-deployments",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__get_logs",
+      "mcp__supabase__get_project"
     ],
     "additionalDirectories": [
       "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\internal\\call-audio",

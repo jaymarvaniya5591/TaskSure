@@ -8,6 +8,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveCurrentUser } from '@/lib/user'
 import { isRateLimited } from '@/lib/rate-limit'
 import { getTicketsByOrg, createTicket } from '@/lib/ticket-service'
+import { getOrgName } from '@/lib/vendor-service'
+import { sendTicketAssignmentTemplate } from '@/lib/whatsapp'
 
 export async function GET() {
     const supabase = await createClient()
@@ -66,6 +68,31 @@ export async function POST(request: NextRequest) {
             createdBy: currentUser.id,
             source: 'dashboard',
         })
+
+        // Send WhatsApp notification to vendor
+        try {
+            const orgName = await getOrgName(orgId)
+            const vendorPhone = ticket.vendor?.phone_number
+            if (vendorPhone) {
+                const vendorPhoneIntl = vendorPhone.startsWith('91') ? vendorPhone : `91${vendorPhone}`
+                let deadlineStr = 'No deadline'
+                if (ticket.deadline) {
+                    const d = new Date(ticket.deadline)
+                    deadlineStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+                }
+                
+                sendTicketAssignmentTemplate(
+                    vendorPhoneIntl,
+                    orgName,
+                    ticket.subject || 'New Ticket',
+                    currentUser.name || 'Team Member',
+                    deadlineStr,
+                    ticket.id
+                ).catch((err: unknown) => console.error('[TicketAPI] Async template send error:', err))
+            }
+        } catch (err) {
+            console.error('[TicketAPI] Failed to prepare ticket assignment template:', err)
+        }
 
         // Audit log (fire-and-forget)
         const adminSupabase = createAdminClient()
