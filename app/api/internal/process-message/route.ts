@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWhatsAppMessage, downloadWhatsAppMedia } from '@/lib/whatsapp'
 import { transcribeAudio, translateText } from '@/lib/sarvam'
 import { normalizePhone } from '@/lib/phone'
+import { SARVAM_TO_BCP47, detectTextLanguage } from '@/lib/language-utils'
 
 // AI modules
 import { analyzeMessage } from '@/lib/ai/message-analyzer'
@@ -206,6 +207,7 @@ export async function processMessageInline(
 
         // 4. Audio transcription (if voice note)
         let textForAI = msg.raw_text
+        let taskLanguage: string | null = null
 
         if (audioMediaId) {
             console.log(`[ProcessMessage] Audio detected — downloading media ${audioMediaId}`)
@@ -216,7 +218,11 @@ export async function processMessageInline(
                 const { text: transcript, languageCode } = await transcribeAudio(buffer, audioMimeType || mimeType)
                 console.log(`[ProcessMessage] Native Transcription: "${transcript.substring(0, 100)}${transcript.length > 100 ? '...' : ''}"`)
 
-                // 4b. Translate to English using Sarvam
+                // Capture detected language from Sarvam (authoritative for audio)
+                taskLanguage = SARVAM_TO_BCP47[languageCode] ?? null
+                console.log(`[ProcessMessage] Detected language: ${languageCode} → ${taskLanguage}`)
+
+                // 4b. Translate to English using Sarvam (for Gemini accuracy)
                 const englishTranslation = await translateText(transcript, languageCode)
                 console.log(`[ProcessMessage] English Translation: "${englishTranslation.substring(0, 100)}${englishTranslation.length > 100 ? '...' : ''}"`)
 
@@ -241,6 +247,26 @@ export async function processMessageInline(
                     `Audio transcription failed: ${errMsg}`,
                 )
                 return { status: 'transcription_error' }
+            }
+        } else {
+            // Text message: detect language from Unicode script ranges (instant, no API call)
+            const detectedLang = detectTextLanguage(msg.raw_text)
+            if (detectedLang) {
+                taskLanguage = detectedLang
+                console.log(`[ProcessMessage] Text language detected: ${detectedLang}`)
+                // Translate non-Latin script to English for Gemini accuracy
+                if (detectedLang !== 'en-IN') {
+                    try {
+                        // Map BCP47 back to the 2-letter code Sarvam expects as source
+                        const sarvamCode = Object.entries(SARVAM_TO_BCP47).find(([, v]) => v === detectedLang)?.[0] ?? detectedLang
+                        const englishText = await translateText(msg.raw_text.substring(0, 3000), sarvamCode)
+                        textForAI = englishText.substring(0, 4000)
+                        console.log(`[ProcessMessage] Text translated to English for AI: "${textForAI.substring(0, 80)}"`)
+                    } catch (translateErr) {
+                        console.warn('[ProcessMessage] Text pre-translation failed, using original:', translateErr)
+                        // Non-fatal: Gemini can still handle many Indian language scripts
+                    }
+                }
             }
         }
 
@@ -291,16 +317,33 @@ export async function processMessageInline(
         console.log(`[ProcessMessage] Analysis: intent=${analysis.intent} conf=${analysis.confidence.toFixed(2)} who=${analysis.who.type}`)
 
         // =====================================================================
-        // 7. Dispatch to handler
+        // 7. Back-translate task title to detected language
+        //    Gemini works in English for accuracy; Sarvam translates the result
+        //    back to the user's language so the task title is stored natively.
+        // =====================================================================
+
+        let taskTitle = analysis.what
+        if (taskLanguage && taskLanguage !== 'en-IN' && analysis.what) {
+            try {
+                taskTitle = await translateText(analysis.what, 'en-IN', taskLanguage)
+                console.log(`[ProcessMessage] Task title translated to ${taskLanguage}: "${taskTitle.substring(0, 80)}"`)
+            } catch (translateErr) {
+                console.warn('[ProcessMessage] Back-translation failed, using English title:', translateErr)
+                // Non-fatal: fall back to English title
+            }
+        }
+
+        // =====================================================================
+        // 8. Dispatch to handler
         // =====================================================================
 
         switch (analysis.intent) {
             case 'task_create':
-                await handleTaskCreate(supabase, messageId, msg.phone, sender, analysis)
+                await handleTaskCreate(supabase, messageId, msg.phone, sender, analysis, taskTitle, taskLanguage)
                 break
 
             case 'todo_create':
-                await handleTodoCreate(supabase, messageId, msg.phone, sender, analysis)
+                await handleTodoCreate(supabase, messageId, msg.phone, sender, analysis, taskTitle, taskLanguage)
                 break
 
             case 'vendor_add':
@@ -308,7 +351,7 @@ export async function processMessageInline(
                 break
 
             case 'ticket_create':
-                await handleTicketCreate(supabase, messageId, msg.phone, sender, analysis)
+                await handleTicketCreate(supabase, messageId, msg.phone, sender, analysis, taskTitle, taskLanguage)
                 break
 
             case 'send_dashboard_link':
@@ -395,10 +438,12 @@ async function handleTaskCreate(
     phone: string,
     sender: SenderUser,
     analysis: AnalyzedMessage,
+    taskTitle: string = analysis.what,
+    language: string | null = null,
 ): Promise<void> {
     // ── WHO is "self"? Convert to to-do ──
     if (analysis.who.type === 'self') {
-        return handleTodoCreate(supabase, messageId, phone, sender, analysis)
+        return handleTodoCreate(supabase, messageId, phone, sender, analysis, taskTitle, language)
     }
 
     // ── WHO is "agent"? Can't do tasks ──
@@ -418,6 +463,7 @@ async function handleTaskCreate(
             sender_id: sender.id,
             sender_name: sender.name,
             organisation_id: sender.organisation_id,
+            task_language: language,
         }, 10, supabase)
 
         await sendWhatsAppReply(phone,
@@ -432,17 +478,18 @@ async function handleTaskCreate(
         // Create session to wait for assignee name
         await createSession(phone, 'awaiting_assignee_name', {
             original_intent: 'task_create',
-            what: analysis.what,
+            what: taskTitle,
             when_date: analysis.when.date,
             when_raw: analysis.when.raw,
             sender_id: sender.id,
             sender_name: sender.name,
             organisation_id: sender.organisation_id,
-            original_message: analysis.what,
+            original_message: taskTitle,
+            task_language: language,
         }, 10, supabase)
 
         await sendWhatsAppReply(phone,
-            `👤 *Who Should Do This?*\n\n*Task:*\n"${analysis.what}"\n\nPlease reply with the person's name.`)
+            `👤 *Who Should Do This?*\n\n*Task:*\n"${taskTitle}"\n\nPlease reply with the person's name.`)
         await markProcessed(supabase, messageId, 'task_create', 'Awaiting assignee name via session')
         return
     }
@@ -454,13 +501,14 @@ async function handleTaskCreate(
         // Keep session alive so the user's next reply (a corrected name) is caught
         await createSession(phone, 'awaiting_assignee_name', {
             original_intent: 'task_create',
-            what: analysis.what,
+            what: taskTitle,
             when_date: analysis.when.date,
             when_raw: analysis.when.raw,
             sender_id: sender.id,
             sender_name: sender.name,
             organisation_id: sender.organisation_id,
-            original_message: analysis.what,
+            original_message: taskTitle,
+            task_language: language,
         }, 10, supabase)
 
         await sendWhatsAppReply(phone,
@@ -478,13 +526,14 @@ async function handleTaskCreate(
         await createSession(phone, 'awaiting_assignee_selection', {
             original_intent: 'task_create',
             who_name: analysis.who.name,
-            what: analysis.what,
+            what: taskTitle,
             when_date: analysis.when.date,
             when_raw: analysis.when.raw,
             candidates: matches.map(u => ({ id: u.id, name: u.name, phone_number: u.phone_number })),
             sender_id: sender.id,
             sender_name: sender.name,
             organisation_id: sender.organisation_id,
+            task_language: language,
         }, 10, supabase)
 
         const clarifyMsg =
@@ -501,19 +550,20 @@ async function handleTaskCreate(
 
     // ── Self-assignment check: if assignee is the sender, treat as to-do ──
     if (assignee.id === sender.id) {
-        return handleTodoCreate(supabase, messageId, phone, sender, analysis)
+        return handleTodoCreate(supabase, messageId, phone, sender, analysis, taskTitle, language)
     }
 
     const { data: newTask, error: taskError } = await supabase
         .from('tasks')
         .insert({
-            title: analysis.what,
-            description: analysis.what,
+            title: taskTitle,
+            description: taskTitle,
             organisation_id: sender.organisation_id,
             created_by: sender.id,
             assigned_to: assignee.id,
             status: 'pending',
             source: 'whatsapp',
+            language: language ?? null,
         })
         .select('id')
         .single()
@@ -526,7 +576,7 @@ async function handleTaskCreate(
         return
     }
 
-    const confirmMsg = `✅ *Task Created!*\n\n*Task:*\n"${analysis.what}"\n\n*Assigned to:*\n${assignee.name}\n\n_They'll receive a notification to accept it._`
+    const confirmMsg = `✅ *Task Created!*\n\n*Task:*\n"${taskTitle}"\n\n*Assigned to:*\n${assignee.name}\n\n_They'll receive a notification to accept it._`
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'task_create', null)
@@ -536,10 +586,11 @@ async function handleTaskCreate(
         ownerName: sender.name,
         ownerId: sender.id,
         assigneeId: assignee.id,
-        taskTitle: analysis.what,
+        taskTitle,
         taskId: newTask.id,
         source: 'whatsapp',
         inlineConfirmationSent: true,
+        language: language ?? undefined,
     }).catch(err => console.error('[ProcessMessage] Notification error (task_create):', err))
 }
 
@@ -553,6 +604,8 @@ async function handleTodoCreate(
     phone: string,
     sender: SenderUser,
     analysis: AnalyzedMessage,
+    taskTitle: string = analysis.what,
+    language: string | null = null,
 ): Promise<void> {
     // ── VALIDATION: WHAT ──
     if (!analysis.what || analysis.what.length < 3) {
@@ -562,6 +615,7 @@ async function handleTodoCreate(
             sender_id: sender.id,
             sender_name: sender.name,
             organisation_id: sender.organisation_id,
+            task_language: language,
         }, 10, supabase)
 
         await sendWhatsAppReply(phone,
@@ -588,14 +642,15 @@ async function handleTodoCreate(
         // Create session to wait for deadline
         await createSession(phone, 'awaiting_todo_deadline', {
             original_intent: 'todo_create',
-            what: analysis.what,
+            what: taskTitle,
             sender_id: sender.id,
             sender_name: sender.name,
             organisation_id: sender.organisation_id,
+            task_language: language,
         }, 10, supabase)
 
         await sendWhatsAppReply(phone,
-            `⏰ *Deadline Needed*\n\n*To-do:*\n"${analysis.what}"\n\nWhen should this be done?\n\n*Examples:*\n"tomorrow 3pm", "Friday", "March 10"`)
+            `⏰ *Deadline Needed*\n\n*To-do:*\n"${taskTitle}"\n\nWhen should this be done?\n\n*Examples:*\n"tomorrow 3pm", "Friday", "March 10"`)
         await markProcessed(supabase, messageId, 'todo_create', 'Awaiting deadline via session')
         return
     }
@@ -604,10 +659,11 @@ async function handleTodoCreate(
     if (new Date(deadline).getTime() < Date.now()) {
         await createSession(phone, 'awaiting_todo_deadline', {
             original_intent: 'todo_create',
-            what: analysis.what,
+            what: taskTitle,
             sender_id: sender.id,
             sender_name: sender.name,
             organisation_id: sender.organisation_id,
+            task_language: language,
         }, 10, supabase)
 
         await sendWhatsAppReply(phone,
@@ -620,8 +676,8 @@ async function handleTodoCreate(
     const { error: todoError } = await supabase
         .from('tasks')
         .insert({
-            title: analysis.what,
-            description: analysis.what,
+            title: taskTitle,
+            description: taskTitle,
             organisation_id: sender.organisation_id,
             created_by: sender.id,
             assigned_to: sender.id, // Self-assigned = to-do
@@ -629,6 +685,7 @@ async function handleTodoCreate(
             committed_deadline: deadline, // Auto-commit for to-dos
             status: 'accepted', // Auto-accept to-dos
             source: 'whatsapp',
+            language: language ?? null,
         })
 
     if (todoError) {
@@ -643,7 +700,7 @@ async function handleTodoCreate(
     const d = new Date(deadline)
     const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
     const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
-    const confirmMsg = `✅ *To-Do Created!*\n\n*To-do:*\n"${analysis.what}"\n\n*Deadline:*\n${dateStr} at ${timeStr}`
+    const confirmMsg = `✅ *To-Do Created!*\n\n*To-do:*\n"${taskTitle}"\n\n*Deadline:*\n${dateStr} at ${timeStr}`
 
     await sendWhatsAppReply(phone, confirmMsg)
     await markProcessed(supabase, messageId, 'todo_create', null)
@@ -656,7 +713,7 @@ async function handleTodoCreate(
             .select('id')
             .eq('created_by', sender.id)
             .eq('assigned_to', sender.id)
-            .eq('title', analysis.what)
+            .eq('title', taskTitle)
             .eq('status', 'accepted')
             .order('created_at', { ascending: false })
             .limit(1)
@@ -667,11 +724,12 @@ async function handleTodoCreate(
                 ownerName: sender.name,
                 ownerId: sender.id,
                 assigneeId: sender.id,
-                taskTitle: analysis.what,
+                taskTitle,
                 taskId: createdTodo.id,
                 committedDeadline: deadline,
                 source: 'whatsapp',
                 inlineConfirmationSent: true,
+                language: language ?? undefined,
             }).catch(err => console.error('[ProcessMessage] Notification error (todo_create):', err))
         }
     }
@@ -828,6 +886,10 @@ async function handleTicketCreate(
     phone: string,
     sender: SenderUser,
     analysis: AnalyzedMessage,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _taskTitle: string = analysis.what,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _language: string | null = null,
 ): Promise<void> {
     const { createTicket } = await import('@/lib/ticket-service')
     const { getOrgName } = await import('@/lib/vendor-service')

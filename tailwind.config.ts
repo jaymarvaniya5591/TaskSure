@@ -82,7 +82,18 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'sans-serif'],
+        sans: [
+          'var(--font-inter)',
+          'var(--font-noto-gujarati)',
+          'var(--font-noto-devanagari)',
+          'var(--font-noto-tamil)',
+          'var(--font-noto-telugu)',
+          'var(--font-noto-bengali)',
+          'var(--font-noto-kannada)',
+          'var(--font-noto-malayalam)',
+          'var(--font-noto-gurmukhi)',
+          'sans-serif',
+        ],
       },
       keyframes: {
         shimmer: {

@@ -456,6 +456,7 @@ export async function notifyTaskCreated(
         committedDeadline?: string | null
         source: 'whatsapp' | 'dashboard'
         inlineConfirmationSent?: boolean
+        language?: string | null
     },
 ): Promise<void> {
     const isTodo = opts.ownerId === opts.assigneeId
@@ -471,6 +472,7 @@ export async function notifyTaskCreated(
                 opts.taskTitle,
                 opts.ownerName,
                 supabase,
+                opts.language ?? null,
             ).catch(err => console.error('[Notifier] Failed to schedule todo deadline approaching:', err))
         }
     } else {
@@ -482,6 +484,7 @@ export async function notifyTaskCreated(
             opts.taskTitle,
             opts.ownerName,
             supabase,
+            opts.language ?? null,
         ).catch(err => console.error('[Notifier] Failed to schedule acceptance followups:', err))
 
         // Also schedule deadline approaching at task creation time using the
@@ -497,6 +500,7 @@ export async function notifyTaskCreated(
                 opts.taskTitle,
                 opts.ownerName,
                 supabase,
+                opts.language ?? null,
             ).catch(err => console.error('[Notifier] Failed to schedule delegated task deadline approaching:', err))
         }
     }

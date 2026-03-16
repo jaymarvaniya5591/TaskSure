@@ -997,6 +997,8 @@ async function createTaskWithAssignee(
         return { handled: true, intent: 'todo_create' }
     }
 
+    const taskLanguage = (ctx.task_language as string | null) ?? null
+
     const { data: newTask, error: taskError } = await supabase
         .from('tasks')
         .insert({
@@ -1007,6 +1009,7 @@ async function createTaskWithAssignee(
             assigned_to: assignee.id,
             status: 'pending',
             source: 'whatsapp',
+            language: taskLanguage,
         })
         .select('id')
         .single()
@@ -1032,6 +1035,7 @@ async function createTaskWithAssignee(
         taskId: newTask.id,
         source: 'whatsapp',
         inlineConfirmationSent: true,
+        language: taskLanguage ?? undefined,
     }).catch(err => console.error('[SessionReply] Notification error (task_create):', err))
 
     return { handled: true, intent: 'task_create' }

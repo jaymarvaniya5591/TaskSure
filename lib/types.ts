@@ -30,6 +30,7 @@ export interface Task {
     committed_deadline?: string | null;
     call_made?: boolean;
     source?: string;
+    language?: string | null;
     created_at: string;
     updated_at?: string;
 

@@ -82,6 +82,8 @@ export interface SessionContextData {
     /** Ticket creation fields */
     vendor_id?: string | null
     ticket_subject?: string | null
+    /** Detected BCP 47 language code for the task (e.g. "gu-IN") */
+    task_language?: string | null
 }
 
 const DEFAULT_TTL_MINUTES = 10

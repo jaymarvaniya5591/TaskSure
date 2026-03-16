@@ -14,6 +14,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { storeAudio } from '@/lib/notifications/audio-store'
+import { SARVAM_TO_BCP47 } from '@/lib/language-utils'
 
 // ---------------------------------------------------------------------------
 // WAV → MP3 Conversion (lazy — never crashes the server on startup)
@@ -144,33 +145,42 @@ export interface CallingProvider {
 // Language Detection
 // ---------------------------------------------------------------------------
 
-// Map incoming_messages language_detected values to standard TTS language codes
-const LANGUAGE_MAP: Record<string, string> = {
-    'hi': 'hi-IN',
-    'hindi': 'hi-IN',
-    'en': 'en-IN',
-    'english': 'en-IN',
-    'bn': 'bn-IN',
-    'bengali': 'bn-IN',
-    'ta': 'ta-IN',
-    'tamil': 'ta-IN',
-    'te': 'te-IN',
-    'telugu': 'te-IN',
-    'gu': 'gu-IN',
-    'gujarati': 'gu-IN',
-    'kn': 'kn-IN',
-    'kannada': 'kn-IN',
-    'ml': 'ml-IN',
-    'malayalam': 'ml-IN',
-    'mr': 'mr-IN',
-    'marathi': 'mr-IN',
-    'pa': 'pa-IN',
-    'punjabi': 'pa-IN',
-    'or': 'or-IN',
-    'odia': 'or-IN',
-}
+// Re-export shared map under the legacy name so existing code keeps working
+const LANGUAGE_MAP = SARVAM_TO_BCP47
 
 const DEFAULT_LANGUAGE = 'en-IN'
+
+// ---------------------------------------------------------------------------
+// Multilingual Call Script Templates
+// ---------------------------------------------------------------------------
+
+type ScriptFn = (ownerName: string, task: string) => string
+
+const ACCEPTANCE_TEMPLATES: Record<string, ScriptFn> = {
+    'hi-IN': (o, t) => `नमस्ते! आपको एक नया काम दिया है, ${o} ने। काम है: ${t}। कृपया इसे WhatsApp पर स्वीकार करें।`,
+    'gu-IN': (o, t) => `નમસ્તે! ${o} એ તમને એક નવું કામ સોંપ્યું છે. કામ છે: ${t}. WhatsApp પર સ્વીકારો.`,
+    'mr-IN': (o, t) => `नमस्ते! ${o} यांनी तुम्हाला नवीन काम दिले. काम: ${t}. WhatsApp वर स्वीकार करा.`,
+    'pa-IN': (o, t) => `ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ${o} ਨੇ ਤੁਹਾਨੂੰ ਕੰਮ ਦਿੱਤਾ। ਕੰਮ: ${t}। WhatsApp ਤੇ ਸਵੀਕਾਰ ਕਰੋ।`,
+    'bn-IN': (o, t) => `নমস্কার! ${o} আপনাকে কাজ দিয়েছেন। কাজ: ${t}। WhatsApp-এ গ্রহণ করুন।`,
+    'ta-IN': (o, t) => `வணக்கம்! ${o} உங்களுக்கு வேலை ஒதுக்கியுள்ளார். வேலை: ${t}. WhatsApp-ல் ஏற்றுக்கொள்ளுங்கள்.`,
+    'te-IN': (o, t) => `నమస్కారం! ${o} మీకు పని ఇచ్చారు. పని: ${t}. WhatsApp లో అంగీకరించండి.`,
+    'kn-IN': (o, t) => `ನಮಸ್ಕಾರ! ${o} ನಿಮಗೆ ಕೆಲಸ ನಿಯೋಜಿಸಿದ್ದಾರೆ. ಕೆಲಸ: ${t}. WhatsApp ನಲ್ಲಿ ಸ್ವೀಕರಿಸಿ.`,
+    'ml-IN': (o, t) => `നമസ്കാരം! ${o} നിങ്ങൾക്ക് ജോലി ഏൽപ്പിച്ചു. ജോലി: ${t}. WhatsApp-ൽ സ്വീകരിക്കുക.`,
+    'en-IN': (o, t) => `Hello! ${o} has assigned you a task: ${t}. Please accept it on WhatsApp.`,
+}
+
+const REMINDER_TEMPLATES: Record<string, ScriptFn> = {
+    'hi-IN': (o, t) => `नमस्ते! यह आपके काम का रिमाइंडर है, ${o} की तरफ से। काम है: ${t}। WhatsApp पर जाएं और बताएं कि काम चल रहा है, या डेडलाइन बदल सकते हैं। धन्यवाद।`,
+    'gu-IN': (o, t) => `નમસ્તે! ${o} ના કામ માટે આ રિમાઇન્ડર છે. કામ: ${t}. WhatsApp પર જઈ અપડેટ આપો. આભાર.`,
+    'mr-IN': (o, t) => `नमस्ते! ${o} यांच्या कामाची आठवण. काम: ${t}. WhatsApp वर जाऊन अपडेट करा. धन्यवाद.`,
+    'pa-IN': (o, t) => `ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ${o} ਦੇ ਕੰਮ ਦੀ ਯਾਦ। ਕੰਮ: ${t}। WhatsApp ਤੇ ਜਾ ਕੇ ਅਪਡੇਟ ਕਰੋ। ਧੰਨਵਾਦ।`,
+    'bn-IN': (o, t) => `নমস্কার! ${o}-এর কাজের রিমাইন্ডার। কাজ: ${t}। WhatsApp-এ গিয়ে আপডেট করুন। ধন্যবাদ।`,
+    'ta-IN': (o, t) => `வணக்கம்! ${o}-இன் வேலைக்கான நினைவூட்டல். வேலை: ${t}. WhatsApp-ல் சென்று புதுப்பிக்கவும். நன்றி.`,
+    'te-IN': (o, t) => `నమస్కారం! ${o} పని గుర్తుచేయడం. పని: ${t}. WhatsApp కి వెళ్ళి అప్‌డేట్ చేయండి. ధన్యవాదాలు.`,
+    'kn-IN': (o, t) => `ನಮಸ್ಕಾರ! ${o} ರ ಕೆಲಸದ ನೆನಪು. ಕೆಲಸ: ${t}. WhatsApp ಗೆ ಹೋಗಿ ಅಪ್‌ಡೇಟ್ ಮಾಡಿ. ಧನ್ಯವಾದ.`,
+    'ml-IN': (o, t) => `നമസ്കാരം! ${o}-ന്റെ ജോലി ഓർമ്മ. ജോലി: ${t}. WhatsApp-ൽ പോയി അപ്‌ഡേറ്റ് ചെയ്യൂ. നന്ദി.`,
+    'en-IN': (o, t) => `Hello! This is a reminder for your task from ${o}: ${t}. Please update on WhatsApp. Thank you.`,
+}
 
 /**
  * Get the language code for TTS based on the user's last WhatsApp message.
@@ -562,19 +572,23 @@ export async function makeAutomatedCall(
 export function buildAcceptanceCallScript(
     ownerName: string,
     taskSummary: string,
+    language: string = 'hi-IN',
 ): string {
     const trimmedTask = taskSummary.length > 500
         ? taskSummary.substring(0, 500).trim() + '...'
         : taskSummary
-    return `नमस्ते! आपको एक नया काम दिया है, ${ownerName} ने। काम है: ${trimmedTask}। कृपया इसे WhatsApp पर स्वीकार करें।`
+    const fn = ACCEPTANCE_TEMPLATES[language] ?? ACCEPTANCE_TEMPLATES['hi-IN']
+    return fn(ownerName, trimmedTask)
 }
 
 export function buildReminderCallScript(
     taskTitle: string,
     ownerName: string,
+    language: string = 'hi-IN',
 ): string {
     const trimmedTask = taskTitle.length > 500
         ? taskTitle.substring(0, 500).trim() + '...'
         : taskTitle
-    return `नमस्ते! यह आपके काम का रिमाइंडर है from, ${ownerName}। काम है: ${trimmedTask}। हमने आपको WhatsApp पर मैसेज भेजा है। कृपया वहां बताएं कि काम ठीक से चल रहा है, या अगर जरूरत हो तो आप डेडलाइन भी बदल सकते हैं। धन्यवाद।`
+    const fn = REMINDER_TEMPLATES[language] ?? REMINDER_TEMPLATES['hi-IN']
+    return fn(ownerName, trimmedTask)
 }

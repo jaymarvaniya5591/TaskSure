@@ -71,7 +71,13 @@
       "mcp__supabase__get_logs",
       "mcp__supabase__get_project",
       "mcp__supabase__list_tables",
-      "mcp__railway__list-projects"
+      "mcp__railway__list-projects",
+      "Bash(grep -E \"\\\\.\\(sql|ts\\)$\")",
+      "Bash(grep -r 'CREATE TABLE tasks' '/c/Users/marva/Documents/Boldo AI' --include=*.sql)",
+      "Bash(find '/c/Users/marva/Documents/Boldo AI' -name *.ts -path */types* -type f)",
+      "Bash(grep -r language '/c/Users/marva/Documents/Boldo AI/lib' --include=*.ts -n)",
+      "Bash(find '/c/Users/marva/Documents/Boldo AI/supabase/migrations' -type f -name *.sql)",
+      "Bash(find '/c/Users/marva/Documents/Boldo AI/supabase/migrations/' -type f -name *.sql)"
     ],
     "additionalDirectories": [
       "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\internal\\call-audio",

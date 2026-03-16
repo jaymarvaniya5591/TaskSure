@@ -220,6 +220,7 @@ export async function processDailySummaries(supabaseAdmin?: SupabaseAdmin): Prom
                 }
 
                 if (msg1 || msg2) {
+                    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
                     ;(sendOk || flowFallbackSent) ? stats.sent++ : stats.failed++
                 }
             } catch (e) {

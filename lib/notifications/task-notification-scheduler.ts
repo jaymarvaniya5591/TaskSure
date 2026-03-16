@@ -144,6 +144,7 @@ export async function scheduleAcceptanceFollowups(
     taskTitle: string,
     ownerName: string,
     supabase?: SupabaseAdmin,
+    language?: string | null,
 ): Promise<void> {
     const sb = supabase || createAdminClient()
 
@@ -182,7 +183,7 @@ export async function scheduleAcceptanceFollowups(
                 channel: 'both', // call + whatsapp template
                 scheduled_at: scheduledAt.toISOString(),
                 status: 'pending',
-                metadata: { task_title: taskTitle, owner_name: ownerName, owner_id: ownerId },
+                metadata: { task_title: taskTitle, owner_name: ownerName, owner_id: ownerId, task_language: language ?? null },
                 dedup_key: buildDedupKey(taskId, 'acceptance', i + 1, 'assignee', 'both'),
             })
 
@@ -364,6 +365,7 @@ export async function scheduleDeadlineApproaching(
     taskTitle: string,
     ownerName: string,
     supabase?: SupabaseAdmin,
+    language?: string | null,
 ): Promise<void> {
     const sb = supabase || createAdminClient()
 
@@ -395,6 +397,7 @@ export async function scheduleDeadlineApproaching(
                 assignee_id: assigneeId,
                 owner_id: ownerId,
                 owner_name: ownerName,
+                task_language: language ?? null,
             },
             dedup_key: buildDedupKey(taskId, 'deadline_approaching', 1, targetRole, 'whatsapp'),
         }

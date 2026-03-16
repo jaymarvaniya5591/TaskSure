@@ -193,8 +193,8 @@ async function processAcceptanceFollowup(
         // Only make call if within business hours right now
         if (isWithinBusinessHours(new Date())) {
             try {
-                const language = 'hi-IN' // Call scripts are in Hindi
-                const script = buildAcceptanceCallScript(ownerName, taskTitle)
+                const language = (meta.task_language as string) || 'hi-IN'
+                const script = buildAcceptanceCallScript(ownerName, taskTitle, language)
                 callResult = await makeAutomatedCall(phone, script, language)
             } catch (err) {
                 callResult = { success: false, status: 'error', durationSeconds: 0, error: err instanceof Error ? err.message : 'Call failed' }
@@ -367,8 +367,8 @@ async function processTaskReminder(
         // This is a call escalation (button wasn't clicked within 1hr)
         if (isWithinBusinessHours(new Date())) {
             try {
-                const language = 'hi-IN' // Call scripts are in Hindi
-                const script = buildReminderCallScript(taskTitle, ownerName)
+                const language = (meta.task_language as string) || 'hi-IN'
+                const script = buildReminderCallScript(taskTitle, ownerName, language)
                 await makeAutomatedCall(phone, script, language)
             } catch (err) {
                 console.error(`[Processor] Reminder call failed:`, err)

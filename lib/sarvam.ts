@@ -96,11 +96,14 @@ export async function transcribeAudio(
 
 /**
  * Translate text using Sarvam AI Translation API.
- * Output is English by default.
+ * @param text - Text to translate
+ * @param sourceLanguageCode - BCP 47 source language (e.g. "gu-IN") or ISO 639-1 (e.g. "gu")
+ * @param targetLanguageCode - BCP 47 target language (defaults to "en-IN")
  */
 export async function translateText(
     text: string,
-    sourceLanguageCode: string
+    sourceLanguageCode: string,
+    targetLanguageCode: string = 'en-IN',
 ): Promise<string> {
     const apiKey = process.env.SARVAM_API_KEY
     if (!apiKey) {
@@ -110,7 +113,7 @@ export async function translateText(
     const payload = {
         input: text,
         source_language_code: sourceLanguageCode,
-        target_language_code: 'en-IN',
+        target_language_code: targetLanguageCode,
         speaker_gender: 'Male',
         mode: 'formal',
         model: 'sarvam-translate:v1'
