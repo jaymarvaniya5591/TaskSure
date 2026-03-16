@@ -38,6 +38,8 @@ export type SessionType =
     | 'awaiting_ticket_subject'
     | 'awaiting_ticket_deadline'
     | 'awaiting_ticket_new_deadline'
+    | 'awaiting_review_task_selection'
+    | 'awaiting_review_comment'
 
 export interface ConversationSession {
     id: string
@@ -84,6 +86,11 @@ export interface SessionContextData {
     ticket_subject?: string | null
     /** Detected BCP 47 language code for the task (e.g. "gu-IN") */
     task_language?: string | null
+    /** Task owner info (for review flows) */
+    owner_id?: string | null
+    owner_name?: string | null
+    /** Candidate tasks for review disambiguation */
+    task_candidates?: Array<{ id: string; title: string; owner_name: string }>
 }
 
 const DEFAULT_TTL_MINUTES = 10
@@ -238,6 +245,12 @@ export function buildIntentChangeAcknowledgment(session: ConversationSession): s
 
         case 'awaiting_ticket_deadline':
             return `↩️ *Ticket Creation Cancelled*\n\nI was waiting for a deadline for your ticket.\n\nSince you sent a new message, I'll process that instead.\n\n_You can create a ticket again anytime._`
+
+        case 'awaiting_review_task_selection':
+            return '↩️ *Review Request Cancelled*\n\nI was waiting for you to select a task for review.\n\nSince you sent a new message, I\'ll process that instead.\n\n_You can request a review again anytime._'
+
+        case 'awaiting_review_comment':
+            return '↩️ *Comment Not Sent*\n\nI was waiting for your feedback on the task.\n\n⚠️ Your comment has *not* been sent.\n\n_Processing your new message now..._'
 
         default:
             return '↩️ *Flow Interrupted*\n\nI was in the middle of something.\nI\'ll process your new message instead.'

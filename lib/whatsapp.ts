@@ -496,6 +496,50 @@ export async function sendTodoOverdueTemplate(
 }
 
 // ---------------------------------------------------------------------------
+// Review request template wrapper
+// ---------------------------------------------------------------------------
+
+/**
+ * Review request — sent to the task owner when the assignee requests a review.
+ * Template: task_review_request
+ * Body {{1}} = assignee name, {{2}} = task title
+ * Quick Reply button 0 payload = "task_mark_completed::{taskId}"
+ * Quick Reply button 1 payload = "review_add_comment::{taskId}"
+ */
+export async function sendReviewRequestTemplate(
+    to: string,
+    assigneeName: string,
+    taskTitle: string,
+    taskId: string,
+): Promise<WhatsAppSendResult> {
+    return sendWhatsAppTemplate(to, 'task_review_request', 'en', [
+        {
+            type: 'body',
+            parameters: [
+                { type: 'text', text: assigneeName },
+                { type: 'text', text: taskTitle },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '0',
+            parameters: [
+                { type: 'payload', payload: `task_mark_completed::${taskId}` },
+            ],
+        },
+        {
+            type: 'button',
+            sub_type: 'quick_reply',
+            index: '1',
+            parameters: [
+                { type: 'payload', payload: `review_add_comment::${taskId}` },
+            ],
+        },
+    ])
+}
+
+// ---------------------------------------------------------------------------
 // Vendor management template wrappers
 // ---------------------------------------------------------------------------
 

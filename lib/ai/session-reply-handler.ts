@@ -18,6 +18,8 @@ import {
     notifyTaskCreated,
     notifyTaskAccepted,
     notifyTaskRejected,
+    notifyReviewRequested,
+    notifyReviewCommentAdded,
 } from '@/lib/notifications/whatsapp-notifier'
 import type { ConversationSession, SessionContextData } from './conversation-context'
 import { createSession, resolveSession } from './conversation-context'
@@ -97,6 +99,12 @@ export async function handleSessionReply(
 
         case 'awaiting_ticket_deadline':
             return handleAwaitingTicketDeadline(supabase, session, userText, sender, messageId)
+
+        case 'awaiting_review_task_selection':
+            return handleAwaitingReviewTaskSelection(supabase, session, userText, sender, messageId)
+
+        case 'awaiting_review_comment':
+            return handleAwaitingReviewComment(supabase, session, userText, sender, messageId)
 
         default:
             console.warn(`[SessionReply] Unknown session type: ${session.session_type}`)
@@ -1376,6 +1384,209 @@ async function fuzzyMatchVendor(
         phone_number: r.user.phone_number,
     }))
 }
+
+// ---------------------------------------------------------------------------
+// Review flow handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * awaiting_review_task_selection — bot showed numbered list of tasks, user picks one.
+ */
+async function handleAwaitingReviewTaskSelection(
+    supabase: SupabaseAdmin,
+    session: ConversationSession,
+    userText: string,
+    sender: SenderUser,
+    messageId: string,
+): Promise<SessionResult> {
+    const ctx = session.context_data
+    const candidates = ctx.task_candidates || []
+
+    if (candidates.length === 0) {
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
+    const trimmed = userText.trim()
+
+    // Try to match by number (e.g., "1", "2")
+    const num = parseInt(trimmed, 10)
+    if (!isNaN(num) && num >= 1 && num <= candidates.length) {
+        const selected = candidates[num - 1]
+        await resolveSession(session.id, supabase)
+        return await executeReviewRequest(supabase, session.phone, sender, selected.id, selected.title, selected.owner_name, messageId)
+    }
+
+    // Try to match by task title keyword
+    const lowerReply = trimmed.toLowerCase()
+    const titleMatch = candidates.find(c =>
+        c.title.toLowerCase().includes(lowerReply) ||
+        lowerReply.includes(c.title.toLowerCase())
+    )
+
+    if (titleMatch) {
+        await resolveSession(session.id, supabase)
+        return await executeReviewRequest(supabase, session.phone, sender, titleMatch.id, titleMatch.title, titleMatch.owner_name, messageId)
+    }
+
+    // Invalid selection — re-prompt
+    const list = candidates.map((c, i) => `${i + 1}. "${c.title}" (from ${c.owner_name})`).join('\n')
+    await sendReply(session.phone, `❓ *Which task?*\n\nPlease reply with a number:\n\n${list}`)
+    return { handled: true, intent: 'review_request' }
+}
+
+/**
+ * awaiting_review_comment — owner is typing/voicing their feedback on a review.
+ */
+async function handleAwaitingReviewComment(
+    supabase: SupabaseAdmin,
+    session: ConversationSession,
+    userText: string,
+    sender: SenderUser,
+    messageId: string,
+): Promise<SessionResult> {
+    const ctx = session.context_data
+    const taskId = ctx.task_id
+
+    if (!taskId) {
+        await resolveSession(session.id, supabase)
+        return { handled: false, fallThrough: true }
+    }
+
+    const trimmedComment = userText.trim()
+    if (!trimmedComment) {
+        await sendReply(session.phone, '❓ Please reply with your feedback. You can type a message or send a voice note.')
+        return { handled: true, intent: 'review_comment' }
+    }
+
+    // Fetch task to validate it's still reviewable
+    const { data: task } = await supabase
+        .from('tasks')
+        .select('id, title, assigned_to, created_by, status, review_requested_at, organisation_id')
+        .eq('id', taskId)
+        .single()
+
+    if (!task) {
+        await resolveSession(session.id, supabase)
+        await sendReply(session.phone, '⚠️ *Task Not Found*\n\nThis task could not be found. It may have been deleted.')
+        return { handled: true, intent: 'review_comment' }
+    }
+
+    if (['completed', 'cancelled'].includes(task.status)) {
+        await resolveSession(session.id, supabase)
+        await sendReply(session.phone, `ℹ️ *Task Already ${task.status === 'completed' ? 'Completed' : 'Cancelled'}*\n\nNo comment was sent.`)
+        return { handled: true, intent: 'review_comment' }
+    }
+
+    if (!task.review_requested_at) {
+        await resolveSession(session.id, supabase)
+        await sendReply(session.phone, 'ℹ️ *No Review Pending*\n\nThis task no longer has a pending review request.')
+        return { handled: true, intent: 'review_comment' }
+    }
+
+    // Execute: insert comment, clear review flag, audit log, notify assignee
+    await Promise.allSettled([
+        supabase.from('tasks').update({
+            review_requested_at: null,
+            updated_at: new Date().toISOString(),
+        }).eq('id', taskId),
+        supabase.from('task_comments').insert({
+            task_id: taskId,
+            user_id: sender.id,
+            content: trimmedComment,
+            comment_type: 'review_comment',
+        }),
+        supabase.from('audit_log').insert({
+            user_id: sender.id,
+            organisation_id: task.organisation_id,
+            action: 'task.review_comment_added',
+            entity_type: 'task',
+            entity_id: taskId,
+            metadata: { comment: trimmedComment },
+        }),
+    ])
+
+    // Confirm to owner
+    await sendReply(session.phone, `✅ *Comment Sent!*\n\n*Task:*\n"${task.title}"\n\nYour feedback has been sent to the assignee.`)
+
+    // Notify assignee (fire-and-forget)
+    notifyReviewCommentAdded(supabase, {
+        ownerId: sender.id,
+        ownerName: sender.name || 'The task owner',
+        assigneeId: task.assigned_to,
+        taskTitle: task.title || 'Untitled task',
+        taskId: taskId,
+        comment: trimmedComment,
+        source: 'whatsapp',
+        inlineConfirmationSent: true,
+    }).catch(err => console.error('[SessionReply] Review comment notification error:', err))
+
+    await resolveSession(session.id, supabase)
+    await markProcessed(supabase, messageId, 'review_comment', null)
+    return { handled: true, intent: 'review_comment' }
+}
+
+/**
+ * Execute a review request for a specific task.
+ */
+async function executeReviewRequest(
+    supabase: SupabaseAdmin,
+    phone: string,
+    sender: SenderUser,
+    taskId: string,
+    taskTitle: string,
+    ownerName: string,
+    messageId: string,
+): Promise<SessionResult> {
+    // Update task
+    const { data: updateData, error: updateError } = await supabase
+        .from('tasks')
+        .update({
+            review_requested_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', taskId)
+        .is('review_requested_at', null)
+        .in('status', ['accepted', 'overdue'])
+        .select('id, created_by, organisation_id')
+
+    if (updateError || !updateData || updateData.length === 0) {
+        await sendReply(phone, '⚠️ *Could Not Request Review*\n\nThis task may have already been reviewed or is no longer active.')
+        return { handled: true, intent: 'review_request' }
+    }
+
+    const task = updateData[0]
+
+    // Audit log
+    supabase.from('audit_log').insert({
+        user_id: sender.id,
+        organisation_id: task.organisation_id,
+        action: 'task.review_requested',
+        entity_type: 'task',
+        entity_id: taskId,
+    }).then(() => {}).catch((err: unknown) => console.error('[SessionReply] Audit log error:', err))
+
+    // Confirm to assignee
+    await sendReply(phone, `✅ *Review Requested!*\n\n*Task:*\n"${taskTitle}"\n\n${ownerName} has been notified to review your work.`)
+
+    // Notify owner with template (fire-and-forget)
+    notifyReviewRequested(supabase, {
+        ownerId: task.created_by,
+        assigneeId: sender.id,
+        assigneeName: sender.name || 'The assignee',
+        taskTitle: taskTitle,
+        taskId: taskId,
+        source: 'whatsapp',
+        inlineConfirmationSent: true,
+    }).catch(err => console.error('[SessionReply] Review request notification error:', err))
+
+    await markProcessed(supabase, messageId, 'review_request', null)
+    return { handled: true, intent: 'review_request' }
+}
+
+// ---------------------------------------------------------------------------
+// Shared utilities
+// ---------------------------------------------------------------------------
 
 async function sendReply(phone: string, message: string): Promise<void> {
     try {

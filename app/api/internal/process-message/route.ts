@@ -13,7 +13,8 @@ import { analyzeMessage } from '@/lib/ai/message-analyzer'
 import { findPhoneticMatches } from '@/lib/ai/phonetic-match'
 import type { OrgUser } from '@/lib/ai/phonetic-match'
 import type { AnalyzedMessage } from '@/lib/ai/types'
-import { notifyTaskCreated } from '@/lib/notifications/whatsapp-notifier'
+import { notifyTaskCreated, notifyReviewRequested } from '@/lib/notifications/whatsapp-notifier'
+import { resolveTask } from '@/lib/ai/task-resolver'
 
 // Session-based conversation context
 import {
@@ -352,6 +353,10 @@ export async function processMessageInline(
 
             case 'ticket_create':
                 await handleTicketCreate(supabase, messageId, msg.phone, sender, analysis, taskTitle, taskLanguage)
+                break
+
+            case 'review_request':
+                await handleReviewRequest(supabase, messageId, msg.phone, sender, analysis)
                 break
 
             case 'send_dashboard_link':
@@ -1064,6 +1069,189 @@ async function handleTicketCreate(
             `Ticket create failed: ${errMsg}`,
         )
     }
+}
+
+// ---------------------------------------------------------------------------
+// review_request — Assignee says they've completed work, wants owner to review
+// ---------------------------------------------------------------------------
+
+async function handleReviewRequest(
+    supabase: SupabaseAdmin,
+    messageId: string,
+    phone: string,
+    sender: SenderUser,
+    analysis: AnalyzedMessage,
+): Promise<void> {
+    // 1. Fetch all active tasks assigned to this sender that are eligible for review
+    const { data: eligibleTasks } = await supabase
+        .from('tasks')
+        .select('id, title, status, assigned_to, created_by, review_requested_at, committed_deadline, deadline, description, created_at, updated_at')
+        .eq('assigned_to', sender.id)
+        .in('status', ['accepted', 'overdue'])
+        .is('review_requested_at', null)
+        .order('created_at', { ascending: false })
+
+    // Also fetch owner info for each task (created_by is a user ID)
+    let tasks = (eligibleTasks || []) as Array<{
+        id: string; title: string; status: string;
+        assigned_to: string; created_by: string;
+        review_requested_at: string | null;
+        committed_deadline: string | null; deadline: string | null;
+        description: string | null; created_at: string; updated_at: string;
+    }>
+
+    // Filter out self-assigned tasks (todos) — review doesn't apply to them
+    tasks = tasks.filter(t => t.created_by !== t.assigned_to)
+
+    if (tasks.length === 0) {
+        await sendWhatsAppReply(phone,
+            "ℹ️ *No Tasks Eligible*\n\nYou don't have any active tasks that are ready for a review request.\n\n_Tasks must be accepted and not already pending review._")
+        await markProcessed(supabase, messageId, 'review_request', 'No eligible tasks')
+        return
+    }
+
+    // 2. Owner resolution — if a name was mentioned, filter tasks by owner
+    if (analysis.who.name && analysis.who.type === 'person') {
+        const ownerMatches = await fuzzyMatchUser(supabase, sender.organisation_id, analysis.who.name)
+
+        if (ownerMatches.length > 0) {
+            const ownerIds = new Set(ownerMatches.map(m => m.id))
+            const filtered = tasks.filter(t => ownerIds.has(t.created_by))
+
+            if (filtered.length > 0) {
+                tasks = filtered
+            }
+            // If no tasks match the owner filter, fall through to use all tasks
+        }
+    }
+
+    // 3. Task resolution
+    if (tasks.length === 1) {
+        // Single task — execute directly
+        await executeReviewRequest(supabase, messageId, phone, sender, tasks[0])
+        return
+    }
+
+    // Multiple tasks — try to resolve using task hint
+    if (analysis.what && analysis.what.trim().length > 0) {
+        // Enrich tasks with owner names for the resolver
+        const ownerIds = Array.from(new Set(tasks.map(t => t.created_by)))
+        const { data: owners } = await supabase
+            .from('users')
+            .select('id, name')
+            .in('id', ownerIds)
+
+        const ownerMap = new Map<string, string>((owners || []).map((o: { id: string; name: string }) => [o.id, o.name]))
+
+        const enrichedTasks = tasks.map(t => ({
+            ...t,
+            created_by: { id: t.created_by, name: ownerMap.get(t.created_by) ?? 'Unknown' },
+            assigned_to: { id: t.assigned_to, name: sender.name },
+        }))
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const resolverResult = await resolveTask(analysis.what, analysis.what, enrichedTasks as any)
+
+        if (resolverResult.status === 'resolved') {
+            const matched = tasks.find(t => t.id === resolverResult.task.id)
+            if (matched) {
+                await executeReviewRequest(supabase, messageId, phone, sender, matched)
+                return
+            }
+        }
+    }
+
+    // 4. Disambiguation — show numbered list
+    const ownerIds = Array.from(new Set(tasks.map(t => t.created_by)))
+    const { data: ownerData } = await supabase
+        .from('users')
+        .select('id, name')
+        .in('id', ownerIds)
+
+    const ownerNameMap = new Map<string, string>((ownerData || []).map((o: { id: string; name: string }) => [o.id, o.name]))
+
+    const displayTasks = tasks.slice(0, 8) // Limit to 8 for readability
+    const taskList = displayTasks
+        .map((t, i) => `${i + 1}. "${t.title}" _(from ${ownerNameMap.get(t.created_by) ?? 'Unknown'})_`)
+        .join('\n')
+
+    await createSession(phone, 'awaiting_review_task_selection', {
+        original_intent: 'review_request',
+        task_candidates: displayTasks.map(t => ({
+            id: t.id,
+            title: t.title,
+            owner_name: ownerNameMap.get(t.created_by) ?? 'Unknown',
+        })),
+        sender_id: sender.id,
+        sender_name: sender.name,
+        organisation_id: sender.organisation_id,
+    }, 10, supabase)
+
+    await sendWhatsAppReply(phone,
+        `📋 *Which Task?*\n\nI found multiple tasks you could request review for:\n\n${taskList}\n\n_Reply with the number._`)
+    await markProcessed(supabase, messageId, 'review_request', 'Awaiting task selection via session')
+}
+
+async function executeReviewRequest(
+    supabase: SupabaseAdmin,
+    messageId: string,
+    phone: string,
+    sender: SenderUser,
+    task: { id: string; title: string; created_by: string },
+): Promise<void> {
+    // Race-guarded update
+    const { data: updated, error: updateErr } = await supabase
+        .from('tasks')
+        .update({ review_requested_at: new Date().toISOString() })
+        .eq('id', task.id)
+        .is('review_requested_at', null)
+        .in('status', ['accepted', 'overdue'])
+        .select('id')
+
+    if (updateErr || !updated || updated.length === 0) {
+        await sendWhatsAppReply(phone,
+            'ℹ️ *Already Requested*\n\nA review has already been requested for this task, or the task is no longer active.')
+        await markProcessed(supabase, messageId, 'review_request', 'Race guard: already requested or inactive')
+        return
+    }
+
+    // Audit log
+    supabase
+        .from('audit_log')
+        .insert({
+            task_id: task.id,
+            user_id: sender.id,
+            action: 'task.review_requested',
+            metadata: { source: 'whatsapp' },
+        })
+        .then(() => { /* fire-and-forget */ })
+        .catch((err: unknown) => console.error('[ProcessMessage] Audit log error:', err))
+
+    // Look up owner name for the confirmation message
+    const { data: owner } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', task.created_by)
+        .single()
+
+    const ownerName = owner?.name || 'the task owner'
+
+    // Confirm to assignee
+    await sendWhatsAppReply(phone,
+        `✅ *Review Requested!*\n\n*Task:*\n"${task.title}"\n\n${ownerName} has been notified to review your work.`)
+
+    // Notify owner (fire-and-forget)
+    notifyReviewRequested(supabase, {
+        ownerId: task.created_by,
+        assigneeId: sender.id,
+        assigneeName: sender.name,
+        taskTitle: task.title,
+        taskId: task.id,
+        source: 'whatsapp',
+        inlineConfirmationSent: true,
+    }).catch((err: unknown) => console.error('[ProcessMessage] Review notification error:', err))
+
+    await markProcessed(supabase, messageId, 'review_request', null)
 }
 
 // ---------------------------------------------------------------------------

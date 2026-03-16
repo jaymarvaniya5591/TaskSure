@@ -33,6 +33,7 @@ export interface Task {
     language?: string | null;
     created_at: string;
     updated_at?: string;
+    review_requested_at?: string | null;
 
     // ── Computed display fields (set on the server before passing to client) ──
     /** Count of unique participants (owner + assignee + all active subtask participants) */

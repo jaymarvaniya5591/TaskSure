@@ -26,7 +26,7 @@
  *   - Deduplicates users to avoid circular references
  */
 
-import { sendWhatsAppMessage, sendTaskAssignmentTemplate } from '@/lib/whatsapp'
+import { sendWhatsAppMessage, sendTaskAssignmentTemplate, sendReviewRequestTemplate } from '@/lib/whatsapp'
 import {
     scheduleAcceptanceFollowups,
     scheduleTaskReminders,
@@ -51,6 +51,8 @@ export type TaskEventType =
     | 'task_cancelled'
     | 'subtask_created'
     | 'task_overdue'
+    | 'review_requested'
+    | 'review_comment_added'
 
 export interface NotifyTaskEventOpts {
     eventType: TaskEventType
@@ -80,6 +82,8 @@ export interface NotifyTaskEventOpts {
     // When true, the caller already sent the actor a WhatsApp confirmation,
     // so the notification system should exclude the actor from text recipients.
     inlineConfirmationSent?: boolean
+    // Review comment content (for review_comment_added events)
+    comment?: string
 }
 
 interface UserInfo {
@@ -339,6 +343,15 @@ function buildNotificationMessage(opts: NotifyTaskEventOpts, recipientId?: strin
             const assigneeInfo = assigneeName ? `\n\n*Assigned to:*\n${assigneeName}` : ''
             const ownerInfo = ownerName ? `\n\n*Owner:*\n${ownerName}` : ''
             return `⚠️ *Task is Overdue!*\n\n*Task:*\n"${taskTitle}"${assigneeInfo}${ownerInfo}`
+        }
+
+        case 'review_requested': {
+            return `📋 *Review Requested!*\n\n*Task:*\n"${taskTitle}"\n\n*Requested by:*\n${actorName}\n\n_Please review and mark complete or add comments._`
+        }
+
+        case 'review_comment_added': {
+            const commentStr = opts.comment ? `\n\n*Comment:*\n${opts.comment}` : ''
+            return `💬 *Review Comment*\n\n*Task:*\n"${taskTitle}"\n\n*Comment from:*\n${actorName}${commentStr}\n\n_Please address the feedback and request review again when ready._`
         }
 
         default:
@@ -840,5 +853,75 @@ export async function notifyTaskOverdue(
         assigneeId: opts.assigneeId,
         assigneeName: assignee?.name || 'the assignee',
         newDeadline: opts.deadline,
+    })
+}
+
+export async function notifyReviewRequested(
+    supabase: SupabaseAdmin,
+    opts: {
+        ownerId: string
+        assigneeId: string
+        assigneeName: string
+        taskTitle: string
+        taskId: string
+        source: 'whatsapp' | 'dashboard'
+        inlineConfirmationSent?: boolean
+    },
+): Promise<void> {
+    const owner = await lookupUser(supabase, opts.ownerId)
+
+    // Send the interactive template to the owner so they can act directly
+    if (owner?.phone_number) {
+        sendReviewRequestTemplate(
+            toIntlPhone(owner.phone_number),
+            opts.assigneeName,
+            opts.taskTitle,
+            opts.taskId,
+        ).catch(err => console.error('[Notifier] Failed to send review request template:', err))
+    }
+
+    return notifyTaskEvent(supabase, {
+        eventType: 'review_requested',
+        taskId: opts.taskId,
+        taskTitle: opts.taskTitle,
+        actorId: opts.assigneeId,
+        actorName: opts.assigneeName,
+        source: opts.source,
+        ownerId: opts.ownerId,
+        ownerName: owner?.name || 'the owner',
+        assigneeId: opts.assigneeId,
+        assigneeName: opts.assigneeName,
+        inlineConfirmationSent: opts.inlineConfirmationSent,
+    })
+}
+
+export async function notifyReviewCommentAdded(
+    supabase: SupabaseAdmin,
+    opts: {
+        ownerId: string
+        ownerName: string
+        assigneeId: string
+        taskTitle: string
+        taskId: string
+        comment: string
+        source: 'whatsapp' | 'dashboard'
+        inlineConfirmationSent?: boolean
+    },
+): Promise<void> {
+    const assignee = await lookupUser(supabase, opts.assigneeId)
+
+    return notifyTaskEvent(supabase, {
+        eventType: 'review_comment_added',
+        taskId: opts.taskId,
+        taskTitle: opts.taskTitle,
+        actorId: opts.ownerId,
+        actorName: opts.ownerName,
+        source: opts.source,
+        ownerId: opts.ownerId,
+        ownerName: opts.ownerName,
+        assigneeId: opts.assigneeId,
+        assigneeName: assignee?.name || 'the assignee',
+        comment: opts.comment,
+        inlineConfirmationSent: opts.inlineConfirmationSent,
     })
 }

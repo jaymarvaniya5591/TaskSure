@@ -25,6 +25,8 @@ import {
     Trash2,
     Loader2,
     X,
+    Send,
+    MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type Task } from "@/lib/types";
@@ -76,6 +78,8 @@ const ACTION_META: Record<
     edit_persons: { icon: UserPlus, color: "text-violet-600 hover:bg-violet-50" },
     delete: { icon: Trash2, color: "text-red-500 hover:bg-red-50" },
     send_followup: { icon: Calendar, color: "text-orange-500 hover:bg-orange-50" },
+    request_review: { icon: Send, color: "text-blue-600 hover:bg-blue-50" },
+    add_review_comment: { icon: MessageSquare, color: "text-amber-600 hover:bg-amber-50" },
 };
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
@@ -140,6 +144,8 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
         | "create_subtask"
         | "edit_persons"
         | "delete"
+        | "request_review"
+        | "add_review_comment"
         | null
     >(null);
     const [loading, setLoading] = useState(false);
@@ -227,6 +233,10 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
                                 case "delete":
                                     // We will filter it out below
                                     return { ...t, _markedForOptimisticDeletion: true } as unknown as Task;
+                                case "request_review":
+                                    return { ...t, review_requested_at: new Date().toISOString() };
+                                case "add_review_comment":
+                                    return { ...t, review_requested_at: null };
                                 default:
                                     return t;
                             }
@@ -384,6 +394,24 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
         });
     }
 
+    async function handleRequestReview() {
+        setLoading(true);
+        actionMutation.mutate({
+            url: `/api/tasks/${task.id}`,
+            method: "PATCH",
+            body: { action: "request_review" },
+        });
+    }
+
+    async function handleAddReviewComment(comment: string) {
+        setLoading(true);
+        actionMutation.mutate({
+            url: `/api/tasks/${task.id}`,
+            method: "PATCH",
+            body: { action: "add_review_comment", comment },
+        });
+    }
+
     // Map action type → click handler
     function handleActionClick(type: TaskActionType) {
         setOpen(false);
@@ -408,6 +436,12 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
                 break;
             case "delete":
                 setModal("delete");
+                break;
+            case "request_review":
+                setModal("request_review");
+                break;
+            case "add_review_comment":
+                setModal("add_review_comment");
                 break;
         }
     }
@@ -523,6 +557,26 @@ export const TaskActions = memo(function TaskActions({ task, currentUserId }: Ta
                 <PortalModal>
                     <DeleteConfirmModal
                         onConfirm={handleDelete}
+                        onClose={() => setModal(null)}
+                        loading={loading}
+                        taskTitle={task.title}
+                    />
+                </PortalModal>
+            )}
+            {modal === "request_review" && (
+                <PortalModal>
+                    <RequestReviewModal
+                        onConfirm={handleRequestReview}
+                        onClose={() => setModal(null)}
+                        loading={loading}
+                        taskTitle={task.title}
+                    />
+                </PortalModal>
+            )}
+            {modal === "add_review_comment" && (
+                <PortalModal>
+                    <AddReviewCommentModal
+                        onSubmit={handleAddReviewComment}
                         onClose={() => setModal(null)}
                         loading={loading}
                         taskTitle={task.title}
@@ -1145,6 +1199,145 @@ function DeleteConfirmModal({
                     <button onClick={onConfirm} disabled={loading} className={makeBtnPrimary("bg-red-500")}>
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                         Delete
+                    </button>
+                </div>
+            </div>
+        </ModalShell>
+    );
+}
+
+// ─── Request Review Modal ──────────────────────────────────────────────────
+
+function RequestReviewModal({
+    onConfirm,
+    onClose,
+    loading,
+    taskTitle,
+}: {
+    onConfirm: () => void;
+    onClose: () => void;
+    loading: boolean;
+    taskTitle: string;
+}) {
+    return (
+        <ModalShell onClose={onClose}>
+            <div className={MODAL.header}>
+                <div>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-blue-50">
+                            <Send className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                            <h3 className={MODAL.title}>Request Review</h3>
+                            <p className={MODAL.subtitle}>Notify the task owner to review your work</p>
+                        </div>
+                    </div>
+                </div>
+                <button onClick={onClose} className={MODAL.closeBtn}>
+                    <X className="w-5 h-5 cursor-pointer" />
+                </button>
+            </div>
+
+            <div className={MODAL.body}>
+                <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+                    <p className="text-sm text-gray-700">
+                        Request the owner to review your work on{" "}
+                        <strong>&quot;{taskTitle}&quot;</strong>?
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                        The owner will be notified and can mark it as completed or add comments.
+                    </p>
+                </div>
+            </div>
+
+            <div className={MODAL.footer}>
+                <div className="flex gap-3">
+                    <button onClick={onClose} className={MODAL.btnCancel}>Cancel</button>
+                    <button onClick={onConfirm} disabled={loading} className={makeBtnPrimary("bg-blue-600")}>
+                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Request Review
+                    </button>
+                </div>
+            </div>
+        </ModalShell>
+    );
+}
+
+// ─── Add Review Comment Modal ──────────────────────────────────────────────
+
+function AddReviewCommentModal({
+    onSubmit,
+    onClose,
+    loading,
+    taskTitle,
+}: {
+    onSubmit: (comment: string) => void;
+    onClose: () => void;
+    loading: boolean;
+    taskTitle: string;
+}) {
+    const [comment, setComment] = useState("");
+    const [error, setError] = useState("");
+
+    const handleSubmit = () => {
+        const trimmed = comment.trim();
+        if (trimmed.length < 3) {
+            setError("Comment must be at least 3 characters");
+            return;
+        }
+        setError("");
+        onSubmit(trimmed);
+    };
+
+    return (
+        <ModalShell onClose={onClose}>
+            <div className={MODAL.header}>
+                <div>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-amber-50">
+                            <MessageSquare className="w-5 h-5 text-amber-600" />
+                        </div>
+                        <div>
+                            <h3 className={MODAL.title}>Add Comment</h3>
+                            <p className={MODAL.subtitle}>Send feedback on &quot;{taskTitle}&quot;</p>
+                        </div>
+                    </div>
+                </div>
+                <button onClick={onClose} className={MODAL.closeBtn}>
+                    <X className="w-5 h-5 cursor-pointer" />
+                </button>
+            </div>
+
+            <div className={MODAL.body}>
+                {error && <div className={MODAL.errorBox}>{error}</div>}
+
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-2xl">
+                    <p className="text-xs text-amber-700">
+                        The assignee has requested a review. Your comment will be sent to them and the task will be returned for revisions.
+                    </p>
+                </div>
+
+                <label className={MODAL.label}>Your Feedback</label>
+                <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    className={MODAL.textareaBase}
+                    rows={4}
+                    placeholder="Type your feedback here..."
+                    autoFocus
+                />
+            </div>
+
+            <div className={MODAL.footer}>
+                <div className="flex gap-3">
+                    <button onClick={onClose} className={MODAL.btnCancel}>Cancel</button>
+                    <button
+                        onClick={handleSubmit}
+                        disabled={loading || comment.trim().length < 3}
+                        className={makeBtnPrimary("bg-amber-600")}
+                    >
+                        {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Send Comment
                     </button>
                 </div>
             </div>

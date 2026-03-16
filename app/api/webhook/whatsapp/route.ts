@@ -773,6 +773,60 @@ async function processWebhook(body: Record<string, unknown>): Promise<void> {
                         continue
                     }
 
+                    // Review flow: owner taps "Add Comment" on review request template
+                    if (buttonPayload.startsWith('review_add_comment::')) {
+                        const taskId = buttonPayload.replace('review_add_comment::', '')
+                        console.log(`[Webhook] Quick Reply: review_add_comment ${taskId} from ${senderPhone10}`)
+
+                        try {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const { data: task } = await (supabase as any)
+                                .from('tasks')
+                                .select('title, assigned_to, created_by, status, review_requested_at')
+                                .eq('id', taskId)
+                                .single()
+
+                            if (!task) {
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Task Not Found*\n\nThis task could not be found.\n\n_It may have been deleted._')
+                                continue
+                            }
+
+                            if (['completed', 'cancelled'].includes(task.status)) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'ℹ️ *Already Handled*\n\nThis task is already completed or cancelled.')
+                                continue
+                            }
+
+                            if (!task.review_requested_at) {
+                                await sendWhatsAppMessage(rawSenderPhone, 'ℹ️ *No Review Pending*\n\nThere is no pending review request for this task.')
+                                continue
+                            }
+
+                            const sender = await getCachedUser(senderPhone10, supabase)
+                            if (!sender) {
+                                await sendWhatsAppMessage(rawSenderPhone, '⚠️ *Not Recognized*\n\nYour number is not linked to a Boldo account.')
+                                continue
+                            }
+
+                            await createSession(senderPhone10, 'awaiting_review_comment', {
+                                task_id: taskId,
+                                original_intent: 'review_comment',
+                                sender_id: sender.id,
+                                sender_name: sender.name,
+                                organisation_id: sender.organisation_id,
+                            })
+
+                            await sendWhatsAppMessage(
+                                rawSenderPhone,
+                                `💬 *Add Your Comment*\n\n*Task:*\n"${task.title}"\n\nPlease reply with your feedback for the assignee.\n\n_You can type a message or send a voice note._`
+                            )
+                        } catch (err) {
+                            console.error('[Webhook] Error in review_add_comment prompt:', err)
+                            await sendWhatsAppMessage(rawSenderPhone, '❌ *Error*\n\nSomething went wrong.\nPlease try again.')
+                        }
+
+                        continue
+                    }
+
                     // Stage 3 payload: owner taps "Notify Assignee" on overdue notification
                     if (buttonPayload.startsWith('task_notify_assignee::')) {
                         const taskId = buttonPayload.replace('task_notify_assignee::', '')

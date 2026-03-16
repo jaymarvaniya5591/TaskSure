@@ -12,6 +12,8 @@ import {
     notifyDeadlineEdited,
     notifyAssigneeChanged,
     notifyTaskCancelled,
+    notifyReviewRequested,
+    notifyReviewCommentAdded,
 } from '@/lib/notifications/whatsapp-notifier'
 import { cancelPendingNotifications } from '@/lib/notifications/task-notification-scheduler'
 import { isRateLimited } from '@/lib/rate-limit'
@@ -40,7 +42,7 @@ export async function PATCH(
         resolveCurrentUser(supabase),
         supabase
             .from("tasks")
-            .select("id, title, assigned_to, created_by, status, organisation_id, deadline, committed_deadline, parent_task_id")
+            .select("id, title, assigned_to, created_by, status, organisation_id, deadline, committed_deadline, parent_task_id, review_requested_at")
             .eq("id", taskId)
             .single(),
         request.json(),
@@ -227,11 +229,12 @@ export async function PATCH(
 
             const adminDb = createAdminClient();
 
-            // 1. Perform database update FIRST
+            // 1. Perform database update FIRST (also clear review_requested_at if set)
             const { data: updateData, error: updateError } = await supabase
                 .from("tasks")
                 .update({
                     status: "completed",
+                    review_requested_at: null,
                     updated_at: new Date().toISOString(),
                 })
                 .eq("id", taskId)
@@ -528,6 +531,124 @@ export async function PATCH(
             ]);
 
             return NextResponse.json({ success: true, status: "cancelled" });
+        }
+
+        // ── REQUEST REVIEW: Assignee requests owner to review their work ──
+        case "request_review": {
+            if (!isAssignee || isCreator) {
+                return NextResponse.json({ error: "Only the assignee (not the owner) can request a review" }, { status: 403 });
+            }
+            if (!["accepted", "overdue"].includes(task.status)) {
+                return NextResponse.json({ error: "Review can only be requested on accepted or overdue tasks" }, { status: 400 });
+            }
+            if (task.review_requested_at) {
+                return NextResponse.json({ error: "Review has already been requested for this task" }, { status: 400 });
+            }
+
+            const adminDb = createAdminClient();
+
+            // 1. Perform database update FIRST
+            const { data: updateData, error: updateError } = await supabase
+                .from("tasks")
+                .update({
+                    review_requested_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", taskId)
+                .is("review_requested_at", null)
+                .select("id");
+
+            if (updateError) {
+                return NextResponse.json({ error: updateError.message }, { status: 500 });
+            }
+            if (!updateData || updateData.length === 0) {
+                return NextResponse.json({ error: "Review has already been requested" }, { status: 409 });
+            }
+
+            // 2. Run audit log and notification in parallel
+            await Promise.allSettled([
+                supabase.from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: task.organisation_id,
+                    action: "task.review_requested",
+                    entity_type: "task",
+                    entity_id: taskId,
+                }),
+                notifyReviewRequested(adminDb, {
+                    ownerId: task.created_by,
+                    assigneeId: userId,
+                    assigneeName: currentUser.name || 'The assignee',
+                    taskTitle: task.title || 'Untitled task',
+                    taskId: taskId,
+                    source: 'dashboard',
+                }).catch(err => console.error('[TaskPatch] Notification error (request_review):', err)),
+            ]);
+
+            return NextResponse.json({ success: true, review_requested: true });
+        }
+
+        // ── ADD REVIEW COMMENT: Owner sends feedback to assignee ──
+        case "add_review_comment": {
+            if (!isCreator) {
+                return NextResponse.json({ error: "Only the owner can add a review comment" }, { status: 403 });
+            }
+            if (!["accepted", "overdue"].includes(task.status)) {
+                return NextResponse.json({ error: "Cannot add comment on a task that is not active" }, { status: 400 });
+            }
+            if (!task.review_requested_at) {
+                return NextResponse.json({ error: "No review has been requested for this task" }, { status: 400 });
+            }
+
+            const { comment } = body;
+            if (!comment || typeof comment !== 'string' || comment.trim().length === 0) {
+                return NextResponse.json({ error: "Comment is required" }, { status: 400 });
+            }
+
+            const trimmedComment = comment.trim();
+            const adminDb = createAdminClient();
+
+            // 1. Perform all DB operations in parallel
+            const [updateResult] = await Promise.all([
+                supabase
+                    .from("tasks")
+                    .update({
+                        review_requested_at: null,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", taskId)
+                    .select("id"),
+                supabase.from("task_comments").insert({
+                    task_id: taskId,
+                    user_id: userId,
+                    content: trimmedComment,
+                    comment_type: 'review_comment',
+                }),
+                supabase.from("audit_log").insert({
+                    user_id: userId,
+                    organisation_id: task.organisation_id,
+                    action: "task.review_comment_added",
+                    entity_type: "task",
+                    entity_id: taskId,
+                    metadata: { comment: trimmedComment },
+                }),
+            ]);
+
+            if (updateResult.error) {
+                return NextResponse.json({ error: updateResult.error.message }, { status: 500 });
+            }
+
+            // 2. Send notification (fire-and-forget)
+            notifyReviewCommentAdded(adminDb, {
+                ownerId: userId,
+                ownerName: currentUser.name || 'The task owner',
+                assigneeId: task.assigned_to,
+                taskTitle: task.title || 'Untitled task',
+                taskId: taskId,
+                comment: trimmedComment,
+                source: 'dashboard',
+            }).catch(err => console.error('[TaskPatch] Notification error (add_review_comment):', err));
+
+            return NextResponse.json({ success: true, comment_added: true });
         }
 
         default:

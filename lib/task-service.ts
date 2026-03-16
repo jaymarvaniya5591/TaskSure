@@ -91,6 +91,17 @@ export function isPendingAcceptance(task: Task): boolean {
     return task.status === "pending" && !isTodo(task);
 }
 
+/**
+ * Whether the assignee has requested a review from the owner.
+ */
+export function isReviewRequested(task: Task): boolean {
+    return (
+        !!task.review_requested_at &&
+        !isTodo(task) &&
+        (task.status === "accepted" || task.status === "overdue")
+    );
+}
+
 // ─── Role Detection ─────────────────────────────────────────────────────────
 
 export function isOwner(task: Task, userId: string): boolean {
@@ -247,6 +258,32 @@ export function getPendingInfo(
         };
     }
 
+    // Check for review-requested tasks (pending action from owner)
+    const reviewPending = treeTasks.filter(
+        (t) => isReviewRequested(t)
+    );
+
+    if (reviewPending.length > 0) {
+        // Sort by review_requested_at descending (most recent first)
+        reviewPending.sort(
+            (a, b) =>
+                new Date(b.review_requested_at!).getTime() -
+                new Date(a.review_requested_at!).getTime()
+        );
+
+        const mostRecentReview = reviewPending[0];
+        const ownerId = extractUserId(mostRecentReview.created_by);
+        const ownerName = extractUserName(mostRecentReview.created_by);
+
+        return {
+            isPending: true,
+            isPendingFromMe: ownerId === userId,
+            pendingFrom: ownerId
+                ? { id: ownerId, name: ownerName }
+                : null,
+        };
+    }
+
     return { isPending: false, isPendingFromMe: false, pendingFrom: null };
 }
 
@@ -260,7 +297,9 @@ export type TaskActionType =
     | "create_subtask"
     | "edit_persons"
     | "delete"
-    | "send_followup";
+    | "send_followup"
+    | "request_review"
+    | "add_review_comment";
 
 export interface TaskAction {
     type: TaskActionType;
@@ -367,6 +406,13 @@ export function getAvailableActions(
             });
         } else {
             // Already accepted / overdue
+            if (!task.review_requested_at) {
+                actions.push({
+                    type: "request_review",
+                    label: "Request Review",
+                    description: "Notify the owner that your work is done and request their review.",
+                });
+            }
             actions.push({
                 type: "edit_deadline",
                 label: "Edit Deadline",
@@ -382,6 +428,13 @@ export function getAvailableActions(
 
     // Owner actions (if I created this multi-person task)
     if (userIsOwner && !userIsAssignee) {
+        if (task.review_requested_at) {
+            actions.push({
+                type: "add_review_comment",
+                label: "Add Comment",
+                description: "Send feedback to the assignee on their work.",
+            });
+        }
         actions.push({
             type: "complete",
             label: "Mark as Completed",

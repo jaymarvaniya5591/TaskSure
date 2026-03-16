@@ -178,6 +178,7 @@ export type WhatsAppIntent =
     | 'todo_create'
     | 'vendor_add'
     | 'ticket_create'
+    | 'review_request'
     | 'send_dashboard_link'
     | 'unknown'
 

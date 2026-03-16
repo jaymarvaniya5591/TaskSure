@@ -168,6 +168,12 @@ export const TaskCard = memo(function TaskCard({
                             )
                         )}
                     </div>
+                    {/* Review requested badge */}
+                    {task.review_requested_at && !pendingFrom && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-100 text-blue-700 border border-blue-200 uppercase tracking-wide self-start">
+                            Review Requested
+                        </span>
+                    )}
                     {/* Pending from indicator — on its own row for full visibility */}
                     {pendingFrom && (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-wide self-start max-w-full truncate block">
