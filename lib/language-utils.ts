@@ -5,6 +5,7 @@
 
 /** Maps Sarvam language codes (ISO 639-1 + aliases) to BCP 47 tags */
 export const SARVAM_TO_BCP47: Record<string, string> = {
+    // ISO 639-1 codes (short form)
     'hi': 'hi-IN', 'hindi': 'hi-IN',
     'gu': 'gu-IN', 'gujarati': 'gu-IN',
     'mr': 'mr-IN', 'marathi': 'mr-IN',
@@ -16,6 +17,18 @@ export const SARVAM_TO_BCP47: Record<string, string> = {
     'ml': 'ml-IN', 'malayalam': 'ml-IN',
     'en': 'en-IN', 'english': 'en-IN',
     'or': 'or-IN', 'odia': 'or-IN',
+    // BCP 47 identity mappings (Sarvam STT returns these directly)
+    'hi-IN': 'hi-IN',
+    'gu-IN': 'gu-IN',
+    'mr-IN': 'mr-IN',
+    'pa-IN': 'pa-IN',
+    'bn-IN': 'bn-IN',
+    'ta-IN': 'ta-IN',
+    'te-IN': 'te-IN',
+    'kn-IN': 'kn-IN',
+    'ml-IN': 'ml-IN',
+    'en-IN': 'en-IN',
+    'or-IN': 'or-IN',
 }
 
 export const DEFAULT_LANGUAGE = 'hi-IN'

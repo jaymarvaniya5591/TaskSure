@@ -77,7 +77,9 @@
       "Bash(find '/c/Users/marva/Documents/Boldo AI' -name *.ts -path */types* -type f)",
       "Bash(grep -r language '/c/Users/marva/Documents/Boldo AI/lib' --include=*.ts -n)",
       "Bash(find '/c/Users/marva/Documents/Boldo AI/supabase/migrations' -type f -name *.sql)",
-      "Bash(find '/c/Users/marva/Documents/Boldo AI/supabase/migrations/' -type f -name *.sql)"
+      "Bash(find '/c/Users/marva/Documents/Boldo AI/supabase/migrations/' -type f -name *.sql)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs"
     ],
     "additionalDirectories": [
       "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\internal\\call-audio",
