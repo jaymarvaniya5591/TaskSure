@@ -209,6 +209,7 @@ export async function processMessageInline(
         // 4. Audio transcription (if voice note)
         let textForAI = msg.raw_text
         let taskLanguage: string | null = null
+        let nativeTranscript: string | null = null
 
         if (audioMediaId) {
             console.log(`[ProcessMessage] Audio detected — downloading media ${audioMediaId}`)
@@ -218,6 +219,7 @@ export async function processMessageInline(
                 // 4a. Transcribe Audio (to native language, e.g. Gujarati)
                 const { text: transcript, languageCode } = await transcribeAudio(buffer, audioMimeType || mimeType)
                 console.log(`[ProcessMessage] Native Transcription: "${transcript.substring(0, 100)}${transcript.length > 100 ? '...' : ''}"`)
+                nativeTranscript = transcript
 
                 // Capture detected language from Sarvam (authoritative for audio)
                 taskLanguage = SARVAM_TO_BCP47[languageCode] ?? null
@@ -257,6 +259,7 @@ export async function processMessageInline(
                 console.log(`[ProcessMessage] Text language detected: ${detectedLang}`)
                 // Translate non-Latin script to English for Gemini accuracy
                 if (detectedLang !== 'en-IN') {
+                    nativeTranscript = msg.raw_text.substring(0, 3000)
                     try {
                         // Map BCP47 back to the 2-letter code Sarvam expects as source
                         const sarvamCode = Object.entries(SARVAM_TO_BCP47).find(([, v]) => v === detectedLang)?.[0] ?? detectedLang
@@ -314,23 +317,22 @@ export async function processMessageInline(
         // =====================================================================
 
         console.log(`[ProcessMessage] Analyzing message: "${textForAI.substring(0, 80)}"`)
-        const analysis = await analyzeMessage(textForAI, sender.name)
+        const analysis = await analyzeMessage(textForAI, sender.name, nativeTranscript)
         console.log(`[ProcessMessage] Analysis: intent=${analysis.intent} conf=${analysis.confidence.toFixed(2)} who=${analysis.who.type}`)
 
         // =====================================================================
-        // 7. Back-translate task title to detected language
-        //    Gemini works in English for accuracy; Sarvam translates the result
-        //    back to the user's language so the task title is stored natively.
+        // 7. Use Gemini's native-language title if available
+        //    Gemini extracts what_native directly from the native transcript,
+        //    producing naturally structured titles (action first, deadline last).
         // =====================================================================
 
         let taskTitle = analysis.what
-        if (taskLanguage && taskLanguage !== 'en-IN' && analysis.what) {
-            try {
-                taskTitle = await translateText(analysis.what, 'en-IN', taskLanguage)
-                console.log(`[ProcessMessage] Task title translated to ${taskLanguage}: "${taskTitle.substring(0, 80)}"`)
-            } catch (translateErr) {
-                console.warn('[ProcessMessage] Back-translation failed, using English title:', translateErr)
-                // Non-fatal: fall back to English title
+        if (taskLanguage && taskLanguage !== 'en-IN') {
+            if (analysis.what_native) {
+                taskTitle = analysis.what_native
+                console.log(`[ProcessMessage] Using Gemini native title (${taskLanguage}): "${taskTitle.substring(0, 80)}"`)
+            } else {
+                console.log(`[ProcessMessage] No native title from Gemini, using English: "${taskTitle.substring(0, 80)}"`)
             }
         }
 

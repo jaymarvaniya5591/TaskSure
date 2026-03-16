@@ -21,14 +21,21 @@ import type { AnalyzedMessage, WhatsAppIntent } from './types'
 export async function analyzeMessage(
     userText: string,
     senderName: string,
+    nativeTranscript?: string | null,
 ): Promise<AnalyzedMessage> {
     const systemPrompt = getUnifiedAnalysisPrompt(senderName)
 
     console.log(`[MessageAnalyzer] Analyzing: "${userText.substring(0, 100)}"`)
 
+    // Append native transcript if available so Gemini can generate what_native
+    let userMessage = userText
+    if (nativeTranscript) {
+        userMessage = `${userText}\n\nNATIVE_TRANSCRIPT:\n${nativeTranscript}`
+    }
+
     let rawResponse: string
     try {
-        rawResponse = await callGemini(systemPrompt, userText)
+        rawResponse = await callGemini(systemPrompt, userMessage)
     } catch (err) {
         const errMsg = err instanceof Error ? err.message : 'Unknown Gemini error'
         console.error(`[MessageAnalyzer] Gemini call failed: ${errMsg}`)
@@ -54,6 +61,9 @@ export async function analyzeMessage(
                 name: parsed.who?.name || null,
             },
             what: parsed.what || userText,
+            what_native: (typeof parsed.what_native === 'string' && parsed.what_native.trim())
+                ? parsed.what_native.trim()
+                : null,
             when: {
                 date: parsed.when?.date || null,
                 raw: parsed.when?.raw || null,
@@ -112,6 +122,7 @@ function createFallback(userText: string, reason: string): AnalyzedMessage {
     return {
         who: { type: 'agent', name: null },
         what: userText,
+        what_native: null,
         when: { date: null, raw: null },
         intent: 'unknown',
         confidence: 0,

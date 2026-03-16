@@ -189,6 +189,7 @@ export interface AnalyzedMessage {
         name: string | null
     }
     what: string
+    what_native: string | null  // native-language task title, or null for English
     when: {
         date: string | null       // ISO 8601 or null
         raw: string | null        // original time reference from user text
