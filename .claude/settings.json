@@ -69,7 +69,9 @@
       "mcp__railway__list-deployments",
       "mcp__supabase__execute_sql",
       "mcp__supabase__get_logs",
-      "mcp__supabase__get_project"
+      "mcp__supabase__get_project",
+      "mcp__supabase__list_tables",
+      "mcp__railway__list-projects"
     ],
     "additionalDirectories": [
       "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\internal\\call-audio",

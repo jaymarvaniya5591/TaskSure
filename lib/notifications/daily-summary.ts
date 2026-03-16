@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendWhatsAppMessage } from '@/lib/whatsapp'
+import { sendWhatsAppMessage, sendTaskManagerFlowTemplate } from '@/lib/whatsapp'
 import { getISTDate } from './business-hours'
 import { type Task } from '@/lib/types'
 import { getLastActiveParticipant, getPendingInfo, isTodo } from '@/lib/task-service'
@@ -187,19 +187,43 @@ export async function processDailySummaries(supabaseAdmin?: SupabaseAdmin): Prom
             // Send Messages
             let phone = user.phone_number
             if (!phone.startsWith('91') || phone.length === 10) phone = `91${phone}`
+            const phone10 = phone.slice(-10)
 
             try {
+                let sendOk = true
+                let flowFallbackSent = false
+
                 if (msg1) {
-                    await sendWhatsAppMessage(phone, msg1)
+                    const r = await sendWhatsAppMessage(phone, msg1)
+                    if (!r.success) {
+                        sendOk = false
+                        if (r.error?.includes('131047')) {
+                            // 24h window closed — fall back to task manager flow template
+                            const fr = await sendTaskManagerFlowTemplate(phone, phone10)
+                            if (fr.success) {
+                                flowFallbackSent = true
+                            } else {
+                                console.error(`[DailySummary] Flow fallback failed for ${phone}:`, fr.error)
+                            }
+                        } else {
+                            console.error(`[DailySummary] Send failed for ${phone}:`, r.error)
+                        }
+                    }
                 }
-                if (msg2) {
-                    await sendWhatsAppMessage(phone, msg2)
+
+                // Only send msg2 if msg1 succeeded (same 24h window applies to both)
+                if (msg2 && sendOk) {
+                    const r = await sendWhatsAppMessage(phone, msg2)
+                    if (!r.success) {
+                        console.error(`[DailySummary] msg2 send failed for ${phone}:`, r.error)
+                    }
                 }
+
                 if (msg1 || msg2) {
-                    stats.sent++
+                    ;(sendOk || flowFallbackSent) ? stats.sent++ : stats.failed++
                 }
             } catch (e) {
-                console.error(`[DailySummary] Failed to send to ${user.id}:`, e)
+                console.error(`[DailySummary] Failed to send to ${phone}:`, e)
                 stats.failed++
             }
         }
