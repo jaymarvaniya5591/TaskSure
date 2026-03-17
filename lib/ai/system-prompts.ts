@@ -61,9 +61,9 @@ Determine who is expected to perform the action:
 # WHAT Extraction Rules
 
 Extract the COMPLETE actionable. 
-- **CRITICAL RULE**: Do NOT summarize or drop details from the translated text. You MUST preserve all key details—who (the object), what, when, where.
-- ONLY make minor grammatical refinements or replace pronouns (he/she/they) with actual names when WHO is "person".
-  - "Tell Diksha if she does any task, she should do it carefully" → WHAT = "If Diksha does any task, Diksha should do it carefully"
+- **CRITICAL RULE**: Do NOT summarize, reword, restructure, or drop details from the translated text. You MUST preserve all key details—who (the object), what, when, where.
+- The ONLY permitted changes to the text are: (1) replacing pronouns (he/she/him/her/they/them) with the actual person's name when WHO is "person", and (2) converting relative time phrases to absolute dates. Do NOT restructure, reorder, or rephrase anything else.
+  - "Tell Diksha if she does any task, she should do it carefully" → WHAT = "If Diksha does any task, Diksha should do it carefully" (only pronoun replaced, nothing else changed)
   - "Ask Ramesh to call her and inform her about the meeting" (WHO = Ramesh) → WHAT = "Call her and inform her about the meeting"
 - **Strip Meta-Instructions**: Omit phrases where the user explicitly instructs you to create a task, to-do, or reminder (e.g., "Create a task called X", "Add a to-do to X"). The WHAT should only contain the actual task value.
   - "Create a task called 'This is a sample task' for Nilesh" → WHAT = "This is a sample task"
@@ -71,9 +71,9 @@ Extract the COMPLETE actionable.
   - If the ENTIRE message is a meta-instruction (e.g., "Create a ticket for Aditya", "Assign a task to Ramesh"), extract WHAT as "" (empty string). Do NOT drop the intent.
 - **Time/Deadline Handling**:
   - NEVER strip time or date information out of the WHAT text. Even if you extract it into the WHEN field, it must remain in the WHAT text.
-  - If you are ≥ 90% confident that a time mentioned is the expected deadline for the task, replace relative time phrases (e.g., "tomorrow", "by 5pm") with absolute dates (e.g., "by 12th March 2026").
+  - If you are ≥ 90% confident that a time mentioned is the expected deadline for the task, replace relative time phrases (e.g., "tomorrow", "by 5pm") with absolute dates — include date and month only, NEVER include the year (e.g., "by 12th March" not "by 12th March 2026").
   - If you are NOT confident it's a deadline, just keep the original time phrase exactly as-is in the WHAT text.
-  - "Tell him to check the report tomorrow" (Confident) → WHAT = "Check the report by 12th March 2026"
+  - "Tell him to check the report tomorrow" (Confident) → WHAT = "Check the report by 12th March"
   - "If someone comes before 12, vacate the room" (Not confident it's a deadline) → WHAT = "If someone comes before 12 o'clock, vacate the room"
 - Max 150 characters.
 
@@ -84,22 +84,11 @@ If the user message includes a section labeled "NATIVE_TRANSCRIPT:", generate a 
 IMPORTANT — this is NOT a translation of the English "what". It is a task title written as a native speaker would label it.
 
 Rules:
-1. ALWAYS structure as: [action/task description FIRST] [deadline/time reference LAST].
-   This is a task title format — the action is the primary information, time is secondary.
-
-   Examples of CORRECT structure:
-   - Gujarati: "ફાઇલ તૈયાર રાખો ૧૮મી માર્ચ ૨૦૨૬ સુધીમાં"
-   - Hindi: "फ़ाइल तैयार रखो 18 मार्च 2026 तक"
-   - Tamil: "கோப்பை தயார் செய்யுங்கள் 18 மார்ச் 2026 க்குள்"
-
-   Examples of WRONG structure (date-first — do NOT do this):
-   - ❌ "૧૮મી માર્ચ ૨૦૨૬ સુધીમાં ફાઇલ તૈયાર રાખો"
-   - ❌ "18 मार्च 2026 तक फ़ाइल तैयार रखो"
-
+1. Preserve the original sentence structure and word order from the native transcript as closely as possible. Do NOT reorder clauses or restructure the sentence.
 2. Use vocabulary and phrasing from the native transcript — do NOT translate from English.
-3. Remove filler words, politeness markers ("ji", "please"), and meta-instructions.
+3. Remove only explicit meta-instructions (e.g., "create a task", "add a to-do", "task banao"). Keep all other words — they may carry context that the recipient needs.
 4. Keep key details: person names, dates, specifics.
-5. If you replaced a relative date with an absolute date in "what", do the same here using native language date conventions.
+5. If you replaced a relative date with an absolute date in "what", do the same here using native language date conventions. Include only time + date + month — NEVER include the year (e.g., "૧૭ માર્ચ ૧૧:૩૦" not "૧૭ માર્ચ ૨૦૨૬ ૧૧:૩૦").
 6. Max 150 characters.
 7. If there is NO "NATIVE_TRANSCRIPT:" section, set what_native to null.
 
