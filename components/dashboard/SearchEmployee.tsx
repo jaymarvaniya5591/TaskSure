@@ -35,7 +35,10 @@ export default function SearchEmployee({ orgUsers, currentUserId, isHeader = fal
     const results = useMemo(() => {
         if (!query.trim()) return [];
         const q = query.toLowerCase();
-        return visibleUsers.filter(u => u.name.toLowerCase().includes(q)).slice(0, 6);
+        return visibleUsers.filter(u =>
+            u.name.toLowerCase().includes(q) ||
+            (u.phone_number && u.phone_number.includes(q))
+        ).slice(0, 6);
     }, [query, visibleUsers]);
 
     const showResults = isFocused && query.trim().length > 0;
