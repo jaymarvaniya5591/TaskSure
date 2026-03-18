@@ -84,7 +84,10 @@
       "Bash(grep -r \"organisation_id.*count\\\\|COUNT.*organisation\" '/c/Users/marva/Documents/Boldo AI' --include=*.ts --include=*.tsx)",
       "Bash(grep -r \"organisations\\\\|users.*select\" /c/Users/marva/Documents/\"Boldo AI\" --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*/node_modules/*\" -A 2)",
       "Bash(grep -r \"COUNT\\\\|select.*users\" /c/Users/marva/Documents/\"Boldo AI\"/lib --include=\"*.ts\" ! -path \"*/node_modules/*\")",
-      "Bash(grep -r \"\\\\.select\\\\|\\\\.from\" '/c/Users/marva/Documents/Boldo AI/lib' --include=*.ts)"
+      "Bash(grep -r \"\\\\.select\\\\|\\\\.from\" '/c/Users/marva/Documents/Boldo AI/lib' --include=*.ts)",
+      "Bash(find \"c:\\\\Users\\\\marva\\\\Documents\\\\Boldo AI\\\\app\\\\\\(dashboard\\)\" -name \"*.tsx\" -type f)",
+      "Read(//c/Users/marva/AppData/Local/Temp/claude/c--Users-marva-Documents-Boldo-AI/0a34e720-a31c-4771-854d-f1dcc27fa8b6/tasks/**)",
+      "Bash(grep -E \"\\\\.ts$\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\marva\\Documents\\Boldo AI\\app\\api\\internal\\call-audio",

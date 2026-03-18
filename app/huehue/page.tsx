@@ -190,6 +190,21 @@ export default function TesterLoginPage() {
         <main className="min-h-screen flex items-center justify-center p-4 bg-background">
             <div className="w-full max-w-md">
                 <Card className="border-none shadow-none bg-transparent px-0 sm:px-8">
+                    {/* Monitor link */}
+                    <a
+                        href="/huehue/monitor"
+                        className="mb-6 flex items-center justify-between p-3 rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/80 hover:border-gray-400 transition-all group"
+                    >
+                        <div className="flex items-center gap-2.5">
+                            <span className="text-lg">📊</span>
+                            <div>
+                                <span className="text-sm font-bold text-gray-900 group-hover:text-black">Platform Monitor</span>
+                                <p className="text-[11px] text-gray-400">View all orgs, users, tasks & activity</p>
+                            </div>
+                        </div>
+                        <span className="text-gray-400 group-hover:text-gray-600 transition-colors text-lg">→</span>
+                    </a>
+
                     <div className="mb-10">
                         <div className="inline-flex items-center gap-2 mb-6">
                             <span className="text-2xl">🧪</span>

@@ -1,0 +1,72 @@
+MOOLYA
+One platform. Right lender. Best deal. First time.
+Hardik Shrivastava ·  Harsh Chauhan ·  Omkar Chavan
+EF Hackathon 2026
+
+
+=====
+
+THE IDEA MAZE
+24 hours. 3 hypotheses. 18 conversations.
+✗ B2B Payment Netting
+Loops work at high distribution and lower default rates.  Cash kills the data trail.
+Retail Distributor (Walko) : "...retail vendor is outside every loop..."
+✗ SME Credit Scoring
+No data without behaviour change that benefits us more than them.
+B2B Hardware Trader : "...most of this moves in cash..."
+✓ Better borrowing for SMEs
+Pain confirmed. Market validated. Nobody serving this segment.
+Merchant banker: "...valuation discovery is the most worth-solving problem I've seen..."
+
+
+=====
+
+THE PROBLEM
+The borrower is the only unrepresented party in the 
+room.
+SME owner. 1.5 acres vacant land. ₹50Cr needed.
+3 months. ₹50L to merchant banker. Still got 30% less than expected.
+Valuation gap
+Double cut on potential credit of land discovered at the end & not the start
+Wrong lender
+IDFC, UBI needs ₹8Cr revenue for ₹1Cr loan. Nobody says this upfront.
+Preparation gap
+Prepared borrower: 10-15 days.  Unprepared: 3 months.
+32% rejected — inadequate prep
+8.5–22%
+same product, different 
+lender
+
+
+=====
+
+WHAT WE'RE BUILDING
+A borrower's advocate. A lender's best channel.
+1
+Predictive valuation
+Real sanctioned amount before you apply
+2
+Lender matching
+Matched to actual approval criteria, not advertised 
+rates
+3
+Loan preparation
+Every document right the first time
+4
+Tracking to disbursement
+Full visibility until money hits your account
+For the lender
+Pre-qualified leads matched to exact criteria.
+3-4x conversion vs generic DSA.
+Lowest-cost origination for ₹10L-₹5Cr tickets
+Revenue
+Borrower: ₹5-15K preparation fee
+Lender: 0.5-1% DSA commission
+₹4-5L Cr mid-market LAP segment    50% MSME LAP growth in 2 yrs    0 tech-first players
+
+
+=====
+
+PRODUCT DEMO
+Know what you'll get before you apply.
+https://hach02.github.io/Moolya_hack/
